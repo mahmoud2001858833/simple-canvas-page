@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/functions/v1/alinma-webhook",
+      "destination": "https://ixhvcxwbiisrxhngfjyg.supabase.co/functions/v1/alinma-webhook"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

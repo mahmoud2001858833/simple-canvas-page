@@ -1,0 +1,91 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  try {
+    const { messages, image } = await req.json();
+    if (!messages || !messages.length) throw new Error("messages required");
+
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+
+    const systemPrompt = `أنت مساعد ذكي مخصص للمعلمين والمحاضرين. مهمتك مساعدتهم في:
+1. إعداد المحتوى التعليمي والمناهج
+2. تصميم الاختبارات والأسئلة
+3. شرح المفاهيم الأكاديمية
+4. تحليل الصور والوثائق التعليمية
+5. اقتراحات لتحسين أساليب التدريس
+6. أي أسئلة تعليمية أو تقنية
+
+التعليمات:
+- أجب باللغة العربية بشكل افتراضي إلا إذا طُلب غير ذلك
+- كن موجزاً ومفيداً
+- استخدم تنسيق Markdown عند الحاجة
+- إذا تم إرسال صورة، حللها وأجب عنها بالتفصيل`;
+
+    // Build messages for the API
+    const apiMessages: any[] = [
+      { role: "system", content: systemPrompt },
+    ];
+
+    // Add conversation history
+    for (const msg of messages) {
+      apiMessages.push({ role: msg.role, content: msg.content });
+    }
+
+    // If image is provided, modify the last user message to include it
+    if (image) {
+      const lastMsg = apiMessages[apiMessages.length - 1];
+      if (lastMsg.role === "user") {
+        lastMsg.content = [
+          { type: "text", text: lastMsg.content || "حلل هذه الصورة" },
+          { type: "image_url", image_url: { url: `data:image/jpeg;base64,${image}` } },
+        ];
+      }
+    }
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: apiMessages,
+        stream: true,
+      }),
+    });
+
+    if (!response.ok) {
+      if (response.status === 429) {
+        return new Response(JSON.stringify({ error: "Rate limit exceeded" }), {
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (response.status === 402) {
+        return new Response(JSON.stringify({ error: "Payment required" }), {
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const t = await response.text();
+      console.error("AI gateway error:", response.status, t);
+      throw new Error("AI gateway error");
+    }
+
+    return new Response(response.body, {
+      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+    });
+  } catch (e) {
+    console.error("instructor-ai-chat error:", e);
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+});

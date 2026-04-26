@@ -1,0 +1,609 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ====================================
+   جسوركم - Jasorkom Design System
+   ألوان: أزرق، أخضر، ذهبي
+   ==================================== */
+
+@layer base {
+  :root {
+    /* الخلفيات - Light Mode */
+    --background: 210 30% 98%;
+    --foreground: 215 30% 10%;
+
+    /* البطاقات */
+    --card: 0 0% 100%;
+    --card-foreground: 215 30% 10%;
+
+    /* القوائم المنبثقة */
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 30% 10%;
+
+    /* اللون الأساسي - الأزرق */
+    --primary: 210 85% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    /* اللون الثانوي - الأخضر */
+    --secondary: 155 60% 40%;
+    --secondary-foreground: 0 0% 100%;
+
+    /* اللون المميز - الذهبي */
+    --accent: 45 85% 50%;
+    --accent-foreground: 215 30% 10%;
+
+    /* ألوان مكتومة */
+    --muted: 210 20% 95%;
+    --muted-foreground: 215 15% 45%;
+
+    /* الخطأ/التحذير */
+    --destructive: 0 70% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* الحدود والمدخلات */
+    --border: 210 20% 88%;
+    --input: 210 20% 88%;
+    --ring: 210 85% 50%;
+
+    /* نصف القطر */
+    --radius: 0.75rem;
+
+    /* الشريط الجانبي */
+    --sidebar-background: 215 55% 15%;
+    --sidebar-foreground: 210 30% 95%;
+    --sidebar-primary: 210 85% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 155 50% 25%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 215 45% 25%;
+    --sidebar-ring: 210 85% 55%;
+
+    /* ألوان إضافية للعلامات */
+    --success: 155 65% 45%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 215 30% 10%;
+    --info: 200 80% 50%;
+    --info-foreground: 0 0% 100%;
+
+    /* ألوان جديدة - أزرق وأخضر */
+    --ocean: 200 75% 45%;
+    --ocean-foreground: 0 0% 100%;
+    --teal: 175 65% 40%;
+    --teal-foreground: 0 0% 100%;
+    --emerald: 160 60% 45%;
+    --emerald-foreground: 0 0% 100%;
+    --sky: 195 85% 55%;
+    --sky-foreground: 215 30% 10%;
+
+    /* تدرجات */
+    --gradient-gold: linear-gradient(135deg, hsl(45, 85%, 55%) 0%, hsl(38, 90%, 45%) 100%);
+    --gradient-dark: linear-gradient(135deg, hsl(215, 55%, 20%) 0%, hsl(155, 50%, 25%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(215, 55%, 12%) 0%, hsl(200, 50%, 18%) 50%, hsl(155, 50%, 15%) 100%);
+    --gradient-ocean: linear-gradient(135deg, hsl(200, 75%, 45%) 0%, hsl(175, 65%, 40%) 100%);
+    --gradient-emerald: linear-gradient(135deg, hsl(155, 60%, 40%) 0%, hsl(175, 65%, 35%) 100%);
+  }
+
+  .dark {
+    /* الخلفيات - Dark Mode */
+    --background: 215 35% 8%;
+    --foreground: 210 25% 95%;
+
+    /* البطاقات */
+    --card: 215 35% 12%;
+    --card-foreground: 210 25% 95%;
+
+    /* القوائم المنبثقة */
+    --popover: 215 35% 12%;
+    --popover-foreground: 210 25% 95%;
+
+    /* اللون الأساسي - الأزرق */
+    --primary: 210 85% 55%;
+    --primary-foreground: 0 0% 100%;
+
+    /* اللون الثانوي - الأخضر */
+    --secondary: 155 55% 45%;
+    --secondary-foreground: 0 0% 100%;
+
+    /* اللون المميز - الذهبي */
+    --accent: 45 85% 55%;
+    --accent-foreground: 215 30% 10%;
+
+    /* ألوان مكتومة */
+    --muted: 215 25% 18%;
+    --muted-foreground: 210 15% 60%;
+
+    /* الخطأ/التحذير */
+    --destructive: 0 65% 45%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* الحدود والمدخلات */
+    --border: 215 25% 22%;
+    --input: 215 25% 22%;
+    --ring: 210 85% 55%;
+
+    /* الشريط الجانبي */
+    --sidebar-background: 215 40% 6%;
+    --sidebar-foreground: 210 25% 95%;
+    --sidebar-primary: 210 85% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 155 45% 20%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 215 30% 18%;
+    --sidebar-ring: 210 85% 55%;
+
+    /* ألوان إضافية */
+    --success: 155 55% 50%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 90% 55%;
+    --warning-foreground: 215 30% 10%;
+    --info: 200 75% 55%;
+    --info-foreground: 0 0% 100%;
+
+    /* ألوان جديدة */
+    --ocean: 200 70% 50%;
+    --ocean-foreground: 0 0% 100%;
+    --teal: 175 60% 45%;
+    --teal-foreground: 0 0% 100%;
+    --emerald: 160 55% 50%;
+    --emerald-foreground: 0 0% 100%;
+    --sky: 195 80% 60%;
+    --sky-foreground: 215 30% 10%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  /* دعم اللغة العربية */
+  [dir="rtl"] {
+    font-family: 'IBM Plex Sans Arabic', 'Noto Sans Arabic', system-ui, sans-serif;
+  }
+
+  /* تحسين التمرير */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* تنسيق التحديد */
+  ::selection {
+    @apply bg-primary/30 text-foreground;
+  }
+}
+
+@layer utilities {
+  /* تأثيرات الظل الاحترافية */
+  .shadow-gold {
+    box-shadow: 0 4px 20px -2px hsl(45 85% 50% / 0.25);
+  }
+
+  .shadow-elegant {
+    box-shadow: 0 4px 30px -5px hsl(215 35% 10% / 0.15);
+  }
+
+  .shadow-blue {
+    box-shadow: 0 4px 25px -4px hsl(210 85% 50% / 0.3);
+  }
+
+  .shadow-green {
+    box-shadow: 0 4px 25px -4px hsl(155 60% 40% / 0.3);
+  }
+
+  .shadow-ocean {
+    box-shadow: 0 4px 30px -5px hsl(200 75% 45% / 0.35);
+  }
+
+  /* تدرجات النص */
+  .text-gradient-gold {
+    background: linear-gradient(135deg, hsl(45, 85%, 55%) 0%, hsl(38, 90%, 45%) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-blue {
+    background: linear-gradient(135deg, hsl(210, 85%, 55%) 0%, hsl(200, 80%, 50%) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-green {
+    background: linear-gradient(135deg, hsl(155, 60%, 45%) 0%, hsl(175, 65%, 40%) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-ocean {
+    background: linear-gradient(135deg, hsl(200, 75%, 50%) 0%, hsl(155, 60%, 45%) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* خلفيات متدرجة */
+  .bg-gradient-gold {
+    background: linear-gradient(135deg, hsl(45, 85%, 55%) 0%, hsl(38, 90%, 45%) 100%);
+  }
+
+  .bg-gradient-dark {
+    background: linear-gradient(135deg, hsl(215, 55%, 20%) 0%, hsl(155, 50%, 25%) 100%);
+  }
+
+  .bg-gradient-hero {
+    background: linear-gradient(135deg, hsl(215, 55%, 12%) 0%, hsl(200, 50%, 18%) 50%, hsl(155, 50%, 15%) 100%);
+  }
+
+  .bg-gradient-blue {
+    background: linear-gradient(135deg, hsl(210, 85%, 50%) 0%, hsl(200, 80%, 45%) 100%);
+  }
+
+  .bg-gradient-green {
+    background: linear-gradient(135deg, hsl(155, 60%, 40%) 0%, hsl(175, 65%, 35%) 100%);
+  }
+
+  .bg-gradient-ocean {
+    background: linear-gradient(135deg, hsl(200, 75%, 45%) 0%, hsl(175, 65%, 40%) 100%);
+  }
+
+  .bg-gradient-teal {
+    background: linear-gradient(135deg, hsl(175, 65%, 40%) 0%, hsl(155, 60%, 45%) 100%);
+  }
+
+  .bg-gradient-sky {
+    background: linear-gradient(135deg, hsl(195, 85%, 55%) 0%, hsl(210, 80%, 50%) 100%);
+  }
+
+  /* تأثير الزجاج */
+  .glass {
+    @apply bg-white/85 dark:bg-card/85 backdrop-blur-xl border border-white/30 dark:border-white/10;
+  }
+
+  .glass-blue {
+    @apply bg-primary/10 backdrop-blur-xl border border-primary/20;
+  }
+
+  .glass-green {
+    @apply bg-secondary/10 backdrop-blur-xl border border-secondary/20;
+  }
+
+  .glass-dark {
+    @apply bg-accent/90 backdrop-blur-xl border border-white/10;
+  }
+
+  /* أنيميشن للعناصر */
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+
+  .animate-glow {
+    animation: glow 2s ease-in-out infinite alternate;
+  }
+
+  .animate-glow-blue {
+    animation: glowBlue 2s ease-in-out infinite alternate;
+  }
+
+  .animate-glow-green {
+    animation: glowGreen 2s ease-in-out infinite alternate;
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.5s ease-out;
+  }
+
+  .animate-fade-in {
+    animation: fadeIn 0.5s ease-out;
+  }
+}
+
+/* Keyframes للأنيميشن */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes glow {
+  from { box-shadow: 0 0 20px hsl(45 85% 50% / 0.3); }
+  to { box-shadow: 0 0 30px hsl(45 85% 50% / 0.5); }
+}
+
+@keyframes glowBlue {
+  from { box-shadow: 0 0 20px hsl(210 85% 50% / 0.3); }
+  to { box-shadow: 0 0 35px hsl(210 85% 50% / 0.5); }
+}
+
+@keyframes glowGreen {
+  from { box-shadow: 0 0 20px hsl(155 60% 45% / 0.3); }
+  to { box-shadow: 0 0 35px hsl(155 60% 45% / 0.5); }
+}
+
+@keyframes slideUp {
+  from { 
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* تحسين الأزرار */
+@layer components {
+  .btn-gold {
+    @apply bg-gradient-gold text-foreground font-bold px-6 py-3 rounded-lg shadow-gold hover:shadow-lg transition-all duration-300 hover:scale-[1.02];
+  }
+
+  .btn-dark {
+    @apply bg-gradient-dark text-white font-semibold px-6 py-3 rounded-lg hover:shadow-lg transition-all duration-300 hover:scale-[1.02];
+  }
+
+  .btn-blue {
+    @apply bg-gradient-blue text-white font-bold px-6 py-3 rounded-lg shadow-blue hover:shadow-lg transition-all duration-300 hover:scale-[1.02];
+  }
+
+  .btn-green {
+    @apply bg-gradient-green text-white font-bold px-6 py-3 rounded-lg shadow-green hover:shadow-lg transition-all duration-300 hover:scale-[1.02];
+  }
+
+  .btn-ocean {
+    @apply bg-gradient-ocean text-white font-bold px-6 py-3 rounded-lg shadow-ocean hover:shadow-lg transition-all duration-300 hover:scale-[1.02];
+  }
+  
+  /* Premium button with glow */
+  .btn-premium {
+    @apply relative bg-gradient-to-r from-primary via-sky to-secondary text-white font-bold px-8 py-4 rounded-xl shadow-xl;
+    background-size: 200% 100%;
+    animation: shimmer 3s linear infinite;
+  }
+  
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* بطاقات احترافية مع تأثيرات hover محسّنة */
+  .card-premium {
+    @apply bg-card rounded-xl border border-border/50 shadow-elegant transition-all duration-300;
+  }
+  
+  .card-premium:hover {
+    @apply shadow-lg scale-[1.02] border-primary/30;
+    transform: translateY(-4px) scale(1.02);
+  }
+
+  .card-gold-border {
+    @apply bg-card rounded-xl border-2 border-accent/30 shadow-gold transition-all duration-300;
+  }
+  
+  .card-gold-border:hover {
+    @apply border-accent/60 shadow-lg scale-[1.02];
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 8px 30px -5px hsl(45 85% 50% / 0.4);
+  }
+
+  .card-blue-border {
+    @apply bg-card rounded-xl border-2 border-primary/30 shadow-blue transition-all duration-300;
+  }
+  
+  .card-blue-border:hover {
+    @apply border-primary/60 shadow-lg scale-[1.02];
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 8px 30px -5px hsl(210 85% 50% / 0.4);
+  }
+
+  .card-green-border {
+    @apply bg-card rounded-xl border-2 border-secondary/30 shadow-green transition-all duration-300;
+  }
+  
+  .card-green-border:hover {
+    @apply border-secondary/60 shadow-lg scale-[1.02];
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 8px 30px -5px hsl(155 60% 45% / 0.4);
+  }
+  
+  /* تأثيرات hover للأزرار محسّنة */
+  .btn-hover-lift {
+    @apply transition-all duration-300;
+  }
+  
+  .btn-hover-lift:hover {
+    transform: translateY(-2px);
+    @apply shadow-lg;
+  }
+  
+  /* بطاقة مع تأثير glow */
+  .card-glow-blue:hover {
+    box-shadow: 0 0 30px hsl(210 85% 50% / 0.25), 0 8px 30px -5px hsl(210 85% 50% / 0.3);
+  }
+  
+  .card-glow-green:hover {
+    box-shadow: 0 0 30px hsl(155 60% 45% / 0.25), 0 8px 30px -5px hsl(155 60% 45% / 0.3);
+  }
+  
+  /* تأثير الرفع للعناصر التفاعلية */
+  .interactive-lift {
+    @apply transition-all duration-300 cursor-pointer;
+  }
+  
+  .interactive-lift:hover {
+    transform: translateY(-6px);
+    @apply shadow-xl;
+  }
+  
+  /* تأثير hover للروابط */
+  .link-hover-underline {
+    @apply relative;
+  }
+  
+  .link-hover-underline::after {
+    content: '';
+    @apply absolute bottom-0 left-0 w-0 h-0.5 bg-primary transition-all duration-300;
+  }
+  
+  .link-hover-underline:hover::after {
+    @apply w-full;
+  }
+  
+  /* تأثير pulse للأيقونات */
+  .icon-hover-pulse:hover {
+    animation: iconPulse 0.3s ease-out;
+  }
+  
+  @keyframes iconPulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.15); }
+    100% { transform: scale(1); }
+  }
+  
+  /* تأثير ripple للأزرار */
+  .btn-ripple {
+    @apply relative overflow-hidden;
+  }
+  
+  .btn-ripple::after {
+    content: '';
+    @apply absolute inset-0 bg-white/20 scale-0 rounded-full transition-transform duration-500;
+  }
+  
+  .btn-ripple:active::after {
+    @apply scale-150;
+    transition: transform 0s;
+  }
+
+  /* Onboarding Highlight */
+  .onboarding-highlight {
+    position: relative;
+    z-index: 9999 !important;
+    animation: onboardingPulse 2s ease-in-out infinite;
+  }
+
+  .onboarding-highlight::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: inherit;
+    border: 2px solid hsl(var(--primary));
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.4);
+    pointer-events: none;
+    animation: onboardingGlow 2s ease-in-out infinite;
+  }
+}
+
+@keyframes onboardingPulse {
+  0%, 100% { 
+    transform: scale(1);
+  }
+  50% { 
+    transform: scale(1.02);
+  }
+}
+
+@keyframes onboardingGlow {
+  0%, 100% { 
+    box-shadow: 0 0 20px hsl(var(--primary) / 0.4);
+    opacity: 1;
+  }
+  50% { 
+    box-shadow: 0 0 30px hsl(var(--primary) / 0.6);
+    opacity: 0.8;
+  }
+}
+
+/* Shimmer animation for loading placeholders */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.5s infinite;
+}
+
+/* Image loading states */
+.img-loading {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--muted)) 0%,
+    hsl(var(--muted) / 0.5) 50%,
+    hsl(var(--muted)) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Lightweight float animations for hero section */
+@keyframes hero-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes hero-float-delayed {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(6px); }
+}
+
+@keyframes hero-float-slow {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(4px, -4px); }
+}
+
+@keyframes hero-bounce-slow {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50% { transform: translateX(-50%) translateY(6px); }
+}
+
+.animate-float {
+  animation: hero-float 3s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+  animation: hero-float-delayed 3.5s ease-in-out infinite;
+  animation-delay: 0.5s;
+}
+
+.animate-float-slow {
+  animation: hero-float-slow 4s ease-in-out infinite;
+  animation-delay: 1s;
+}
+
+.animate-bounce-slow {
+  animation: hero-bounce-slow 2s ease-in-out infinite;
+}
+
+/* Dashboard sidebar custom scrollbar */
+.sidebar-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-thumb {
+  background: hsl(var(--sidebar-border));
+  border-radius: 4px;
+}
+
+.sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--sidebar-accent));
+}

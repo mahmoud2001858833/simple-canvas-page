@@ -1,0 +1,1 @@
+ALTER TABLE public.course_reviews ADD CONSTRAINT course_reviews_course_user_unique UNIQUE (course_id, user_id);

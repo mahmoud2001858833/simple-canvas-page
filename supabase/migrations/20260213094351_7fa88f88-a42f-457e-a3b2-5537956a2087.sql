@@ -1,0 +1,1 @@
+ALTER TABLE public.lesson_attachments ADD COLUMN IF NOT EXISTS file_category text NOT NULL DEFAULT 'file';

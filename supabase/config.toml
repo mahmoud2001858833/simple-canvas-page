@@ -1,0 +1,67 @@
+project_id = "ixhvcxwbiisrxhngfjyg"
+
+[functions.get-signed-video-url]
+verify_jwt = false
+
+[functions.analyze-request-files]
+verify_jwt = false
+
+[functions.create-tabby-session]
+verify_jwt = false
+
+[functions.create-paytabs-payment]
+verify_jwt = false
+
+[functions.payment-webhook]
+verify_jwt = false
+
+[functions.check-deadlines]
+verify_jwt = false
+
+[functions.ai-assistant]
+verify_jwt = false
+
+[functions.get-storage-stats]
+verify_jwt = false
+
+[functions.r2-multipart]
+verify_jwt = false
+
+[functions.upload-to-r2]
+verify_jwt = false
+
+[functions.send-email-otp]
+verify_jwt = false
+
+[functions.verify-email-otp]
+verify_jwt = false
+
+[functions.download-request-files-zip]
+verify_jwt = false
+
+[functions.alinma-webhook]
+verify_jwt = false
+
+[functions.create-alinma-payment]
+verify_jwt = false
+
+[functions.generate-course-image]
+verify_jwt = false
+
+[functions.send-password-reset-otp]
+verify_jwt = false
+
+[functions.reset-password-with-otp]
+verify_jwt = false
+
+[functions.generate-transcript]
+verify_jwt = false
+
+[functions.lesson-ai-chat]
+verify_jwt = false
+
+[functions.instructor-ai-chat]
+verify_jwt = false
+
+[functions.submit-quiz]
+verify_jwt = false

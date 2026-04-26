@@ -1,0 +1,916 @@
+import { useEffect, useState } from 'react';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { InstructorCoursesSkeleton } from '@/components/ui/skeletons';
+import LazyImage from '@/components/ui/LazyImage';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { BookOpen, Users, Clock, Plus, Edit, Eye, ArrowLeft, Video, Upload, X, Loader2, ImageIcon, QrCode, Sparkles, Link2, Megaphone } from 'lucide-react';
+import { toast } from 'sonner';
+import { motion } from 'framer-motion';
+import { InstructorChapters } from './InstructorChapters';
+import { CourseQRCode } from '@/components/dashboard/CourseQRCode';
+import { CourseAdTemplate } from '@/components/dashboard/CourseAdTemplate';
+
+interface Course {
+  id: string;
+  title: string;
+  title_ar: string;
+  description: string | null;
+  description_ar: string | null;
+  thumbnail_url: string | null;
+  price: number | null;
+  duration_hours: number | null;
+  is_active: boolean;
+  is_featured: boolean;
+  enrollments_count?: number;
+}
+
+interface InstructorCoursesProps {
+  limit?: number;
+  showViewAll?: boolean;
+  onViewAll?: () => void;
+}
+
+export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorCoursesProps) => {
+  const { dir } = useLanguage();
+  const { user } = useAuth();
+  const language = dir === 'rtl' ? 'ar' : 'en';
+  
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<{ id: string; title: string } | null>(null);
+  const [formData, setFormData] = useState({
+    title: '',
+    title_ar: '',
+    description: '',
+    description_ar: '',
+    price: 0,
+    duration_hours: 0,
+    is_active: false,
+    is_featured: false,
+    ai_enabled: false,
+    thumbnail_url: '',
+    major_id: '',
+    study_year: '',
+    subject_name: '',
+    subject_code: '',
+  });
+  const [selectedUniversityId, setSelectedUniversityId] = useState<string>('');
+  const [selectedCollegeId, setSelectedCollegeId] = useState<string>('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [isGeneratingAI, setIsGeneratingAI] = useState(false);
+  const [aiImagePrompt, setAiImagePrompt] = useState('');
+  const [qrCourse, setQrCourse] = useState<{ id: string; title: string; slug?: string } | null>(null);
+  const [adCourse, setAdCourse] = useState<{
+    id: string; title: string; slug?: string; price?: number; duration?: number;
+    thumbnail?: string; university?: string; college?: string; major?: string;
+    studyYear?: string; subjectName?: string; subjectCode?: string;
+  } | null>(null);
+
+  // Fetch universities
+  const { data: universities } = useQuery({
+    queryKey: ['universities'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('universities').select('*').eq('is_active', true).order('name_ar');
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Fetch colleges based on selected university
+  const { data: colleges } = useQuery({
+    queryKey: ['colleges', selectedUniversityId],
+    queryFn: async () => {
+      if (!selectedUniversityId) return [];
+      const { data, error } = await supabase.from('colleges').select('*').eq('university_id', selectedUniversityId).eq('is_active', true).order('name_ar');
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedUniversityId,
+  });
+
+  // Fetch majors based on selected college
+  const { data: majorsData } = useQuery({
+    queryKey: ['majors', selectedCollegeId],
+    queryFn: async () => {
+      if (!selectedCollegeId) return [];
+      const { data, error } = await supabase.from('majors').select('*').eq('college_id', selectedCollegeId).eq('is_active', true).order('name_ar');
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedCollegeId,
+  });
+
+  const texts = {
+    ar: {
+      title: 'كورساتي',
+      viewAll: 'عرض الكل',
+      addCourse: 'إضافة كورس',
+      editCourse: 'تعديل الكورس',
+      noCourses: 'لا توجد كورسات بعد',
+      students: 'طالب',
+      hours: 'ساعة',
+      active: 'نشط',
+      inactive: 'غير نشط',
+      featured: 'مميز',
+      courseTitle: 'عنوان الكورس (إنجليزي)',
+      courseTitleAr: 'عنوان الكورس (عربي)',
+      courseDesc: 'الوصف (إنجليزي)',
+      courseDescAr: 'الوصف (عربي)',
+      price: 'السعر (ر.س)',
+      duration: 'المدة (ساعات)',
+      isActive: 'نشط',
+      isFeatured: 'مميز',
+      save: 'حفظ',
+      cancel: 'إلغاء',
+      successAdd: 'تم إضافة الكورس بنجاح',
+      successEdit: 'تم تحديث الكورس بنجاح',
+      error: 'حدث خطأ',
+      manageLessons: 'إدارة الدروس',
+      courseImage: 'صورة الكورس',
+      uploadImage: 'رفع صورة',
+      uploading: 'جاري الرفع...',
+      removeImage: 'إزالة الصورة',
+      generateAI: 'إنشاء بالذكاء الاصطناعي',
+      generatingAI: 'جاري الإنشاء...',
+      aiPromptPlaceholder: 'وصف إضافي للصورة (اختياري)',
+      qrCode: 'رابط وباركود',
+      copyLink: 'نسخ الرابط',
+    },
+    en: {
+      title: 'My Courses',
+      viewAll: 'View All',
+      addCourse: 'Add Course',
+      editCourse: 'Edit Course',
+      noCourses: 'No courses yet',
+      students: 'students',
+      hours: 'hours',
+      active: 'Active',
+      inactive: 'Inactive',
+      featured: 'Featured',
+      courseTitle: 'Course Title (English)',
+      courseTitleAr: 'Course Title (Arabic)',
+      courseDesc: 'Description (English)',
+      courseDescAr: 'Description (Arabic)',
+      price: 'Price (SAR)',
+      duration: 'Duration (hours)',
+      isActive: 'Active',
+      isFeatured: 'Featured',
+      save: 'Save',
+      cancel: 'Cancel',
+      successAdd: 'Course added successfully',
+      successEdit: 'Course updated successfully',
+      error: 'An error occurred',
+      manageLessons: 'Manage Lessons',
+      courseImage: 'Course Image',
+      uploadImage: 'Upload Image',
+      uploading: 'Uploading...',
+      removeImage: 'Remove Image',
+      generateAI: 'Generate with AI',
+      generatingAI: 'Generating...',
+      aiPromptPlaceholder: 'Additional image description (optional)',
+      qrCode: 'Link & QR Code',
+      copyLink: 'Copy Link',
+    },
+  };
+
+  const t = texts[language];
+
+  const fetchCourses = async () => {
+    try {
+      let query = supabase
+        .from('courses')
+        .select('*, majors(name, name_ar, colleges(name, name_ar, universities(name, name_ar)))')
+        .eq('instructor_id', user?.id)
+        .order('created_at', { ascending: false });
+
+      if (limit) query = query.limit(limit);
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      // Get enrollment counts
+      const coursesWithCounts = await Promise.all(
+        (data || []).map(async (course) => {
+          const { count } = await supabase
+            .from('enrollments')
+            .select('*', { count: 'exact', head: true })
+            .eq('course_id', course.id);
+          return { ...course, enrollments_count: count || 0 };
+        })
+      );
+
+      setCourses(coursesWithCounts);
+    } catch (error) {
+      console.error('Error fetching courses:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user) fetchCourses();
+  }, [user]);
+
+  // If a course is selected, show chapters management
+  if (selectedCourse) {
+    return (
+      <InstructorChapters
+        courseId={selectedCourse.id}
+        courseTitle={selectedCourse.title}
+        onBack={() => setSelectedCourse(null)}
+      />
+    );
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      if (editingCourse) {
+        const { error } = await supabase
+          .from('courses')
+          .update({
+            title: formData.title,
+            title_ar: formData.title_ar,
+            description: formData.description,
+            description_ar: formData.description_ar,
+            price: formData.price,
+            duration_hours: formData.duration_hours,
+            is_active: formData.is_active,
+            is_featured: formData.is_featured,
+            ai_enabled: formData.ai_enabled,
+            thumbnail_url: formData.thumbnail_url || null,
+            major_id: formData.major_id || null,
+            study_year: formData.study_year || null,
+            subject_name: formData.subject_name || null,
+            subject_code: formData.subject_code || null,
+          } as any)
+          .eq('id', editingCourse.id);
+
+        if (error) throw error;
+        toast.success(t.successEdit);
+      } else {
+        // Generate slug from title
+        const slug = formData.title
+          .toLowerCase()
+          .replace(/[^a-z0-9\s-]/g, '')
+          .replace(/\s+/g, '-')
+          .replace(/-+/g, '-')
+          .trim() + '-' + Date.now().toString(36);
+
+        const { data: newCourse, error } = await supabase
+          .from('courses')
+          .insert({
+            instructor_id: user?.id,
+            title: formData.title,
+            title_ar: formData.title_ar,
+            description: formData.description,
+            description_ar: formData.description_ar,
+            price: formData.price,
+            duration_hours: formData.duration_hours,
+            is_active: formData.is_active,
+            is_featured: formData.is_featured,
+            ai_enabled: formData.ai_enabled,
+            thumbnail_url: formData.thumbnail_url || null,
+            major_id: formData.major_id || null,
+            study_year: formData.study_year || null,
+            subject_name: formData.subject_name || null,
+            subject_code: formData.subject_code || null,
+            slug: slug,
+          } as any)
+          .select()
+          .single();
+
+        if (error) throw error;
+        toast.success(t.successAdd);
+        
+        // Navigate to chapters page for the new course
+        setIsDialogOpen(false);
+        setEditingCourse(null);
+        resetForm();
+        fetchCourses();
+        if (newCourse) {
+          setSelectedCourse({
+            id: newCourse.id,
+            title: language === 'ar' ? newCourse.title_ar : newCourse.title,
+          });
+        }
+        return;
+      }
+
+      setIsDialogOpen(false);
+      setEditingCourse(null);
+      resetForm();
+      fetchCourses();
+    } catch (error) {
+      console.error('Error saving course:', error);
+      toast.error(t.error);
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      title: '',
+      title_ar: '',
+      description: '',
+      description_ar: '',
+      price: 0,
+      duration_hours: 0,
+      is_active: true,
+      is_featured: false,
+      ai_enabled: false,
+      thumbnail_url: '',
+      major_id: '',
+      study_year: '',
+      subject_name: '',
+      subject_code: '',
+    });
+    setSelectedUniversityId('');
+    setSelectedCollegeId('');
+  };
+
+  const openEditDialog = async (course: Course) => {
+    setEditingCourse(course);
+    setFormData({
+      title: course.title,
+      title_ar: course.title_ar,
+      description: course.description || '',
+      description_ar: course.description_ar || '',
+      price: course.price || 0,
+      duration_hours: course.duration_hours || 0,
+      is_active: course.is_active ?? true,
+      is_featured: course.is_featured ?? false,
+      ai_enabled: (course as any).ai_enabled ?? false,
+      thumbnail_url: course.thumbnail_url || '',
+      major_id: (course as any).major_id || '',
+      study_year: (course as any).study_year || '',
+      subject_name: (course as any).subject_name || '',
+      subject_code: (course as any).subject_code || '',
+    });
+    
+    // Resolve university and college from major_id
+    if ((course as any).major_id) {
+      const { data: major } = await supabase.from('majors').select('college_id').eq('id', (course as any).major_id).single();
+      if (major?.college_id) {
+        setSelectedCollegeId(major.college_id);
+        const { data: college } = await supabase.from('colleges').select('university_id').eq('id', major.college_id).single();
+        if (college?.university_id) {
+          setSelectedUniversityId(college.university_id);
+        }
+      }
+    } else {
+      setSelectedUniversityId('');
+      setSelectedCollegeId('');
+    }
+    
+    setIsDialogOpen(true);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error(language === 'ar' ? 'يرجى اختيار صورة' : 'Please select an image');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error(language === 'ar' ? 'حجم الصورة يجب أن يكون أقل من 5 ميجابايت' : 'Image size must be less than 5MB');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `course-${Date.now()}.${fileExt}`;
+      const filePath = `course-thumbnails/${user?.id}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('chat-images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('chat-images')
+        .getPublicUrl(filePath);
+
+      setFormData(prev => ({ ...prev, thumbnail_url: publicUrl }));
+      toast.success(language === 'ar' ? 'تم رفع الصورة بنجاح' : 'Image uploaded successfully');
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast.error(language === 'ar' ? 'فشل في رفع الصورة' : 'Failed to upload image');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleGenerateAIImage = async () => {
+    if (!formData.title) {
+      toast.error(language === 'ar' ? 'يرجى إدخال عنوان الكورس أولاً' : 'Please enter course title first');
+      return;
+    }
+    setIsGeneratingAI(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-course-image', {
+        body: {
+          title: formData.title,
+          description: formData.description,
+          customPrompt: aiImagePrompt || undefined,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      if (data?.imageUrl) {
+        setFormData(prev => ({ ...prev, thumbnail_url: data.imageUrl }));
+        setAiImagePrompt('');
+        toast.success(language === 'ar' ? 'تم إنشاء الصورة بنجاح!' : 'Image generated successfully!');
+      }
+    } catch (error: any) {
+      console.error('Error generating AI image:', error);
+      toast.error(language === 'ar' ? 'فشل في إنشاء الصورة' : 'Failed to generate image');
+    } finally {
+      setIsGeneratingAI(false);
+    }
+  };
+
+  if (loading) {
+    return <InstructorCoursesSkeleton rows={limit || 3} />;
+  }
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle>{t.title}</CardTitle>
+        <div className="flex gap-2">
+          {showViewAll && (
+            <Button variant="ghost" size="sm" onClick={onViewAll}>
+              {t.viewAll}
+              <ArrowLeft className={`w-4 h-4 ${dir === 'rtl' ? 'mr-2' : 'ml-2 rotate-180'}`} />
+            </Button>
+          )}
+          <Dialog open={isDialogOpen} onOpenChange={(open) => {
+            setIsDialogOpen(open);
+            if (!open) {
+              setEditingCourse(null);
+              resetForm();
+            }
+          }}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="bg-gradient-gold">
+                <Plus className="w-4 h-4 me-2" />
+                {t.addCourse}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>{editingCourse ? t.editCourse : t.addCourse}</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>{t.courseTitle}</Label>
+                    <Input
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label>{t.courseTitleAr}</Label>
+                    <Input
+                      value={formData.title_ar}
+                      onChange={(e) => setFormData({ ...formData, title_ar: e.target.value })}
+                      required
+                      dir="rtl"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label>{t.courseDesc}</Label>
+                  <Textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <Label>{t.courseDescAr}</Label>
+                  <Textarea
+                    value={formData.description_ar}
+                    onChange={(e) => setFormData({ ...formData, description_ar: e.target.value })}
+                    dir="rtl"
+                  />
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>{language === 'ar' ? 'اسم المادة' : 'Subject Name'}</Label>
+                    <Input
+                      value={formData.subject_name}
+                      onChange={(e) => setFormData({ ...formData, subject_name: e.target.value })}
+                      placeholder={language === 'ar' ? 'مثال: الرياضيات' : 'e.g. Mathematics'}
+                    />
+                  </div>
+                  <div>
+                    <Label>{language === 'ar' ? 'رمز المادة' : 'Subject Code'}</Label>
+                    <Input
+                      value={formData.subject_code}
+                      onChange={(e) => setFormData({ ...formData, subject_code: e.target.value })}
+                      placeholder={language === 'ar' ? 'مثال: MATH101' : 'e.g. MATH101'}
+                    />
+                  </div>
+                </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>{t.price}</Label>
+                    <Input
+                      type="number"
+                      value={formData.price}
+                      onChange={(e) => setFormData({ ...formData, price: Number(e.target.value) })}
+                      min={0}
+                    />
+                  </div>
+                  <div>
+                    <Label>{t.duration}</Label>
+                    <Input
+                      type="number"
+                      value={formData.duration_hours}
+                      onChange={(e) => setFormData({ ...formData, duration_hours: Number(e.target.value) })}
+                      min={0}
+                    />
+                  </div>
+                </div>
+                
+                {/* University, College, Major, Study Year */}
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>{language === 'ar' ? 'الجامعة' : 'University'}</Label>
+                    <Select
+                      value={selectedUniversityId}
+                      onValueChange={(value) => {
+                        setSelectedUniversityId(value);
+                        setSelectedCollegeId('');
+                        setFormData({ ...formData, major_id: '' });
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={language === 'ar' ? 'اختر الجامعة' : 'Select University'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {universities?.map((uni: any) => (
+                          <SelectItem key={uni.id} value={uni.id}>
+                            {language === 'ar' ? uni.name_ar : uni.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>{language === 'ar' ? 'الكلية' : 'College'}</Label>
+                    <Select
+                      value={selectedCollegeId}
+                      onValueChange={(value) => {
+                        setSelectedCollegeId(value);
+                        setFormData({ ...formData, major_id: '' });
+                      }}
+                      disabled={!selectedUniversityId}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={language === 'ar' ? 'اختر الكلية' : 'Select College'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {colleges?.map((col: any) => (
+                          <SelectItem key={col.id} value={col.id}>
+                            {language === 'ar' ? col.name_ar : col.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>{language === 'ar' ? 'التخصص' : 'Major'}</Label>
+                    <Select
+                      value={formData.major_id}
+                      onValueChange={(value) => setFormData({ ...formData, major_id: value })}
+                      disabled={!selectedCollegeId}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={language === 'ar' ? 'اختر التخصص' : 'Select Major'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {majorsData?.map((major: any) => (
+                          <SelectItem key={major.id} value={major.id}>
+                            {language === 'ar' ? major.name_ar : major.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>{language === 'ar' ? 'السنة الدراسية' : 'Study Year'}</Label>
+                    <Select
+                      value={formData.study_year}
+                      onValueChange={(value) => setFormData({ ...formData, study_year: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={language === 'ar' ? 'اختر السنة' : 'Select Year'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[1, 2, 3, 4, 5, 6].map((year) => (
+                          <SelectItem key={year} value={year.toString()}>
+                            {language === 'ar' ? `سنة ${year}` : `Year ${year}`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                {/* Course Image Upload */}
+                <div>
+                  <Label>{t.courseImage}</Label>
+                  <div className="mt-2">
+                    {formData.thumbnail_url ? (
+                      <div className="relative w-full h-40 rounded-lg overflow-hidden border">
+                        <img
+                          src={formData.thumbnail_url}
+                          alt="Course thumbnail"
+                          className="w-full h-full object-cover"
+                        />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="absolute top-2 end-2 h-8 w-8"
+                          onClick={() => setFormData(prev => ({ ...prev, thumbnail_url: '' }))}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-lg cursor-pointer hover:bg-muted/50 transition-colors">
+                          <div className="flex flex-col items-center justify-center py-2">
+                            {isUploading ? (
+                              <>
+                                <Loader2 className="w-6 h-6 text-muted-foreground animate-spin mb-1" />
+                                <p className="text-xs text-muted-foreground">{t.uploading}</p>
+                              </>
+                            ) : (
+                              <>
+                                <ImageIcon className="w-6 h-6 text-muted-foreground mb-1" />
+                                <p className="text-xs text-muted-foreground">{t.uploadImage}</p>
+                              </>
+                            )}
+                          </div>
+                          <input
+                            type="file"
+                            className="hidden"
+                            accept="image/*"
+                            onChange={handleImageUpload}
+                            disabled={isUploading || isGeneratingAI}
+                          />
+                        </label>
+
+                        <div className="space-y-2">
+                          <Input
+                            placeholder={t.aiPromptPlaceholder}
+                            value={aiImagePrompt}
+                            onChange={(e) => setAiImagePrompt(e.target.value)}
+                            disabled={isGeneratingAI}
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full border-primary/50 hover:bg-primary/10"
+                            onClick={handleGenerateAIImage}
+                            disabled={isGeneratingAI || isUploading || !formData.title}
+                          >
+                            {isGeneratingAI ? (
+                              <Loader2 className="w-4 h-4 animate-spin me-2" />
+                            ) : (
+                              <Sparkles className="w-4 h-4 me-2" />
+                            )}
+                            {isGeneratingAI ? t.generatingAI : t.generateAI}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="flex flex-wrap gap-6">
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={formData.is_active}
+                      onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                    />
+                    <Label>{t.isActive}</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={formData.is_featured}
+                      onCheckedChange={(checked) => setFormData({ ...formData, is_featured: checked })}
+                    />
+                    <Label>{t.isFeatured}</Label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      checked={formData.ai_enabled}
+                      onCheckedChange={(checked) => setFormData({ ...formData, ai_enabled: checked })}
+                    />
+                    <Label className="flex items-center gap-1">
+                      <Sparkles className="w-4 h-4" />
+                      {language === 'ar' ? 'تفعيل الذكاء الاصطناعي' : 'Enable AI Assistant'}
+                    </Label>
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 pt-4">
+                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                    {t.cancel}
+                  </Button>
+                  <Button type="submit" className="bg-gradient-gold">
+                    {t.save}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {courses.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <BookOpen className="w-12 h-12 mx-auto mb-4 opacity-50" />
+            <p>{t.noCourses}</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {courses.map((course, index) => (
+              <motion.div
+                key={course.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+                className="flex items-center gap-4 p-4 rounded-xl border bg-card hover:shadow-md transition-shadow"
+              >
+                <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
+                  {course.thumbnail_url ? (
+                    <LazyImage
+                      src={course.thumbnail_url}
+                      alt={language === 'ar' ? course.title_ar : course.title}
+                      className="w-full h-full object-cover"
+                      containerClassName="w-full h-full"
+                      blurAmount={10}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                      <BookOpen className="w-8 h-8 text-primary" />
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold truncate">
+                    {language === 'ar' ? course.title_ar : course.title}
+                  </h3>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <Badge variant={course.is_active ? 'default' : 'secondary'}>
+                      {course.is_active ? t.active : t.inactive}
+                    </Badge>
+                    {course.is_featured && (
+                      <Badge className="bg-gradient-gold text-primary-foreground">
+                        {t.featured}
+                      </Badge>
+                    )}
+                    <span className="text-sm text-muted-foreground flex items-center gap-1">
+                      <Users className="w-3 h-3" />
+                      {course.enrollments_count} {t.students}
+                    </span>
+                    <span className="text-sm text-muted-foreground flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {course.duration_hours} {t.hours}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap justify-end">
+                  <span className="font-bold text-primary">
+                    {course.price || 0} ر.س
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setQrCourse({
+                      id: course.id,
+                      title: language === 'ar' ? course.title_ar : course.title,
+                      slug: (course as any).slug,
+                    })}
+                    title={t.qrCode}
+                  >
+                    <QrCode className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setAdCourse({
+                      id: course.id,
+                      title: language === 'ar' ? course.title_ar : course.title,
+                      slug: (course as any).slug,
+                      price: course.price || 0,
+                      duration: course.duration_hours || 0,
+                      thumbnail: course.thumbnail_url || undefined,
+                      university: language === 'ar' ? (course as any).majors?.colleges?.universities?.name_ar : (course as any).majors?.colleges?.universities?.name,
+                      college: language === 'ar' ? (course as any).majors?.colleges?.name_ar : (course as any).majors?.colleges?.name,
+                      major: language === 'ar' ? (course as any).majors?.name_ar : (course as any).majors?.name,
+                      studyYear: (course as any).study_year,
+                      subjectName: (course as any).subject_name,
+                      subjectCode: (course as any).subject_code,
+                    })}
+                    title={language === 'ar' ? 'صورة إعلان' : 'Ad Image'}
+                    className="text-amber-500"
+                  >
+                    <Megaphone className="w-4 h-4" />
+                  </Button>
+                  <Button 
+                    size="sm"
+                    className="btn-gold gap-1"
+                    onClick={() => setSelectedCourse({ 
+                      id: course.id, 
+                      title: language === 'ar' ? course.title_ar : course.title 
+                    })}
+                  >
+                    <Video className="w-3.5 h-3.5" />
+                    {language === 'ar' ? 'الفصول والدروس' : 'Chapters & Lessons'}
+                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => openEditDialog(course)}>
+                    <Edit className="w-4 h-4" />
+                  </Button>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+
+      {/* QR Code Dialog */}
+      {qrCourse && (
+        <CourseQRCode
+          open={!!qrCourse}
+          onOpenChange={() => setQrCourse(null)}
+          courseId={qrCourse.id}
+          courseTitle={qrCourse.title}
+          slug={qrCourse.slug}
+        />
+      )}
+
+      {/* Ad Template Dialog */}
+      {adCourse && (
+        <CourseAdTemplate
+          open={!!adCourse}
+          onOpenChange={() => setAdCourse(null)}
+          courseId={adCourse.id}
+          courseTitle={adCourse.title}
+          slug={adCourse.slug}
+          coursePrice={adCourse.price}
+          courseDuration={adCourse.duration}
+          thumbnailUrl={adCourse.thumbnail}
+          universityName={adCourse.university}
+          collegeName={adCourse.college}
+          majorName={adCourse.major}
+          studyYear={adCourse.studyYear}
+          subjectName={adCourse.subjectName}
+          subjectCode={adCourse.subjectCode}
+        />
+      )}
+    </Card>
+  );
+};

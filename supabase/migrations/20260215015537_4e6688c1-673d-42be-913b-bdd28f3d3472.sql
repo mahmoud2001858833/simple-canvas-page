@@ -1,0 +1,1 @@
+ALTER TABLE public.device_sessions REPLICA IDENTITY FULL;
