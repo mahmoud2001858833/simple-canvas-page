@@ -25,7 +25,7 @@ function isRateLimited(ip: string): boolean {
 
 // Helper: process successful course payment (enrollment + earnings + notifications)
 async function processSuccessfulCoursePayment(
-  supabase: ReturnType<typeof createClient>,
+  supabase: any,
   payment: Record<string, any>
 ) {
   const { user_id, course_id, installment_plan, amount } = payment;
