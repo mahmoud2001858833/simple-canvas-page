@@ -131,13 +131,6 @@ export type Database = {
             referencedRelation: "courses"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "assignments_course_id_fkey"
-            columns: ["course_id"]
-            isOneToOne: false
-            referencedRelation: "courses_public"
-            referencedColumns: ["id"]
-          },
         ]
       }
       badges: {
@@ -220,13 +213,6 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "bundle_courses_course_id_fkey"
-            columns: ["course_id"]
-            isOneToOne: false
-            referencedRelation: "courses_public"
             referencedColumns: ["id"]
           },
         ]
@@ -315,13 +301,6 @@ export type Database = {
             referencedRelation: "courses"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "certificates_course_id_fkey"
-            columns: ["course_id"]
-            isOneToOne: false
-            referencedRelation: "courses_public"
-            referencedColumns: ["id"]
-          },
         ]
       }
       chapter_files: {
@@ -379,13 +358,6 @@ export type Database = {
             referencedRelation: "courses"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "chapter_files_course_id_fkey"
-            columns: ["course_id"]
-            isOneToOne: false
-            referencedRelation: "courses_public"
-            referencedColumns: ["id"]
-          },
         ]
       }
       chapters: {
@@ -419,13 +391,6 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "chapters_course_id_fkey"
-            columns: ["course_id"]
-            isOneToOne: false
-            referencedRelation: "courses_public"
             referencedColumns: ["id"]
           },
         ]
@@ -567,13 +532,6 @@ export type Database = {
             referencedRelation: "courses"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "coupons_course_id_fkey"
-            columns: ["course_id"]
-            isOneToOne: false
-            referencedRelation: "courses_public"
-            referencedColumns: ["id"]
-          },
         ]
       }
       course_bundles: {
@@ -672,13 +630,6 @@ export type Database = {
             referencedRelation: "courses"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "course_discussions_course_id_fkey"
-            columns: ["course_id"]
-            isOneToOne: false
-            referencedRelation: "courses_public"
-            referencedColumns: ["id"]
-          },
         ]
       }
       course_messages: {
@@ -726,13 +677,6 @@ export type Database = {
             referencedRelation: "courses"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "course_messages_course_id_fkey"
-            columns: ["course_id"]
-            isOneToOne: false
-            referencedRelation: "courses_public"
-            referencedColumns: ["id"]
-          },
         ]
       }
       course_reviews: {
@@ -769,13 +713,6 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "course_reviews_course_id_fkey"
-            columns: ["course_id"]
-            isOneToOne: false
-            referencedRelation: "courses_public"
             referencedColumns: ["id"]
           },
         ]
@@ -1077,13 +1014,6 @@ export type Database = {
             referencedRelation: "courses"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "enrollments_course_id_fkey"
-            columns: ["course_id"]
-            isOneToOne: false
-            referencedRelation: "courses_public"
-            referencedColumns: ["id"]
-          },
         ]
       }
       gamification_profiles: {
@@ -1159,13 +1089,6 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "instructor_earnings_course_id_fkey"
-            columns: ["course_id"]
-            isOneToOne: false
-            referencedRelation: "courses_public"
             referencedColumns: ["id"]
           },
           {
@@ -1373,13 +1296,6 @@ export type Database = {
             referencedRelation: "courses"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "lessons_course_id_fkey"
-            columns: ["course_id"]
-            isOneToOne: false
-            referencedRelation: "courses_public"
-            referencedColumns: ["id"]
-          },
         ]
       }
       majors: {
@@ -1541,13 +1457,6 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "payments_course_id_fkey"
-            columns: ["course_id"]
-            isOneToOne: false
-            referencedRelation: "courses_public"
             referencedColumns: ["id"]
           },
           {
@@ -1717,13 +1626,6 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "question_bank_course_id_fkey"
-            columns: ["course_id"]
-            isOneToOne: false
-            referencedRelation: "courses_public"
             referencedColumns: ["id"]
           },
         ]
@@ -1912,13 +1814,6 @@ export type Database = {
             columns: ["course_id"]
             isOneToOne: false
             referencedRelation: "courses"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "quizzes_course_id_fkey"
-            columns: ["course_id"]
-            isOneToOne: false
-            referencedRelation: "courses_public"
             referencedColumns: ["id"]
           },
         ]
@@ -2264,13 +2159,6 @@ export type Database = {
             referencedRelation: "courses"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "study_planner_course_id_fkey"
-            columns: ["course_id"]
-            isOneToOne: false
-            referencedRelation: "courses_public"
-            referencedColumns: ["id"]
-          },
         ]
       }
       support_chats: {
@@ -2549,13 +2437,6 @@ export type Database = {
             referencedRelation: "courses"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "wishlist_course_id_fkey"
-            columns: ["course_id"]
-            isOneToOne: false
-            referencedRelation: "courses_public"
-            referencedColumns: ["id"]
-          },
         ]
       }
       withdrawal_requests: {
@@ -2605,77 +2486,7 @@ export type Database = {
       }
     }
     Views: {
-      courses_public: {
-        Row: {
-          approval_status: string | null
-          category: string | null
-          created_at: string | null
-          description: string | null
-          description_ar: string | null
-          duration_hours: number | null
-          id: string | null
-          instructor_id: string | null
-          is_active: boolean | null
-          is_approved: boolean | null
-          is_featured: boolean | null
-          major_id: string | null
-          original_price: number | null
-          price: number | null
-          thumbnail_url: string | null
-          title: string | null
-          title_ar: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          approval_status?: string | null
-          category?: string | null
-          created_at?: string | null
-          description?: string | null
-          description_ar?: string | null
-          duration_hours?: number | null
-          id?: string | null
-          instructor_id?: string | null
-          is_active?: boolean | null
-          is_approved?: boolean | null
-          is_featured?: boolean | null
-          major_id?: string | null
-          original_price?: number | null
-          price?: number | null
-          thumbnail_url?: string | null
-          title?: string | null
-          title_ar?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          approval_status?: string | null
-          category?: string | null
-          created_at?: string | null
-          description?: string | null
-          description_ar?: string | null
-          duration_hours?: number | null
-          id?: string | null
-          instructor_id?: string | null
-          is_active?: boolean | null
-          is_approved?: boolean | null
-          is_featured?: boolean | null
-          major_id?: string | null
-          original_price?: number | null
-          price?: number | null
-          thumbnail_url?: string | null
-          title?: string | null
-          title_ar?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "courses_major_id_fkey"
-            columns: ["major_id"]
-            isOneToOne: false
-            referencedRelation: "majors"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
+      [_ in never]: never
     }
     Functions: {
       check_request_deadlines: { Args: never; Returns: undefined }
