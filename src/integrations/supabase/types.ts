@@ -2532,6 +2532,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      user_has_course_access: {
+        Args: { _course_id: string; _user_id: string }
+        Returns: boolean
+      }
       validate_coupon: {
         Args: {
           p_code: string
