@@ -1494,6 +1494,8 @@ export type Database = {
       }
       profiles: {
         Row: {
+          academic_degree: string | null
+          academic_year: string | null
           allow_multiple_devices: boolean | null
           avatar_url: string | null
           banned_at: string | null
@@ -1516,6 +1518,8 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          academic_degree?: string | null
+          academic_year?: string | null
           allow_multiple_devices?: boolean | null
           avatar_url?: string | null
           banned_at?: string | null
@@ -1538,6 +1542,8 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          academic_degree?: string | null
+          academic_year?: string | null
           allow_multiple_devices?: boolean | null
           avatar_url?: string | null
           banned_at?: string | null

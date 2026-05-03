@@ -42,22 +42,12 @@ interface CouponResult {
   final_amount?: number;
 }
 
-// Generate installment options dynamically based on chapter count
-const generateInstallmentOptions = (totalChapters: number) => {
-  if (totalChapters <= 1) {
-    return [{ percent: 100, chapters: 1, labelAr: 'المبلغ كاملاً (100%)', labelEn: 'Full Payment (100%)' }];
-  }
-  
-  const options = [];
-  for (let i = 1; i <= totalChapters; i++) {
-    const percent = Math.round((i / totalChapters) * 100);
-    const isLast = i === totalChapters;
-    const labelAr = isLast ? `المبلغ كاملاً (${percent}%)` : `${i} من ${totalChapters} فصول (${percent}%)`;
-    const labelEn = isLast ? `Full Payment (${percent}%)` : `${i} of ${totalChapters} chapters (${percent}%)`;
-    options.push({ percent, chapters: i, labelAr, labelEn });
-  }
-  return options;
-};
+// Fixed 3-installment plan: 33% / 66% / 100%
+const FIXED_INSTALLMENT_OPTIONS = [
+  { percent: 33, labelAr: 'الدفعة الأولى (1/3)', labelEn: 'First Installment (1/3)' },
+  { percent: 66, labelAr: 'الدفعتان (2/3)', labelEn: 'Two Installments (2/3)' },
+  { percent: 100, labelAr: 'كامل المبلغ', labelEn: 'Full Payment' },
+];
 
 const Checkout = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -156,20 +146,18 @@ const Checkout = () => {
   const totalPrice = course?.price || customRequest?.final_price || customRequest?.estimated_price || 0;
   const totalChapters = chaptersCount || 1;
 
-  // Generate dynamic installment options based on chapters
-  const allInstallmentOptions = generateInstallmentOptions(totalChapters);
+  // Fixed installment options (3 fixed plans)
+  const allInstallmentOptions = FIXED_INSTALLMENT_OPTIONS;
 
-  // Filter installment options based on what's already paid
-  const currentPaidChapters = Math.floor((currentPaidPercent / 100) * totalChapters);
-  const availableInstallments = isExistingEnrollment
-    ? allInstallmentOptions.filter(opt => opt.chapters > currentPaidChapters)
-    : allInstallmentOptions;
+  // Filter installment options to only show those above the currently paid percentage
+  const availableInstallments = allInstallmentOptions.filter(opt => opt.percent > currentPaidPercent);
 
   // Set default installment when enrollment data loads
   useEffect(() => {
-    if (isExistingEnrollment && availableInstallments.length > 0) {
+    if (availableInstallments.length > 0 && !availableInstallments.some(o => o.percent === selectedInstallment)) {
       setSelectedInstallment(availableInstallments[0].percent);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExistingEnrollment, currentPaidPercent]);
 
   // Redirect free courses to direct enrollment
@@ -201,20 +189,19 @@ const Checkout = () => {
     }
   }, [course, user, courseId, navigate, isRTL, isExistingEnrollment]);
 
-  // Calculate installment amount
+  // Calculate installment amount: pay the delta between target % and current paid %
   const selectedOption = allInstallmentOptions.find(opt => opt.percent === selectedInstallment);
-  const installmentAmount = isExistingEnrollment
-    ? Math.ceil(totalPrice * ((selectedInstallment - currentPaidPercent) / 100))
-    : Math.ceil(totalPrice * (selectedInstallment / 100));
-  
+  const installmentAmount = Math.ceil(totalPrice * ((selectedInstallment - currentPaidPercent) / 100));
+
   const priceBeforeCoupon = installmentAmount;
-  const finalPrice = appliedCoupon?.valid 
+  const finalPrice = appliedCoupon?.valid
     ? Math.max(0, priceBeforeCoupon - (appliedCoupon.discount_amount || 0))
     : priceBeforeCoupon;
 
   // What the new paid_percentage will be after this payment
   const newPaidPercentage = selectedInstallment;
-  const accessibleChapters = selectedOption?.chapters || totalChapters;
+  // Approx accessible chapter count after this payment, for UX summary
+  const accessibleChapters = Math.ceil((newPaidPercentage / 100) * totalChapters);
 
   const handleApplyCoupon = async () => {
     if (!couponCode.trim() || !user) return;
@@ -270,6 +257,47 @@ const Checkout = () => {
 
     setIsProcessing(true);
     try {
+      // Free via 100% coupon → enroll directly, skip gateway
+      if (finalPrice === 0 && courseId) {
+        const { data: paymentData, error: payErr } = await supabase.from('payments').insert({
+          user_id: user.id,
+          course_id: courseId,
+          request_id: requestId || null,
+          amount: 0,
+          payment_method: 'online',
+          status: 'paid',
+          paid_at: new Date().toISOString(),
+          notes: appliedCoupon?.valid ? `100% Coupon: ${couponCode}` : 'Free enrollment',
+        }).select().single();
+        if (payErr) {
+          toast.error(isRTL ? 'فشل تسجيل الدفع' : 'Failed to record payment');
+          return;
+        }
+        const { error: enrollErr } = await supabase.from('enrollments').upsert({
+          user_id: user.id,
+          course_id: courseId,
+          status: 'active',
+          paid_percentage: 100,
+        }, { onConflict: 'user_id,course_id' });
+        if (enrollErr && !enrollErr.message.includes('duplicate')) {
+          toast.error(isRTL ? 'فشل التسجيل' : 'Enrollment failed');
+          return;
+        }
+        if (appliedCoupon?.valid && appliedCoupon.coupon_id && paymentData) {
+          try {
+            await supabase.rpc('use_coupon', {
+              p_coupon_id: appliedCoupon.coupon_id,
+              p_user_id: user.id,
+              p_payment_id: paymentData.id,
+              p_discount_amount: appliedCoupon.discount_amount || 0,
+            });
+          } catch (e) { console.error(e); }
+        }
+        toast.success(isRTL ? 'تم تفعيل الكورس مجاناً!' : 'Course activated for free!');
+        navigate(`/courses/${courseId}`);
+        return;
+      }
+
       if (paymentMethod === 'alinmapay') {
         const { data, error } = await supabase.functions.invoke('create-alinma-payment', {
           body: {
@@ -474,9 +502,8 @@ const Checkout = () => {
                     className="space-y-3"
                   >
                     {availableInstallments.map((opt) => {
-                      const payAmount = isExistingEnrollment
-                        ? Math.ceil(totalPrice * ((opt.percent - currentPaidPercent) / 100))
-                        : Math.ceil(totalPrice * (opt.percent / 100));
+                      const payAmount = Math.ceil(totalPrice * ((opt.percent - currentPaidPercent) / 100));
+                      const optAccessibleChapters = Math.ceil((opt.percent / 100) * totalChapters);
 
                       return (
                         <div
@@ -494,13 +521,12 @@ const Checkout = () => {
                           <RadioGroupItem value={String(opt.percent)} id={`inst-${opt.percent}`} className="mt-0" />
                           <div className="flex-1 mx-4">
                             <Label htmlFor={`inst-${opt.percent}`} className="text-base font-semibold cursor-pointer">
-                              {isRTL ? opt.labelAr : opt.labelEn}
+                              {isRTL ? opt.labelAr : opt.labelEn} ({opt.percent}%)
                             </Label>
                             <p className="text-sm text-muted-foreground mt-1">
-                              {isRTL 
-                                ? `يفتح ${opt.chapters} من ${totalChapters} فصل`
-                                : `Unlocks ${opt.chapters} of ${totalChapters} chapters`
-                              }
+                              {isRTL
+                                ? `يفتح ${optAccessibleChapters} من ${totalChapters} فصل`
+                                : `Unlocks ${optAccessibleChapters} of ${totalChapters} chapters`}
                             </p>
                           </div>
                           <div className="text-end">
