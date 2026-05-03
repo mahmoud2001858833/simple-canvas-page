@@ -42,6 +42,20 @@ export const CouponsManagement = () => {
     expires_at: '',
     description: '',
     description_ar: '',
+    course_id: '',
+  });
+
+  const { data: coursesList = [] } = useQuery({
+    queryKey: ['coupon-courses-list'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('courses')
+        .select('id, title, title_ar')
+        .eq('is_active', true)
+        .order('title_ar');
+      if (error) throw error;
+      return data || [];
+    },
   });
 
   const t = {
