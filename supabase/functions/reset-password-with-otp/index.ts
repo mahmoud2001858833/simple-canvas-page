@@ -25,8 +25,8 @@ serve(async (req: Request) => {
 
     if (new_password.length < 8) {
       return new Response(
-        JSON.stringify({ success: false, error_ar: "كلمة المرور يجب أن تكون 8 أحرف على الأقل" }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        JSON.stringify({ success: false, error: "Password too short", error_ar: "كلمة المرور يجب أن تكون 8 أحرف على الأقل" }),
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
@@ -56,14 +56,14 @@ serve(async (req: Request) => {
 
       if (expiredCodes && expiredCodes.length > 0) {
         return new Response(
-          JSON.stringify({ success: false, error_ar: "انتهت صلاحية رمز التحقق" }),
-          { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+          JSON.stringify({ success: false, error: "Code expired", error_ar: "انتهت صلاحية رمز التحقق" }),
+          { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
         );
       }
 
       return new Response(
-        JSON.stringify({ success: false, error_ar: "رمز التحقق غير صحيح" }),
-        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        JSON.stringify({ success: false, error: "Invalid code", error_ar: "رمز التحقق غير صحيح" }),
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
