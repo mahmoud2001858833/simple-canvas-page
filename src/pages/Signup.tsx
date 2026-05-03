@@ -78,6 +78,8 @@ const Signup = () => {
   const [selectedUniversity, setSelectedUniversity] = useState<string>('');
   const [selectedMajor, setSelectedMajor] = useState<string>('');
   const [selectedYear, setSelectedYear] = useState<string>('');
+  const [academicDegree, setAcademicDegree] = useState<string>('');
+  const [academicYear, setAcademicYear] = useState<string>('');
   const [specialty, setSpecialty] = useState('');
   const [loading, setLoading] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
