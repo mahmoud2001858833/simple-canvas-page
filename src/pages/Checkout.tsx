@@ -461,9 +461,8 @@ const Checkout = () => {
                     className="space-y-3"
                   >
                     {availableInstallments.map((opt) => {
-                      const payAmount = isExistingEnrollment
-                        ? Math.ceil(totalPrice * ((opt.percent - currentPaidPercent) / 100))
-                        : Math.ceil(totalPrice * (opt.percent / 100));
+                      const payAmount = Math.ceil(totalPrice * ((opt.percent - currentPaidPercent) / 100));
+                      const optAccessibleChapters = Math.ceil((opt.percent / 100) * totalChapters);
 
                       return (
                         <div
@@ -481,13 +480,12 @@ const Checkout = () => {
                           <RadioGroupItem value={String(opt.percent)} id={`inst-${opt.percent}`} className="mt-0" />
                           <div className="flex-1 mx-4">
                             <Label htmlFor={`inst-${opt.percent}`} className="text-base font-semibold cursor-pointer">
-                              {isRTL ? opt.labelAr : opt.labelEn}
+                              {isRTL ? opt.labelAr : opt.labelEn} ({opt.percent}%)
                             </Label>
                             <p className="text-sm text-muted-foreground mt-1">
-                              {isRTL 
-                                ? `يفتح ${opt.chapters} من ${totalChapters} فصل`
-                                : `Unlocks ${opt.chapters} of ${totalChapters} chapters`
-                              }
+                              {isRTL
+                                ? `يفتح ${optAccessibleChapters} من ${totalChapters} فصل`
+                                : `Unlocks ${optAccessibleChapters} of ${totalChapters} chapters`}
                             </p>
                           </div>
                           <div className="text-end">
