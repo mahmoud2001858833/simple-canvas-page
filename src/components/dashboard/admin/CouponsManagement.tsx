@@ -42,6 +42,20 @@ export const CouponsManagement = () => {
     expires_at: '',
     description: '',
     description_ar: '',
+    course_id: '',
+  });
+
+  const { data: coursesList = [] } = useQuery({
+    queryKey: ['coupon-courses-list'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('courses')
+        .select('id, title, title_ar')
+        .eq('is_active', true)
+        .order('title_ar');
+      if (error) throw error;
+      return data || [];
+    },
   });
 
   const t = {
@@ -101,6 +115,7 @@ export const CouponsManagement = () => {
         expires_at: form.expires_at || null,
         description: form.description || null,
         description_ar: form.description_ar || null,
+        course_id: form.course_id || null,
         created_by: user?.id,
       });
       if (error) throw error;
@@ -109,7 +124,7 @@ export const CouponsManagement = () => {
       queryClient.invalidateQueries({ queryKey: ['admin-coupons'] });
       toast.success(t.created);
       setIsDialogOpen(false);
-      setForm({ code: '', discount_type: 'percentage', discount_value: '', max_uses: '', min_order_amount: '', max_discount_amount: '', expires_at: '', description: '', description_ar: '' });
+      setForm({ code: '', discount_type: 'percentage', discount_value: '', max_uses: '', min_order_amount: '', max_discount_amount: '', expires_at: '', description: '', description_ar: '', course_id: '' });
     },
     onError: (e: any) => toast.error(e.message),
   });
@@ -214,6 +229,18 @@ export const CouponsManagement = () => {
                     <Input type="number" value={form.max_discount_amount} onChange={e => setForm({ ...form, max_discount_amount: e.target.value })} placeholder="100" />
                   </div>
                 )}
+              </div>
+              <div className="space-y-2">
+                <Label>{isAr ? 'الكورس (اختياري - فارغ = جميع الكورسات)' : 'Course (optional — empty = all courses)'}</Label>
+                <Select value={form.course_id || 'all'} onValueChange={v => setForm({ ...form, course_id: v === 'all' ? '' : v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{isAr ? 'جميع الكورسات' : 'All courses'}</SelectItem>
+                    {coursesList.map((c: any) => (
+                      <SelectItem key={c.id} value={c.id}>{isAr ? c.title_ar : c.title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label>{t.description}</Label>

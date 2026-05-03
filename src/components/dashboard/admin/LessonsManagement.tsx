@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import DualVideoUploader from '@/components/dashboard/DualVideoUploader';
+import { VideoDurationDetector } from '@/components/dashboard/VideoDurationDetector';
 import { LessonFileUploader } from '@/components/dashboard/LessonFileUploader';
 import { ChapterFileUploader } from '@/components/dashboard/ChapterFileUploader';
 import { QuizPdfUploader } from '@/components/dashboard/QuizPdfUploader';
@@ -699,12 +700,15 @@ export const LessonsManagement = ({ courseId, courseTitle, chapterId, onBack }: 
             {/* Duration */}
             <div className="space-y-2">
               <Label>{t.duration}</Label>
-              <Input
-                type="number"
-                value={formData.duration_minutes}
-                onChange={(e) => setFormData({ ...formData, duration_minutes: e.target.value })}
-                min={0}
-              />
+              <div className="flex gap-2">
+                <Input
+                  type="number"
+                  value={formData.duration_minutes}
+                  onChange={(e) => setFormData({ ...formData, duration_minutes: e.target.value })}
+                  min={0}
+                />
+                <VideoDurationDetector onDetected={(m) => setFormData({ ...formData, duration_minutes: String(m) })} />
+              </div>
             </div>
 
             {/* Video Upload - Dual uploader */}

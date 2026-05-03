@@ -2527,6 +2527,10 @@ export type Database = {
         Args: { check_user_id: string }
         Returns: boolean
       }
+      recalc_course_duration: {
+        Args: { _course_id: string }
+        Returns: undefined
+      }
       reset_all_accounts: { Args: never; Returns: boolean }
       reset_user_device: { Args: { target_user_id: string }; Returns: boolean }
       use_coupon: {
