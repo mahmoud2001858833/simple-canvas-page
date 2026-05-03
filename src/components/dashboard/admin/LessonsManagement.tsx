@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import DualVideoUploader from '@/components/dashboard/DualVideoUploader';
+import { VideoDurationDetector } from '@/components/dashboard/VideoDurationDetector';
 import { LessonFileUploader } from '@/components/dashboard/LessonFileUploader';
 import { ChapterFileUploader } from '@/components/dashboard/ChapterFileUploader';
 import { QuizPdfUploader } from '@/components/dashboard/QuizPdfUploader';
