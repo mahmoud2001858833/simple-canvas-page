@@ -231,6 +231,18 @@ export const CouponsManagement = () => {
                 )}
               </div>
               <div className="space-y-2">
+                <Label>{isAr ? 'الكورس (اختياري - فارغ = جميع الكورسات)' : 'Course (optional — empty = all courses)'}</Label>
+                <Select value={form.course_id || 'all'} onValueChange={v => setForm({ ...form, course_id: v === 'all' ? '' : v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{isAr ? 'جميع الكورسات' : 'All courses'}</SelectItem>
+                    {coursesList.map((c: any) => (
+                      <SelectItem key={c.id} value={c.id}>{isAr ? c.title_ar : c.title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
                 <Label>{t.description}</Label>
                 <Textarea value={form.description_ar} onChange={e => setForm({ ...form, description_ar: e.target.value })} rows={2} />
               </div>
