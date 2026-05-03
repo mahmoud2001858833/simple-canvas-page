@@ -42,22 +42,12 @@ interface CouponResult {
   final_amount?: number;
 }
 
-// Generate installment options dynamically based on chapter count
-const generateInstallmentOptions = (totalChapters: number) => {
-  if (totalChapters <= 1) {
-    return [{ percent: 100, chapters: 1, labelAr: 'المبلغ كاملاً (100%)', labelEn: 'Full Payment (100%)' }];
-  }
-  
-  const options = [];
-  for (let i = 1; i <= totalChapters; i++) {
-    const percent = Math.round((i / totalChapters) * 100);
-    const isLast = i === totalChapters;
-    const labelAr = isLast ? `المبلغ كاملاً (${percent}%)` : `${i} من ${totalChapters} فصول (${percent}%)`;
-    const labelEn = isLast ? `Full Payment (${percent}%)` : `${i} of ${totalChapters} chapters (${percent}%)`;
-    options.push({ percent, chapters: i, labelAr, labelEn });
-  }
-  return options;
-};
+// Fixed 3-installment plan: 33% / 66% / 100%
+const FIXED_INSTALLMENT_OPTIONS = [
+  { percent: 33, labelAr: 'الدفعة الأولى (1/3)', labelEn: 'First Installment (1/3)' },
+  { percent: 66, labelAr: 'الدفعتان (2/3)', labelEn: 'Two Installments (2/3)' },
+  { percent: 100, labelAr: 'كامل المبلغ', labelEn: 'Full Payment' },
+];
 
 const Checkout = () => {
   const { courseId } = useParams<{ courseId: string }>();
