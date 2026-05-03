@@ -146,20 +146,18 @@ const Checkout = () => {
   const totalPrice = course?.price || customRequest?.final_price || customRequest?.estimated_price || 0;
   const totalChapters = chaptersCount || 1;
 
-  // Generate dynamic installment options based on chapters
-  const allInstallmentOptions = generateInstallmentOptions(totalChapters);
+  // Fixed installment options (3 fixed plans)
+  const allInstallmentOptions = FIXED_INSTALLMENT_OPTIONS;
 
-  // Filter installment options based on what's already paid
-  const currentPaidChapters = Math.floor((currentPaidPercent / 100) * totalChapters);
-  const availableInstallments = isExistingEnrollment
-    ? allInstallmentOptions.filter(opt => opt.chapters > currentPaidChapters)
-    : allInstallmentOptions;
+  // Filter installment options to only show those above the currently paid percentage
+  const availableInstallments = allInstallmentOptions.filter(opt => opt.percent > currentPaidPercent);
 
   // Set default installment when enrollment data loads
   useEffect(() => {
-    if (isExistingEnrollment && availableInstallments.length > 0) {
+    if (availableInstallments.length > 0 && !availableInstallments.some(o => o.percent === selectedInstallment)) {
       setSelectedInstallment(availableInstallments[0].percent);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExistingEnrollment, currentPaidPercent]);
 
   // Redirect free courses to direct enrollment
@@ -191,20 +189,19 @@ const Checkout = () => {
     }
   }, [course, user, courseId, navigate, isRTL, isExistingEnrollment]);
 
-  // Calculate installment amount
+  // Calculate installment amount: pay the delta between target % and current paid %
   const selectedOption = allInstallmentOptions.find(opt => opt.percent === selectedInstallment);
-  const installmentAmount = isExistingEnrollment
-    ? Math.ceil(totalPrice * ((selectedInstallment - currentPaidPercent) / 100))
-    : Math.ceil(totalPrice * (selectedInstallment / 100));
-  
+  const installmentAmount = Math.ceil(totalPrice * ((selectedInstallment - currentPaidPercent) / 100));
+
   const priceBeforeCoupon = installmentAmount;
-  const finalPrice = appliedCoupon?.valid 
+  const finalPrice = appliedCoupon?.valid
     ? Math.max(0, priceBeforeCoupon - (appliedCoupon.discount_amount || 0))
     : priceBeforeCoupon;
 
   // What the new paid_percentage will be after this payment
   const newPaidPercentage = selectedInstallment;
-  const accessibleChapters = selectedOption?.chapters || totalChapters;
+  // Approx accessible chapter count after this payment, for UX summary
+  const accessibleChapters = Math.ceil((newPaidPercentage / 100) * totalChapters);
 
   const handleApplyCoupon = async () => {
     if (!couponCode.trim() || !user) return;
