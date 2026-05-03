@@ -75,10 +75,25 @@ const ResetPassword = () => {
       const { data, error } = await supabase.functions.invoke('reset-password-with-otp', {
         body: { email: email.trim(), otp, new_password: password },
       });
-      if (error) throw error;
-      if (!data?.success) {
-        toast.error(data?.error_ar || 'Failed to reset password');
-        if (data?.error_ar?.includes('رمز التحقق')) {
+
+      // Try to extract body from error response if invoke threw
+      let payload: any = data;
+      if (error && (error as any)?.context?.body) {
+        try {
+          const reader = (error as any).context.body.getReader?.();
+          if (reader) {
+            const { value } = await reader.read();
+            payload = JSON.parse(new TextDecoder().decode(value));
+          }
+        } catch (_) {}
+      }
+
+      if (!payload?.success) {
+        const msg = language === 'ar'
+          ? (payload?.error_ar || 'فشل في تغيير كلمة المرور')
+          : (payload?.error || 'Failed to reset password');
+        toast.error(msg);
+        if (payload?.error_ar?.includes('رمز التحقق') || payload?.error?.toLowerCase().includes('code')) {
           setStep('otp');
           setOtp('');
         }
@@ -88,6 +103,7 @@ const ResetPassword = () => {
         setTimeout(() => navigate('/login', { replace: true }), 2000);
       }
     } catch (err: any) {
+      console.error('Reset password error:', err);
       toast.error(language === 'ar' ? 'حدث خطأ' : 'An error occurred');
     } finally {
       setLoading(false);
