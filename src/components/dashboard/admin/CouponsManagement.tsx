@@ -115,6 +115,7 @@ export const CouponsManagement = () => {
         expires_at: form.expires_at || null,
         description: form.description || null,
         description_ar: form.description_ar || null,
+        course_id: form.course_id || null,
         created_by: user?.id,
       });
       if (error) throw error;
@@ -123,7 +124,7 @@ export const CouponsManagement = () => {
       queryClient.invalidateQueries({ queryKey: ['admin-coupons'] });
       toast.success(t.created);
       setIsDialogOpen(false);
-      setForm({ code: '', discount_type: 'percentage', discount_value: '', max_uses: '', min_order_amount: '', max_discount_amount: '', expires_at: '', description: '', description_ar: '' });
+      setForm({ code: '', discount_type: 'percentage', discount_value: '', max_uses: '', min_order_amount: '', max_discount_amount: '', expires_at: '', description: '', description_ar: '', course_id: '' });
     },
     onError: (e: any) => toast.error(e.message),
   });
