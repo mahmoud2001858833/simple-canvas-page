@@ -348,6 +348,8 @@ const Signup = () => {
                 if (selectedUniversity) updateData.university_id = selectedUniversity;
                 if (selectedMajor) updateData.major_id = selectedMajor;
                 if (selectedYear) updateData.study_year = selectedYear;
+                if (academicDegree) updateData.academic_degree = academicDegree;
+                if (academicYear) updateData.academic_year = academicYear;
               } else {
                 if (selectedYear) updateData.teaching_year = selectedYear;
                 if (specialty.trim()) updateData.specialty = specialty.trim();
