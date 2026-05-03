@@ -893,6 +893,43 @@ const Signup = () => {
                 </Select>
               </motion.div>
 
+              {selectedRole === 'student' && (
+                <motion.div
+                  initial={{ x: -20, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: 0.48 }}
+                  className="grid grid-cols-2 gap-3"
+                >
+                  <div className="space-y-2">
+                    <Label className="text-foreground/80 text-sm">
+                      {language === 'ar' ? 'الدرجة العلمية' : 'Academic Degree'}
+                    </Label>
+                    <Select value={academicDegree} onValueChange={setAcademicDegree} disabled={loading || redirecting}>
+                      <SelectTrigger className="bg-background/50 border-border/50">
+                        <SelectValue placeholder={language === 'ar' ? 'اختر الدرجة' : 'Select'} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="diploma">{language === 'ar' ? 'دبلوم' : 'Diploma'}</SelectItem>
+                        <SelectItem value="bachelor">{language === 'ar' ? 'بكالوريوس' : 'Bachelor'}</SelectItem>
+                        <SelectItem value="masters">{language === 'ar' ? 'ماجستير' : 'Masters'}</SelectItem>
+                        <SelectItem value="phd">{language === 'ar' ? 'دكتوراه' : 'PhD'}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-foreground/80 text-sm">
+                      {language === 'ar' ? 'السنة الأكاديمية' : 'Academic Year'}
+                    </Label>
+                    <Input
+                      value={academicYear}
+                      onChange={(e) => setAcademicYear(e.target.value)}
+                      placeholder={language === 'ar' ? '2024-2025' : '2024-2025'}
+                      className="bg-background/50 border-border/50"
+                      disabled={loading || redirecting}
+                    />
+                  </div>
+                </motion.div>
+              )}
 
               {/* Password Field */}
               <motion.div
