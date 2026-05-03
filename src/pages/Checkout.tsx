@@ -257,6 +257,47 @@ const Checkout = () => {
 
     setIsProcessing(true);
     try {
+      // Free via 100% coupon → enroll directly, skip gateway
+      if (finalPrice === 0 && courseId) {
+        const { data: paymentData, error: payErr } = await supabase.from('payments').insert({
+          user_id: user.id,
+          course_id: courseId,
+          request_id: requestId || null,
+          amount: 0,
+          payment_method: 'online',
+          status: 'paid',
+          paid_at: new Date().toISOString(),
+          notes: appliedCoupon?.valid ? `100% Coupon: ${couponCode}` : 'Free enrollment',
+        }).select().single();
+        if (payErr) {
+          toast.error(isRTL ? 'فشل تسجيل الدفع' : 'Failed to record payment');
+          return;
+        }
+        const { error: enrollErr } = await supabase.from('enrollments').upsert({
+          user_id: user.id,
+          course_id: courseId,
+          status: 'active',
+          paid_percentage: 100,
+        }, { onConflict: 'user_id,course_id' });
+        if (enrollErr && !enrollErr.message.includes('duplicate')) {
+          toast.error(isRTL ? 'فشل التسجيل' : 'Enrollment failed');
+          return;
+        }
+        if (appliedCoupon?.valid && appliedCoupon.coupon_id && paymentData) {
+          try {
+            await supabase.rpc('use_coupon', {
+              p_coupon_id: appliedCoupon.coupon_id,
+              p_user_id: user.id,
+              p_payment_id: paymentData.id,
+              p_discount_amount: appliedCoupon.discount_amount || 0,
+            });
+          } catch (e) { console.error(e); }
+        }
+        toast.success(isRTL ? 'تم تفعيل الكورس مجاناً!' : 'Course activated for free!');
+        navigate(`/courses/${courseId}`);
+        return;
+      }
+
       if (paymentMethod === 'alinmapay') {
         const { data, error } = await supabase.functions.invoke('create-alinma-payment', {
           body: {
