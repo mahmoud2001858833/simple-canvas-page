@@ -81,8 +81,8 @@ serve(async (req: Request) => {
 
     if (!user) {
       return new Response(
-        JSON.stringify({ success: false, error_ar: "المستخدم غير موجود" }),
-        { status: 404, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        JSON.stringify({ success: false, error: "User not found", error_ar: "المستخدم غير موجود" }),
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
@@ -94,8 +94,8 @@ serve(async (req: Request) => {
     if (updateError) {
       console.error("Error updating password:", updateError);
       return new Response(
-        JSON.stringify({ success: false, error_ar: "فشل في تحديث كلمة المرور" }),
-        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        JSON.stringify({ success: false, error: updateError.message, error_ar: "فشل في تحديث كلمة المرور" }),
+        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
