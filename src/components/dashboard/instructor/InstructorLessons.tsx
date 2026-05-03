@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { triggerTranscriptGeneration } from '@/lib/generateTranscript';
+import { VideoDurationDetector } from '@/components/dashboard/VideoDurationDetector';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   DropdownMenu as DropdownMenuRoot,
