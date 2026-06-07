@@ -71,6 +71,7 @@ const Navbar = () => {
   const navLinks = [
     { label: t.nav.home, href: '/', sectionId: undefined },
     { label: t.nav.courses, href: '/courses', sectionId: undefined },
+    { label: dir === 'rtl' ? 'فيديوهات توضيحية' : 'Tutorials', href: '/tutorials', sectionId: undefined },
     { label: dir === 'rtl' ? 'من نحن' : 'About Us', href: '/about', sectionId: undefined },
     { label: dir === 'rtl' ? 'كيف يعمل' : 'How It Works', href: '/#how-it-works', sectionId: 'how-it-works' },
     { label: dir === 'rtl' ? 'الأسئلة الشائعة' : 'FAQ', href: '/#faq', sectionId: 'faq' },
