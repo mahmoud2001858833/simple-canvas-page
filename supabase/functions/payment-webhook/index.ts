@@ -155,16 +155,24 @@ serve(async (req) => {
     }));
 
     if (isPayTabs) {
-      // Verify signature
+      // MANDATORY signature verification
       const paytabsServerKey = Deno.env.get('PAYTABS_SERVER_KEY');
       const signatureHeader = req.headers.get('signature');
-      if (paytabsServerKey && signatureHeader) {
-        const expected = await createHmac(paytabsServerKey, rawBody);
-        if (signatureHeader !== expected) {
-          console.error('PayTabs signature verification failed');
-          return new Response(JSON.stringify({ error: 'Invalid signature' }),
-            { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-        }
+      if (!paytabsServerKey) {
+        console.error('PAYTABS_SERVER_KEY not configured');
+        return new Response(JSON.stringify({ error: 'Server misconfigured' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      if (!signatureHeader) {
+        console.error('PayTabs webhook missing signature header');
+        return new Response(JSON.stringify({ error: 'Missing signature' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      const expected = await createHmac(paytabsServerKey, rawBody);
+      if (signatureHeader !== expected) {
+        console.error('PayTabs signature verification failed');
+        return new Response(JSON.stringify({ error: 'Invalid signature' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
       const paymentId = body.cart_id as string;
