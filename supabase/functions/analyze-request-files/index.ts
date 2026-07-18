@@ -65,6 +65,33 @@ serve(async (req) => {
       );
     }
 
+    // AuthZ: only the request owner or admin can trigger analysis
+    const { data: reqRow, error: reqErr } = await supabaseAdmin
+      .from("custom_course_requests")
+      .select("id, user_id")
+      .eq("id", requestId)
+      .maybeSingle();
+
+    if (reqErr || !reqRow) {
+      return new Response(
+        JSON.stringify({ error: "Request not found" }),
+        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { data: isAdminData } = await supabaseAdmin.rpc("has_role", {
+      _user_id: userData.user.id,
+      _role: "admin",
+    });
+    const isAdmin = isAdminData === true;
+
+    if (reqRow.user_id !== userData.user.id && !isAdmin) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Get request files
     const { data: files, error: filesError } = await supabaseAdmin
       .from("request_files")
