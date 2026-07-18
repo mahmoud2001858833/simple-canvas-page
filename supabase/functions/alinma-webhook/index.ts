@@ -208,26 +208,28 @@ serve(async (req) => {
     console.log(`  Amount: ${amount} ${currency}`);
     console.log(`  Card: ${maskedCard} (${cardBrand})`);
 
-    let signatureVerified = false;
-    if (receivedSignature && paymentId && responseCode) {
-      const merchantKey = (Deno.env.get('ALINMA_MERCHANT_KEY') || '').trim();
-      if (merchantKey) {
-        signatureVerified = await verifySignature(
-          paymentId,
-          merchantKey,
-          responseCode,
-          amount,
-          receivedSignature,
-        );
-
-        if (!signatureVerified) {
-          console.error('Signature verification failed — rejecting webhook');
-          return jsonResponse({ error: 'Invalid signature' }, 401);
-        }
-
-        console.log('Signature verified successfully');
-      }
+    // MANDATORY signature verification — never accept an unsigned webhook
+    const merchantKey = (Deno.env.get('ALINMA_MERCHANT_KEY') || '').trim();
+    if (!merchantKey) {
+      console.error('ALINMA_MERCHANT_KEY is not configured — rejecting webhook');
+      return jsonResponse({ error: 'Server misconfigured' }, 500);
     }
+    if (!receivedSignature || !paymentId || !responseCode) {
+      console.error('Missing signature/paymentId/responseCode — rejecting webhook');
+      return jsonResponse({ error: 'Invalid signature' }, 401);
+    }
+    const signatureVerified = await verifySignature(
+      paymentId,
+      merchantKey,
+      responseCode,
+      amount,
+      receivedSignature,
+    );
+    if (!signatureVerified) {
+      console.error('Signature verification failed — rejecting webhook');
+      return jsonResponse({ error: 'Invalid signature' }, 401);
+    }
+    console.log('Signature verified successfully');
 
     let payment = null;
 
