@@ -44,18 +44,9 @@ serve(async (req: Request) => {
       );
     }
 
-    // Master OTP bypass (accepts for any email)
-    if (otp === "111222") {
-      console.log(`Master OTP used for ${email}`);
-      return new Response(
-        JSON.stringify({
-          verified: true,
-          message: "Email verified successfully",
-          message_ar: "تم التحقق من البريد الإلكتروني بنجاح",
-        }),
-        { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
-    }
+    // Master OTP bypass removed for security.
+
+
 
     // Find the verification code
     const { data: codes, error: fetchError } = await supabase

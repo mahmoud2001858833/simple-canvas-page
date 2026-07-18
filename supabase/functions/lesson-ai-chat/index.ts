@@ -35,17 +35,39 @@ serve(async (req) => {
     // Get lesson info
     const { data: lesson } = await supabase
       .from("lessons")
-      .select("title, title_ar, description, course_id")
+      .select("title, title_ar, description, course_id, is_preview")
       .eq("id", lessonId)
       .single();
 
+    if (!lesson) throw new Error("Lesson not found");
+
     const { data: course } = await supabase
       .from("courses")
-      .select("title_ar, title")
-      .eq("id", lesson?.course_id)
+      .select("title_ar, title, instructor_id")
+      .eq("id", lesson.course_id)
       .single();
 
-    const contextInfo = transcriptData?.transcript 
+    // AuthZ: only preview lessons, enrolled students, course instructor, or admin
+    if (!lesson.is_preview) {
+      const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: user.id, _role: "admin" });
+      const isInstructor = course?.instructor_id === user.id;
+      let hasAccess = isAdmin === true || isInstructor;
+      if (!hasAccess) {
+        const { data: access } = await supabase.rpc("user_has_course_access", {
+          _user_id: user.id,
+          _course_id: lesson.course_id,
+        });
+        hasAccess = access === true;
+      }
+      if (!hasAccess) {
+        return new Response(JSON.stringify({ error: "Forbidden: enrollment required" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    const contextInfo = transcriptData?.transcript
       ? `\n\nمحتوى الدرس التفصيلي:\n${transcriptData.transcript}`
       : "";
 

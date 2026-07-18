@@ -107,11 +107,36 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
+    // AuthN: accept only service-role callers (invoked from other edge functions)
+    // or authenticated users. Reject anonymous callers.
+    const authHeader = req.headers.get("Authorization") || "";
+    const token = authHeader.replace("Bearer ", "").trim();
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    const isService = !!token && !!serviceRoleKey && token === serviceRoleKey;
+
+    if (!isService) {
+      if (!token) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }),
+          { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } });
+      }
+      const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        serviceRoleKey,
+      );
+      const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+      if (authError || !user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }),
+          { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } });
+      }
+    }
+
     const emailReq: EmailRequest = await req.json();
 
     if (!emailReq.to_email || !emailReq.type) {
       throw new Error("Missing required fields: to_email, type");
     }
+
 
     const content = getEmailContent(emailReq);
 

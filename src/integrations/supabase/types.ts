@@ -2527,6 +2527,14 @@ export type Database = {
         Args: { check_user_id: string }
         Returns: boolean
       }
+      lookup_referral_code: {
+        Args: { _code: string }
+        Returns: {
+          code: string
+          id: string
+          is_active: boolean
+        }[]
+      }
       recalc_course_duration: {
         Args: { _course_id: string }
         Returns: undefined
