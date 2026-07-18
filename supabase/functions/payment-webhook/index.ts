@@ -228,6 +228,29 @@ serve(async (req) => {
       }
 
     } else if (isTabby) {
+      // MANDATORY Tabby signature verification (HMAC-SHA256 over raw body)
+      const tabbySecret = Deno.env.get('TABBY_WEBHOOK_SECRET');
+      const tabbySignature =
+        req.headers.get('x-tabby-signature') ||
+        req.headers.get('tabby-signature') ||
+        req.headers.get('signature');
+      if (!tabbySecret) {
+        console.error('TABBY_WEBHOOK_SECRET not configured');
+        return new Response(JSON.stringify({ error: 'Server misconfigured' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      if (!tabbySignature) {
+        console.error('Tabby webhook missing signature header');
+        return new Response(JSON.stringify({ error: 'Missing signature' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      const expectedTabbySig = await createHmac(tabbySecret, rawBody);
+      if (tabbySignature.toLowerCase() !== expectedTabbySig.toLowerCase()) {
+        console.error('Tabby signature verification failed');
+        return new Response(JSON.stringify({ error: 'Invalid signature' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
       const tabbyPaymentId = (body.payment as Record<string, unknown>)?.id || body.id;
       const status = body.status || (body.payment as Record<string, unknown>)?.status;
 
