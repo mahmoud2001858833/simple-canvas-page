@@ -244,9 +244,7 @@ export const InstructorChapters = ({ courseId, courseTitle, onBack }: Instructor
                   <Button variant="ghost" size="icon" onClick={(e) => handleEdit(chapter, e)}>
                     <Edit className="w-4 h-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(chapter.id); }}>
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  {/* Delete restricted to admins per platform policy */}
                 </div>
               </div>
             );
