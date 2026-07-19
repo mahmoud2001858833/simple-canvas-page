@@ -132,10 +132,10 @@ const About = () => {
       stats: {
         title: 'Our Achievements',
         items: [
-          { value: '50,000+', label: 'Registered Students' },
-          { value: '500+', label: 'Courses' },
-          { value: '100+', label: 'Expert Instructors' },
-          { value: '95%', label: 'Student Satisfaction' }
+          { value: fmt(platformStats.students), label: 'Registered Students' },
+          { value: fmt(platformStats.courses), label: 'Courses' },
+          { value: fmt(platformStats.instructors), label: 'Expert Instructors' },
+          { value: platformStats.satisfactionPercent > 0 ? `${platformStats.satisfactionPercent}%` : '—', label: 'Student Satisfaction' }
         ]
       },
     }
