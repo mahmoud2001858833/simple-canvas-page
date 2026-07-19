@@ -737,7 +737,8 @@ const Signup = () => {
                           "ps-10 bg-background/50 border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-300",
                           validationErrors.phone && "border-destructive"
                         )}
-                        placeholder={language === 'ar' ? 'اختياري' : 'Optional'}
+                        placeholder={language === 'ar' ? 'مطلوب' : 'Required'}
+                        required
                         dir="ltr"
                         disabled={loading || redirecting}
                       />
