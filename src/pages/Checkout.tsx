@@ -172,7 +172,7 @@ const Checkout = () => {
           });
           if (error) {
             if (error.message.includes('duplicate')) {
-              toast.info(isRTL ? 'أنت مسجل بالفعل في هذا الكورس' : 'You are already enrolled in this course');
+              toast.info(isRTL ? 'أنت مسجل بالفعل في هذا الدورة' : 'You are already enrolled in this course');
             } else {
               throw error;
             }
@@ -293,7 +293,7 @@ const Checkout = () => {
             });
           } catch (e) { console.error(e); }
         }
-        toast.success(isRTL ? 'تم تفعيل الكورس مجاناً!' : 'Course activated for free!');
+        toast.success(isRTL ? 'تم تفعيل الدورة مجاناً!' : 'Course activated for free!');
         navigate(`/courses/${courseId}`);
         return;
       }
@@ -312,7 +312,7 @@ const Checkout = () => {
         if (error) {
           const errorMsg = error.message || 'Payment processing failed';
           if (errorMsg.includes('already enrolled')) {
-            toast.error(isRTL ? 'أنت مسجل بالفعل في هذا الكورس' : 'You are already enrolled in this course');
+            toast.error(isRTL ? 'أنت مسجل بالفعل في هذا الدورة' : 'You are already enrolled in this course');
           } else if (errorMsg.includes('not configured')) {
             toast.error(isRTL ? 'بوابة الدفع غير مهيأة. يرجى التواصل مع الدعم' : 'Payment gateway not configured. Please contact support');
           } else {
@@ -406,7 +406,7 @@ const Checkout = () => {
           {isRTL ? 'المنتج غير موجود' : 'Item Not Found'}
         </h1>
         <Button onClick={() => navigate('/courses')} variant="outline" className="mt-4">
-          {isRTL ? 'تصفح الكورسات' : 'Browse Courses'}
+          {isRTL ? 'تصفح الدورات' : 'Browse Courses'}
         </Button>
       </div>
     );
@@ -662,7 +662,7 @@ const Checkout = () => {
                     </h3>
                     <p className="text-sm text-muted-foreground">
                       {itemType === 'course' 
-                        ? (isRTL ? 'كورس' : 'Course')
+                        ? (isRTL ? 'دورة' : 'Course')
                         : (isRTL ? 'طلب مخصص' : 'Custom Request')
                       }
                     </p>
@@ -674,7 +674,7 @@ const Checkout = () => {
                 {/* Price Breakdown */}
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm text-muted-foreground">
-                    <span>{isRTL ? 'السعر الكلي للكورس' : 'Total Course Price'}</span>
+                    <span>{isRTL ? 'السعر الكلي للدورة' : 'Total Course Price'}</span>
                     <span>{totalPrice} {isRTL ? 'ر.س' : 'SAR'}</span>
                   </div>
                   

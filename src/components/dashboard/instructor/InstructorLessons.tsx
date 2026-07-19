@@ -89,7 +89,7 @@ export const InstructorLessons = ({ courseId, courseTitle, chapterId, chapterTit
   });
 
   const t = language === 'ar' ? {
-    back: chapterId ? 'رجوع للفصول' : 'رجوع للكورسات',
+    back: chapterId ? 'رجوع للفصول' : 'رجوع للدورات',
     lessonsFor: 'دروس:',
     newLesson: 'درس جديد',
     editLesson: 'تعديل الدرس',

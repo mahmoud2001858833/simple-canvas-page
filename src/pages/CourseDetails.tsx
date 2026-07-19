@@ -57,9 +57,9 @@ const courseDetailsOnboardingSteps = [
   {
     id: "course-info",
     title: "Course Information",
-    title_ar: "معلومات الكورس",
+    title_ar: "معلومات الدورة",
     description: "View course details including duration, number of students, and lessons",
-    description_ar: "شاهد تفاصيل الكورس بما في ذلك المدة وعدد الطلاب والدروس",
+    description_ar: "شاهد تفاصيل الدورة بما في ذلك المدة وعدد الطلاب والدروس",
     target: "[data-onboarding='course-info']",
     placement: "bottom" as const,
   },
@@ -68,16 +68,16 @@ const courseDetailsOnboardingSteps = [
     title: "Enrollment Card",
     title_ar: "بطاقة الاشتراك",
     description: "See the price and enroll in the course from here",
-    description_ar: "شاهد السعر واشترك في الكورس من هنا",
+    description_ar: "شاهد السعر واشترك في الدورة من هنا",
     target: "[data-onboarding='course-enroll']",
     placement: "left" as const,
   },
   {
     id: "course-content",
     title: "Course Content",
-    title_ar: "محتوى الكورس",
+    title_ar: "محتوى الدورة",
     description: "Browse all lessons in this course. Free preview lessons are marked",
-    description_ar: "تصفح جميع الدروس في هذا الكورس. الدروس المجانية معلمة",
+    description_ar: "تصفح جميع الدروس في هذا الدورة. الدروس المجانية معلمة",
     target: "[data-onboarding='course-content']",
     placement: "top" as const,
   },
@@ -416,9 +416,9 @@ const CourseDetails = () => {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center">
         <GraduationCap className="h-16 w-16 text-muted-foreground mb-4" />
-        <h1 className="text-2xl font-bold mb-2">{isRTL ? "الكورس غير موجود" : "Course Not Found"}</h1>
+        <h1 className="text-2xl font-bold mb-2">{isRTL ? "الدورة غير موجود" : "Course Not Found"}</h1>
         <Button asChild variant="outline" className="mt-4">
-          <Link to="/courses">{isRTL ? "العودة للكورسات" : "Back to Courses"}</Link>
+          <Link to="/courses">{isRTL ? "العودة للدورات" : "Back to Courses"}</Link>
         </Button>
       </div>
     );
@@ -440,7 +440,7 @@ const CourseDetails = () => {
             onClick={() => navigate("/courses")}
           >
             {isRTL ? (
-              <><ArrowRight className="h-4 w-4 ml-2" />العودة للكورسات</>
+              <><ArrowRight className="h-4 w-4 ml-2" />العودة للدورات</>
             ) : (
               <><ArrowLeft className="h-4 w-4 mr-2" />Back to Courses</>
             )}
@@ -528,7 +528,7 @@ const CourseDetails = () => {
                     <div className="space-y-4">
                       <div className="flex items-center gap-2 text-green-600">
                         <CheckCircle className="h-5 w-5" />
-                        <span className="font-medium">{isRTL ? "أنت مشترك في هذا الكورس" : "You're enrolled"}</span>
+                        <span className="font-medium">{isRTL ? "أنت مشترك في هذا الدورة" : "You're enrolled"}</span>
                       </div>
                       <div>
                         <div className="flex justify-between text-sm mb-2">
@@ -574,7 +574,7 @@ const CourseDetails = () => {
             <Card data-onboarding="course-content">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <BookOpen className="h-5 w-5" />{isRTL ? "محتوى الكورس" : "Course Content"}
+                  <BookOpen className="h-5 w-5" />{isRTL ? "محتوى الدورة" : "Course Content"}
                   {lessons.length > 0 && (
                     <Badge variant="secondary" className="text-xs ms-2">
                       {(() => {
@@ -671,10 +671,10 @@ const CourseDetails = () => {
                                       if (accessible) {
                                         navigate(`/courses/${id}/lessons/${lesson.id}`);
                                       } else if (!user) {
-                                        toast.info(isRTL ? 'سجّل دخولك أولاً ثم اشترِ الكورس لمشاهدة هذا الدرس' : 'Please login and purchase the course to watch this lesson');
+                                        toast.info(isRTL ? 'سجّل دخولك أولاً ثم اشترِ الدورة لمشاهدة هذا الدرس' : 'Please login and purchase the course to watch this lesson');
                                         navigate('/login');
                                       } else if (!enrollment) {
-                                        toast.info(isRTL ? 'اشترِ الكورس لمشاهدة هذا الدرس' : 'Purchase the course to watch this lesson');
+                                        toast.info(isRTL ? 'اشترِ الدورة لمشاهدة هذا الدرس' : 'Purchase the course to watch this lesson');
                                         navigate(`/checkout/${id}`);
                                       } else if (enrollment?.status === 'active') {
                                         navigate(`/checkout/${id}`);
@@ -853,7 +853,7 @@ const CourseDetails = () => {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="flex justify-between items-center">
-              <span>{isRTL ? "سعر الكورس" : "Course Price"}</span>
+              <span>{isRTL ? "سعر الدورة" : "Course Price"}</span>
               <span className="font-bold text-lg">{course.price} {isRTL ? "ر.س" : "SAR"}</span>
             </div>
           </div>

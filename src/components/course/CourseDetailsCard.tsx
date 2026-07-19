@@ -59,7 +59,7 @@ export const CourseDetailsCard = ({
     <Card>
       <CardHeader>
         <CardTitle className="text-lg">
-          {isRTL ? 'تفاصيل الكورس' : 'Course Details'}
+          {isRTL ? 'تفاصيل الدورة' : 'Course Details'}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">

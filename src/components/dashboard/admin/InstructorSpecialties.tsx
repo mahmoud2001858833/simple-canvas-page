@@ -140,7 +140,7 @@ export const InstructorSpecialties = () => {
             <div className="p-2 rounded-lg bg-accent/10"><BookOpen className="w-5 h-5 text-accent-foreground" /></div>
             <div>
               <p className="text-2xl font-bold">{totalCourses}</p>
-              <p className="text-xs text-muted-foreground">{language === 'ar' ? 'كورس' : 'Courses'}</p>
+              <p className="text-xs text-muted-foreground">{language === 'ar' ? 'دورة' : 'Courses'}</p>
             </div>
           </CardContent>
         </Card>
@@ -174,7 +174,7 @@ export const InstructorSpecialties = () => {
               <TableRow>
                 <TableHead>{language === 'ar' ? 'المعلم' : 'Instructor'}</TableHead>
                 <TableHead>{language === 'ar' ? 'التخصص' : 'Specialty'}</TableHead>
-                <TableHead>{language === 'ar' ? 'الكورسات' : 'Courses'}</TableHead>
+                <TableHead>{language === 'ar' ? 'الدورات' : 'Courses'}</TableHead>
                 <TableHead>{language === 'ar' ? 'الطلاب' : 'Students'}</TableHead>
                 <TableHead>{language === 'ar' ? 'الأرباح' : 'Earnings'}</TableHead>
                 <TableHead>{language === 'ar' ? 'إجراء' : 'Action'}</TableHead>

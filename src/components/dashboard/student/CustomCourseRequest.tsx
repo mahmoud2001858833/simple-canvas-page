@@ -59,9 +59,9 @@ export const CustomCourseRequest = () => {
 
   const texts = {
     ar: {
-      title: 'طلب كورس مخصص',
+      title: 'طلب دورة مخصص',
       subtitle: 'أرسل صور المادة الدراسية وسيقوم الذكاء الاصطناعي بتحليلها',
-      courseTitle: 'عنوان الكورس المطلوب',
+      courseTitle: 'عنوان الدورة المطلوب',
       courseTitlePlaceholder: 'مثال: شرح مقرر الرياضيات 101',
       description: 'وصف المتطلبات',
       descriptionPlaceholder: 'اشرح ما تحتاجه بالتفصيل...',
@@ -375,7 +375,7 @@ export const CustomCourseRequest = () => {
     }
 
     if (!title.trim()) {
-      toast.error(language === 'ar' ? 'يرجى إدخال عنوان الكورس' : 'Please enter course title');
+      toast.error(language === 'ar' ? 'يرجى إدخال عنوان الدورة' : 'Please enter course title');
       return;
     }
 

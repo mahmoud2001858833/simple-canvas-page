@@ -76,12 +76,12 @@ export const DashboardSidebar = ({ activeTab, onTabChange, isOpen, onToggle, use
 
   const studentTabs = [
     { id: 'overview', label: { ar: 'نظرة عامة', en: 'Overview' }, icon: LayoutDashboard, onboardingId: null, showBadge: false, isAction: false },
-    { id: 'courses', label: { ar: 'كورساتي', en: 'My Courses' }, icon: BookOpen, onboardingId: null, showBadge: false, isAction: false },
+    { id: 'courses', label: { ar: 'دوراتي', en: 'My Courses' }, icon: BookOpen, onboardingId: null, showBadge: false, isAction: false },
     { id: 'assignments', label: { ar: 'واجباتي', en: 'Assignments' }, icon: ClipboardList, onboardingId: null, showBadge: false, isAction: false },
     { id: 'progress', label: { ar: 'تقدمي', en: 'Progress' }, icon: TrendingUp, onboardingId: null, showBadge: false, isAction: false },
     { id: 'certificates', label: { ar: 'شهاداتي', en: 'Certificates' }, icon: Award, onboardingId: null, showBadge: false, isAction: false },
     { id: 'payments', label: { ar: 'مدفوعاتي', en: 'My Payments' }, icon: Wallet, onboardingId: null, showBadge: false, isAction: false },
-    { id: 'request', label: { ar: 'طلب كورس مخصص', en: 'Request Course' }, icon: FileText, onboardingId: 'request', showBadge: false, isAction: false },
+    { id: 'request', label: { ar: 'طلب دورة مخصص', en: 'Request Course' }, icon: FileText, onboardingId: 'request', showBadge: false, isAction: false },
     { id: 'my-requests', label: { ar: 'طلباتي', en: 'My Requests' }, icon: MessageSquare, onboardingId: null, showBadge: true, isAction: false },
     { id: 'achievements', label: { ar: 'إنجازاتي', en: 'Achievements' }, icon: Trophy, onboardingId: null, showBadge: false, isAction: false },
     { id: 'planner', label: { ar: 'الجدول الدراسي', en: 'Study Planner' }, icon: CalendarDays, onboardingId: null, showBadge: false, isAction: false },
@@ -90,7 +90,7 @@ export const DashboardSidebar = ({ activeTab, onTabChange, isOpen, onToggle, use
 
   const instructorTabs = [
     { id: 'overview', label: { ar: 'نظرة عامة', en: 'Overview' }, icon: LayoutDashboard, onboardingId: null, showBadge: false, isAction: false },
-    { id: 'courses', label: { ar: 'كورساتي', en: 'My Courses' }, icon: BookOpen, onboardingId: null, showBadge: false, isAction: false },
+    { id: 'courses', label: { ar: 'دوراتي', en: 'My Courses' }, icon: BookOpen, onboardingId: null, showBadge: false, isAction: false },
     { id: 'assignments', label: { ar: 'الواجبات', en: 'Assignments' }, icon: ClipboardList, onboardingId: null, showBadge: false, isAction: false },
     { id: 'question-bank', label: { ar: 'بنك الأسئلة', en: 'Question Bank' }, icon: HelpCircle, onboardingId: null, showBadge: false, isAction: false },
     { id: 'students', label: { ar: 'طلابي', en: 'My Students' }, icon: Users, onboardingId: null, showBadge: false, isAction: false },
@@ -108,8 +108,8 @@ export const DashboardSidebar = ({ activeTab, onTabChange, isOpen, onToggle, use
     { id: 'user-insights', label: { ar: 'معلومات المستخدمين', en: 'User Insights' }, icon: UserCheck, onboardingId: null, showBadge: false, isAction: false },
     { id: 'instructor-detail', label: { ar: 'المعلم بالتفصيل', en: 'Instructor Detail' }, icon: UserCog, onboardingId: null, showBadge: false, isAction: false },
     { id: 'student-detail', label: { ar: 'الطالب بالتفصيل', en: 'Student Detail' }, icon: StudentIcon, onboardingId: null, showBadge: false, isAction: false },
-    { id: 'courses', label: { ar: 'الكورسات', en: 'Courses' }, icon: BookOpen, onboardingId: null, showBadge: false, isAction: false },
-    { id: 'course-approvals', label: { ar: 'موافقة على كورسات المعلم', en: 'Course Approvals' }, icon: CheckCircle, onboardingId: null, showBadge: false, isAction: false },
+    { id: 'courses', label: { ar: 'الدورات', en: 'Courses' }, icon: BookOpen, onboardingId: null, showBadge: false, isAction: false },
+    { id: 'course-approvals', label: { ar: 'موافقة على دورات المعلم', en: 'Course Approvals' }, icon: CheckCircle, onboardingId: null, showBadge: false, isAction: false },
     { id: 'universities', label: { ar: 'الجامعات', en: 'Universities' }, icon: Building2, onboardingId: null, showBadge: false, isAction: false },
     { id: 'colleges', label: { ar: 'الكليات', en: 'Colleges' }, icon: School, onboardingId: null, showBadge: false, isAction: false },
     { id: 'majors', label: { ar: 'التخصصات', en: 'Majors' }, icon: GraduationCap, onboardingId: null, showBadge: false, isAction: false },

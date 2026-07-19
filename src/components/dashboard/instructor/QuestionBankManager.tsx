@@ -64,7 +64,7 @@ export const QuestionBankManager = () => {
     edit: isAr ? 'تعديل السؤال' : 'Edit Question',
     question: isAr ? 'السؤال (إنجليزي)' : 'Question (English)',
     questionAr: isAr ? 'السؤال (عربي)' : 'Question (Arabic)',
-    course: isAr ? 'الكورس' : 'Course',
+    course: isAr ? 'الدورة' : 'Course',
     chapter: isAr ? 'الفصل' : 'Chapter',
     difficulty: isAr ? 'الصعوبة' : 'Difficulty',
     easy: isAr ? 'سهل' : 'Easy',
@@ -85,7 +85,7 @@ export const QuestionBankManager = () => {
     count: isAr ? 'عدد الأسئلة' : 'Question Count',
     generate: isAr ? 'توليد' : 'Generate',
     total: isAr ? 'إجمالي الأسئلة' : 'Total Questions',
-    byCourse: isAr ? 'حسب الكورس' : 'By Course',
+    byCourse: isAr ? 'حسب الدورة' : 'By Course',
     byDifficulty: isAr ? 'حسب الصعوبة' : 'By Difficulty',
   };
 

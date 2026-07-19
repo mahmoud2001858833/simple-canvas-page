@@ -65,10 +65,10 @@ export const InstructorDetailView = () => {
       subtitle: 'عرض لوحات تحكم المعلمين',
       search: 'ابحث عن معلم...',
       viewDashboard: 'عرض اللوحة',
-      courses: 'كورس',
+      courses: 'دورة',
       noInstructors: 'لا يوجد معلمين',
       overview: 'نظرة عامة',
-      myCourses: 'الكورسات',
+      myCourses: 'الدورات',
       students: 'الطلاب',
       earnings: 'الأرباح',
       messages: 'الرسائل',
@@ -304,7 +304,7 @@ const InstructorStatsPreview = ({ instructorId, language }: { instructorId: stri
   });
 
   const statCards = [
-    { title: language === 'ar' ? 'الكورسات' : 'Courses', value: stats?.totalCourses || 0, icon: BookOpen, gradient: 'from-primary to-primary/80' },
+    { title: language === 'ar' ? 'الدورات' : 'Courses', value: stats?.totalCourses || 0, icon: BookOpen, gradient: 'from-primary to-primary/80' },
     { title: language === 'ar' ? 'الطلاب' : 'Students', value: stats?.totalStudents || 0, icon: Users, gradient: 'from-secondary to-secondary/80' },
     { title: language === 'ar' ? 'الأرباح المحصلة' : 'Total Earnings', value: `${(stats?.totalEarnings || 0).toLocaleString()} ر.س`, icon: DollarSign, gradient: 'from-primary to-primary/80' },
     { title: language === 'ar' ? 'أرباح معلقة' : 'Pending', value: `${(stats?.pendingEarnings || 0).toLocaleString()} ر.س`, icon: DollarSign, gradient: 'from-accent to-accent/80' },
@@ -355,11 +355,11 @@ const InstructorCoursesPreview = ({ instructorId, language }: { instructorId: st
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{language === 'ar' ? 'الكورسات' : 'Courses'}</CardTitle>
+        <CardTitle>{language === 'ar' ? 'الدورات' : 'Courses'}</CardTitle>
       </CardHeader>
       <CardContent>
         {(!courses || courses.length === 0) ? (
-          <p className="text-center py-4 text-muted-foreground">{language === 'ar' ? 'لا توجد كورسات' : 'No courses'}</p>
+          <p className="text-center py-4 text-muted-foreground">{language === 'ar' ? 'لا توجد دورات' : 'No courses'}</p>
         ) : (
           <div className="space-y-3">
             {courses.map((course) => (

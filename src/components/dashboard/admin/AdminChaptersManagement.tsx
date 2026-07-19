@@ -29,7 +29,7 @@ export const AdminChaptersManagement = ({ courseId, courseTitle, onBack }: Admin
   const [selectedChapter, setSelectedChapter] = useState<{ id: string; title: string } | null>(null);
 
   const t = isRTL ? {
-    back: 'رجوع للكورسات',
+    back: 'رجوع للدورات',
     chaptersFor: 'فصول:',
     newChapter: 'فصل جديد',
     editChapter: 'تعديل الفصل',
@@ -42,7 +42,7 @@ export const AdminChaptersManagement = ({ courseId, courseTitle, onBack }: Admin
     chapterUpdated: 'تم تحديث الفصل',
     chapterDeleted: 'تم حذف الفصل',
     lessons: 'درس',
-    createFirst: 'أنشئ فصلاً لتنظيم دروس الكورس',
+    createFirst: 'أنشئ فصلاً لتنظيم دروس الدورة',
   } : {
     back: 'Back to Courses',
     chaptersFor: 'Chapters for:',

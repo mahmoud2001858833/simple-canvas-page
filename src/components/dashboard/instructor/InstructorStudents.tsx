@@ -47,7 +47,7 @@ export const InstructorStudents = () => {
     ar: {
       title: 'طلابي',
       searchPlaceholder: 'ابحث عن طالب...',
-      allCourses: 'جميع الكورسات',
+      allCourses: 'جميع الدورات',
       noStudents: 'لا يوجد طلاب مسجلين بعد',
       progress: 'التقدم',
       enrolledIn: 'مسجل في',

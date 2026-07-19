@@ -101,8 +101,8 @@ const UserSettings = () => {
           {/* Per-page onboarding controls */}
           {([
             { page: 'dashboard' as OnboardingPage, icon: LayoutDashboard, label: { ar: 'لوحة التحكم', en: 'Dashboard' } },
-            { page: 'courses' as OnboardingPage, icon: BookOpen, label: { ar: 'صفحة الكورسات', en: 'Courses Page' } },
-            { page: 'courseDetails' as OnboardingPage, icon: GraduationCap, label: { ar: 'تفاصيل الكورس', en: 'Course Details' } },
+            { page: 'courses' as OnboardingPage, icon: BookOpen, label: { ar: 'صفحة الدورات', en: 'Courses Page' } },
+            { page: 'courseDetails' as OnboardingPage, icon: GraduationCap, label: { ar: 'تفاصيل الدورة', en: 'Course Details' } },
             { page: 'lessonViewer' as OnboardingPage, icon: PlayCircle, label: { ar: 'مشاهدة الدرس', en: 'Lesson Viewer' } },
           ]).map(({ page, icon: Icon, label }) => (
             <div key={page} className="flex items-center justify-between py-2">

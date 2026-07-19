@@ -277,7 +277,7 @@ export const UserInsights = () => {
                     <BookOpen className="w-6 h-6 text-blue-500" />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">{isRTL ? 'إجمالي الكورسات' : 'Total Courses'}</p>
+                    <p className="text-sm text-muted-foreground">{isRTL ? 'إجمالي الدورات' : 'Total Courses'}</p>
                     <p className="text-2xl font-bold">{instructorStats.totalCourses}</p>
                   </div>
                 </div>
@@ -341,7 +341,7 @@ export const UserInsights = () => {
                       <TableRow>
                         <TableHead>{isRTL ? 'الاسم' : 'Name'}</TableHead>
                         <TableHead>{isRTL ? 'البريد' : 'Email'}</TableHead>
-                        <TableHead className="text-center">{isRTL ? 'الكورسات' : 'Courses'}</TableHead>
+                        <TableHead className="text-center">{isRTL ? 'الدورات' : 'Courses'}</TableHead>
                         <TableHead className="text-center">{isRTL ? 'الطلاب' : 'Students'}</TableHead>
                         <TableHead className="text-center">{isRTL ? 'أرباح مدفوعة' : 'Paid'}</TableHead>
                         <TableHead className="text-center">{isRTL ? 'أرباح معلقة' : 'Pending'}</TableHead>
@@ -478,7 +478,7 @@ export const UserInsights = () => {
                       <TableRow>
                         <TableHead>{isRTL ? 'الاسم' : 'Name'}</TableHead>
                         <TableHead>{isRTL ? 'البريد' : 'Email'}</TableHead>
-                        <TableHead className="text-center">{isRTL ? 'الكورسات' : 'Courses'}</TableHead>
+                        <TableHead className="text-center">{isRTL ? 'الدورات' : 'Courses'}</TableHead>
                         <TableHead className="text-center">{isRTL ? 'التقدم' : 'Progress'}</TableHead>
                         <TableHead className="text-center">{isRTL ? 'الشهادات' : 'Certificates'}</TableHead>
                         <TableHead className="text-center">{isRTL ? 'المدفوعات' : 'Payments'}</TableHead>

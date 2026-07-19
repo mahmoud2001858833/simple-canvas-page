@@ -56,7 +56,7 @@ export const MyRequests = () => {
   const texts = {
     ar: {
       title: 'طلباتي',
-      subtitle: 'تتبع حالة طلبات الكورسات المخصصة',
+      subtitle: 'تتبع حالة طلبات الدورات المخصصة',
       noRequests: 'لا توجد طلبات حتى الآن',
       createNew: 'أنشئ طلب جديد',
       status: {
@@ -205,7 +205,7 @@ export const MyRequests = () => {
           icon={FileText}
           title={language === 'ar' ? 'لا توجد طلبات بعد' : 'No requests yet'}
           description={language === 'ar' 
-            ? 'أنشئ طلبك الأول للحصول على كورس مخصص يناسب احتياجاتك الدراسية' 
+            ? 'أنشئ طلبك الأول للحصول على دورة مخصص يناسب احتياجاتك الدراسية' 
             : 'Create your first request to get a custom course tailored to your study needs'}
           actionLabel={language === 'ar' ? 'إنشاء طلب جديد' : 'Create New Request'}
           actionLink="/dashboard?tab=request"

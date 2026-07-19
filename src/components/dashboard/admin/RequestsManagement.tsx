@@ -490,7 +490,7 @@ export const RequestsManagement = () => {
             </Badge>
           </h1>
           <p className="text-muted-foreground">
-            {language === 'ar' ? 'إدارة طلبات الكورسات المخصصة مع تحليل الذكاء الاصطناعي' : 'Manage custom course requests with AI analysis'}
+            {language === 'ar' ? 'إدارة طلبات الدورات المخصصة مع تحليل الذكاء الاصطناعي' : 'Manage custom course requests with AI analysis'}
           </p>
         </div>
         <div className="flex items-center gap-2">

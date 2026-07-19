@@ -26,9 +26,9 @@ const coursesOnboardingSteps = [
   {
     id: "courses-search",
     title: "Search Courses",
-    title_ar: "البحث عن كورس",
+    title_ar: "البحث عن دورة",
     description: "Use the search bar to find courses by name or description",
-    description_ar: "استخدم شريط البحث للعثور على الكورسات بالاسم أو الوصف",
+    description_ar: "استخدم شريط البحث للعثور على الدورات بالاسم أو الوصف",
     target: "[data-onboarding='courses-search']",
     placement: "bottom" as const,
   },
@@ -37,16 +37,16 @@ const coursesOnboardingSteps = [
     title: "Filter by University",
     title_ar: "فلترة حسب الجامعة",
     description: "Filter courses by university, college, and major to find what fits your studies",
-    description_ar: "فلتر الكورسات حسب الجامعة والكلية والتخصص للعثور على ما يناسب دراستك",
+    description_ar: "فلتر الدورات حسب الجامعة والكلية والتخصص للعثور على ما يناسب دراستك",
     target: "[data-onboarding='courses-filters']",
     placement: "bottom" as const,
   },
   {
     id: "courses-grid",
     title: "Browse Courses",
-    title_ar: "تصفح الكورسات",
+    title_ar: "تصفح الدورات",
     description: "Click on any course card to view its details and enroll",
-    description_ar: "اضغط على أي بطاقة كورس لعرض تفاصيله والتسجيل فيه",
+    description_ar: "اضغط على أي بطاقة دورة لعرض تفاصيله والتسجيل فيه",
     target: "[data-onboarding='courses-grid']",
     placement: "top" as const,
   },
@@ -294,11 +294,11 @@ const Courses = () => {
       <div className="bg-gradient-to-r from-primary to-primary/80 text-primary-foreground py-16">
         <div className="container mx-auto px-4">
           <h1 className="text-4xl font-bold mb-4 text-center">
-            {isRTL ? "استكشف الكورسات" : "Explore Courses"}
+            {isRTL ? "استكشف الدورات" : "Explore Courses"}
           </h1>
           <p className="text-lg text-center opacity-90 max-w-2xl mx-auto">
             {isRTL
-              ? "اكتشف مجموعة واسعة من الكورسات المصممة خصيصًا لتخصصك الجامعي"
+              ? "اكتشف مجموعة واسعة من الدورات المصممة خصيصًا لتخصصك الجامعي"
               : "Discover a wide range of courses tailored to your university major"}
           </p>
         </div>
@@ -311,7 +311,7 @@ const Courses = () => {
             <div className="flex items-center gap-2">
               <Filter className="h-5 w-5 text-primary" />
               <h2 className="text-lg font-semibold">
-                {isRTL ? "فلترة الكورسات" : "Filter Courses"}
+                {isRTL ? "فلترة الدورات" : "Filter Courses"}
               </h2>
             </div>
           </CardHeader>
@@ -322,7 +322,7 @@ const Courses = () => {
                 <div className="relative">
                   <Search className={`absolute top-3 h-4 w-4 text-muted-foreground ${isRTL ? "right-3" : "left-3"}`} />
                   <Input
-                    placeholder={isRTL ? "ابحث عن كورس..." : "Search courses..."}
+                    placeholder={isRTL ? "ابحث عن دورة..." : "Search courses..."}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className={isRTL ? "pr-10" : "pl-10"}
@@ -391,7 +391,7 @@ const Courses = () => {
         <div className="flex items-center justify-between mb-6">
           <p className="text-muted-foreground">
             {isRTL
-              ? `${totalCount} كورس متاح`
+              ? `${totalCount} دورة متاح`
               : `${totalCount} courses available`}
           </p>
           {totalPages > 1 && (
@@ -420,7 +420,7 @@ const Courses = () => {
           <Card className="p-12 text-center">
             <GraduationCap className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-xl font-semibold mb-2">
-              {isRTL ? "لا توجد كورسات" : "No Courses Found"}
+              {isRTL ? "لا توجد دورات" : "No Courses Found"}
             </h3>
             <p className="text-muted-foreground">
               {isRTL

@@ -67,7 +67,7 @@ const lessonOnboardingSteps = [
     title: "Your Progress",
     title_ar: "تقدمك",
     description: "Track your course progress here. Complete lessons to move forward",
-    description_ar: "تتبع تقدمك في الكورس هنا. أكمل الدروس للتقدم",
+    description_ar: "تتبع تقدمك في الدورة هنا. أكمل الدروس للتقدم",
     target: "[data-onboarding='lesson-progress']",
     placement: "left" as const,
   },
@@ -491,7 +491,7 @@ const LessonViewer = () => {
           </h1>
           <Button asChild variant="outline" className="mt-4">
             <Link to={`/courses/${courseId}`}>
-              {isRTL ? "العودة للكورس" : "Back to Course"}
+              {isRTL ? "العودة للدورة" : "Back to Course"}
             </Link>
           </Button>
         </div>
@@ -514,7 +514,7 @@ const LessonViewer = () => {
           <p className="text-muted-foreground mb-4">
             {isLockedByInstallment
               ? (isRTL ? "ادفع القسط التالي لفتح هذا الفصل" : "Pay the next installment to unlock this chapter")
-              : (isRTL ? "اشترك في الكورس للوصول لهذا الدرس" : "Enroll in the course to access this lesson")
+              : (isRTL ? "اشترك في الدورة للوصول لهذا الدرس" : "Enroll in the course to access this lesson")
             }
           </p>
           <Button asChild>
@@ -550,7 +550,7 @@ const LessonViewer = () => {
               >
                 {isRTL ? <ArrowRight className="h-4 w-4" /> : <ArrowLeft className="h-4 w-4" />}
                 <span className="ml-2">
-                  {isRTL ? "العودة للكورس" : "Back to Course"}
+                  {isRTL ? "العودة للدورة" : "Back to Course"}
                 </span>
               </Button>
               <Separator orientation="vertical" className="h-6" />
@@ -1027,7 +1027,7 @@ const LessonViewer = () => {
           <div className="p-4 border-b">
             <h3 className="font-semibold flex items-center gap-2">
               <BookOpen className="h-4 w-4" />
-              {isRTL ? "محتوى الكورس" : "Course Content"}
+              {isRTL ? "محتوى الدورة" : "Course Content"}
             </h3>
             <p className="text-sm text-muted-foreground mt-1">
               {completedLessons}/{lessons.length}{" "}

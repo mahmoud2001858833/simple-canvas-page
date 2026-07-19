@@ -150,8 +150,8 @@ export const PaymentsManagement = () => {
             ? `Payment confirmed. You now have access to ${newPaidPercentage}% of the course content.`
             : `Your payment has been confirmed. You can now access the course.`,
           message_ar: newPaidPercentage < 100
-            ? `تم تأكيد الدفع. يمكنك الآن الوصول لـ ${newPaidPercentage}% من محتوى الكورس.`
-            : `تم تأكيد دفعتك. يمكنك الآن الوصول للكورس.`,
+            ? `تم تأكيد الدفع. يمكنك الآن الوصول لـ ${newPaidPercentage}% من محتوى الدورة.`
+            : `تم تأكيد دفعتك. يمكنك الآن الوصول للدورة.`,
           type: 'success',
           link: '/dashboard',
         });
@@ -442,7 +442,7 @@ export const PaymentsManagement = () => {
             <TableHeader>
               <TableRow>
                 <TableHead>{language === 'ar' ? 'المستخدم' : 'User'}</TableHead>
-                <TableHead>{language === 'ar' ? 'الكورس' : 'Course'}</TableHead>
+                <TableHead>{language === 'ar' ? 'الدورة' : 'Course'}</TableHead>
                 <TableHead>{language === 'ar' ? 'المبلغ' : 'Amount'}</TableHead>
                 <TableHead>{language === 'ar' ? 'الطريقة' : 'Method'}</TableHead>
                 <TableHead>{language === 'ar' ? 'الحالة' : 'Status'}</TableHead>
@@ -529,7 +529,7 @@ export const PaymentsManagement = () => {
                               </AlertDialogTitle>
                               <AlertDialogDescription>
                                 {language === 'ar'
-                                  ? `هل تريد استرداد مبلغ ${parseFloat(payment.amount).toLocaleString()} ر.س؟ سيتم إلغاء تسجيل الطالب من الكورس.`
+                                  ? `هل تريد استرداد مبلغ ${parseFloat(payment.amount).toLocaleString()} ر.س؟ سيتم إلغاء تسجيل الطالب من الدورة.`
                                   : `Refund ${parseFloat(payment.amount).toLocaleString()} SAR? The student will be unenrolled from the course.`}
                               </AlertDialogDescription>
                             </AlertDialogHeader>

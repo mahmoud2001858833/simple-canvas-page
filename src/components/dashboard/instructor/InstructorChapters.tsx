@@ -31,7 +31,7 @@ export const InstructorChapters = ({ courseId, courseTitle, onBack }: Instructor
   const [selectedChapter, setSelectedChapter] = useState<{ id: string; title: string } | null>(null);
 
   const t = isRTL ? {
-    back: 'رجوع للكورسات',
+    back: 'رجوع للدورات',
     chaptersFor: 'فصول:',
     newChapter: 'فصل جديد',
     editChapter: 'تعديل الفصل',
@@ -45,7 +45,7 @@ export const InstructorChapters = ({ courseId, courseTitle, onBack }: Instructor
     chapterDeleted: 'تم حذف الفصل',
     lessons: 'درس',
     manageLessons: 'إدارة الدروس',
-    createFirst: 'أنشئ فصلاً لتنظيم دروس الكورس',
+    createFirst: 'أنشئ فصلاً لتنظيم دروس الدورة',
   } : {
     back: 'Back to Courses',
     chaptersFor: 'Chapters for:',

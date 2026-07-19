@@ -105,9 +105,9 @@ export const CourseApprovals = () => {
         await supabase.from('notifications').insert({
           user_id: course.instructor_id,
           title: 'Course Approved',
-          title_ar: 'تمت الموافقة على الكورس',
+          title_ar: 'تمت الموافقة على الدورة',
           message: `Your course "${course.title}" has been approved and is now live.`,
-          message_ar: `تمت الموافقة على كورسك "${course.title_ar}" وهو الآن متاح.`,
+          message_ar: `تمت الموافقة على دورتك "${course.title_ar}" وهو الآن متاح.`,
           type: 'success',
           link: '/instructor',
         });
@@ -132,7 +132,7 @@ export const CourseApprovals = () => {
         }
       }
 
-      toast.success(language === 'ar' ? 'تمت الموافقة على الكورس' : 'Course approved successfully');
+      toast.success(language === 'ar' ? 'تمت الموافقة على الدورة' : 'Course approved successfully');
       queryClient.invalidateQueries({ queryKey: ['pending-courses'] });
     } catch (error) {
       console.error('Error approving course:', error);
@@ -164,9 +164,9 @@ export const CourseApprovals = () => {
         await supabase.from('notifications').insert({
           user_id: selectedCourse.instructor_id,
           title: 'Course Rejected',
-          title_ar: 'تم رفض الكورس',
+          title_ar: 'تم رفض الدورة',
           message: `Your course "${selectedCourse.title}" was rejected. Reason: ${rejectionReason}`,
-          message_ar: `تم رفض كورسك "${selectedCourse.title_ar}". السبب: ${rejectionReason}`,
+          message_ar: `تم رفض دورتك "${selectedCourse.title_ar}". السبب: ${rejectionReason}`,
           type: 'warning',
           link: '/instructor',
         });
@@ -192,7 +192,7 @@ export const CourseApprovals = () => {
         }
       }
 
-      toast.success(language === 'ar' ? 'تم رفض الكورس' : 'Course rejected');
+      toast.success(language === 'ar' ? 'تم رفض الدورة' : 'Course rejected');
       queryClient.invalidateQueries({ queryKey: ['pending-courses'] });
       setRejectDialogOpen(false);
       setSelectedCourse(null);
@@ -239,7 +239,7 @@ export const CourseApprovals = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <CardTitle className="flex items-center gap-2">
             <BookOpen className="w-5 h-5" />
-            {language === 'ar' ? 'موافقة على كورسات المعلم' : 'Instructor Course Approvals'}
+            {language === 'ar' ? 'موافقة على دورات المعلم' : 'Instructor Course Approvals'}
             {pendingCount > 0 && (
               <Badge variant="destructive" className="ms-2">
                 {pendingCount}
@@ -288,7 +288,7 @@ export const CourseApprovals = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{language === 'ar' ? 'الكورس' : 'Course'}</TableHead>
+                  <TableHead>{language === 'ar' ? 'الدورة' : 'Course'}</TableHead>
                   <TableHead>{language === 'ar' ? 'المعلم' : 'Instructor'}</TableHead>
                   <TableHead>{language === 'ar' ? 'السعر' : 'Price'}</TableHead>
                   <TableHead>{language === 'ar' ? 'المدة' : 'Duration'}</TableHead>
@@ -370,7 +370,7 @@ export const CourseApprovals = () => {
         ) : (
           <div className="text-center py-8 text-muted-foreground">
             <BookOpen className="w-12 h-12 mx-auto mb-2 opacity-50" />
-            <p>{language === 'ar' ? 'لا توجد كورسات' : 'No courses found'}</p>
+            <p>{language === 'ar' ? 'لا توجد دورات' : 'No courses found'}</p>
           </div>
         )}
       </CardContent>
@@ -380,13 +380,13 @@ export const CourseApprovals = () => {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {language === 'ar' ? 'رفض الكورس' : 'Reject Course'}
+              {language === 'ar' ? 'رفض الدورة' : 'Reject Course'}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-muted-foreground">
               {language === 'ar'
-                ? `هل أنت متأكد من رفض كورس "${selectedCourse?.title_ar}"؟`
+                ? `هل أنت متأكد من رفض دورة "${selectedCourse?.title_ar}"؟`
                 : `Are you sure you want to reject "${selectedCourse?.title}"?`}
             </p>
             <div>
@@ -412,7 +412,7 @@ export const CourseApprovals = () => {
                 {actionLoading ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : language === 'ar' ? (
-                  'رفض الكورس'
+                  'رفض الدورة'
                 ) : (
                   'Reject Course'
                 )}

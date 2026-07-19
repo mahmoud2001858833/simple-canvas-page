@@ -7,9 +7,9 @@ export const translations = {
     // التنقل
     nav: {
       home: 'الرئيسية',
-      courses: 'الكورسات',
+      courses: 'الدورات',
       universities: 'الجامعات',
-      customCourse: 'اطلب كورس مخصص',
+      customCourse: 'اطلب دورة مخصص',
       about: 'عن جسوركم',
       contact: 'تواصل معنا',
       login: 'تسجيل الدخول',
@@ -21,14 +21,14 @@ export const translations = {
     hero: {
       title: 'جسوركم',
       subtitle: 'منصتك التعليمية الذكية',
-      description: 'نوفر لك شروحات أكاديمية احترافية لجميع الجامعات المحلية والعالمية، مع إمكانية طلب كورسات مخصصة حسب احتياجاتك',
+      description: 'نوفر لك شروحات أكاديمية احترافية لجميع الجامعات المحلية والعالمية، مع إمكانية طلب دورات مخصصة حسب احتياجاتك',
       cta: 'ابدأ رحلتك التعليمية',
-      exploreCourses: 'استكشف الكورسات',
+      exploreCourses: 'استكشف الدورات',
     },
     // الإحصائيات
     stats: {
       students: 'طالب',
-      courses: 'كورس',
+      courses: 'دورة',
       universities: 'جامعة',
       instructors: 'مدرس',
     },
@@ -41,8 +41,8 @@ export const translations = {
         description: 'شروحات متخصصة لجميع المقررات الجامعية في السعودية',
       },
       custom: {
-        title: 'كورسات مخصصة',
-        description: 'اطلب كورس مخصص حسب ملفاتك ومتطلباتك الخاصة',
+        title: 'دورات مخصصة',
+        description: 'اطلب دورة مخصص حسب ملفاتك ومتطلباتك الخاصة',
       },
       live: {
         title: 'بث مباشر',
@@ -58,7 +58,7 @@ export const translations = {
       },
       certificates: {
         title: 'شهادات معتمدة',
-        description: 'احصل على شهادات إتمام لجميع الكورسات',
+        description: 'احصل على شهادات إتمام لجميع الدورات',
       },
     },
     // الجامعات
@@ -66,9 +66,9 @@ export const translations = {
       title: 'الجامعات المدعومة',
       subtitle: 'نغطي جميع الجامعات السعودية الكبرى',
     },
-    // الكورسات
+    // الدورات
     courses: {
-      title: 'أحدث الكورسات',
+      title: 'أحدث الدورات',
       subtitle: 'اكتشف أحدث الشروحات والدورات المتاحة',
       viewAll: 'عرض الكل',
       enroll: 'سجل الآن',

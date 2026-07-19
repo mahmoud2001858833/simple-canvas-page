@@ -300,7 +300,7 @@ export const AccountingLedger = () => {
   const exportCSV = () => {
     if (!computed) return;
     const rows = [
-      ['التاريخ', 'الطالب', 'الكورس', 'المعلم', 'المبلغ', 'طريقة الدفع', 'الحالة', 'حصة المعلم', 'حصة المنصة', 'خصم كوبون', 'رقم العملية'],
+      ['التاريخ', 'الطالب', 'الدورة', 'المعلم', 'المبلغ', 'طريقة الدفع', 'الحالة', 'حصة المعلم', 'حصة المنصة', 'خصم كوبون', 'رقم العملية'],
       ...computed.ledger.map(l => [
         fmtDate(l.date), l.student, l.course, l.instructor,
         l.amount, methodLabel(l.method), l.status,
@@ -542,7 +542,7 @@ export const AccountingLedger = () => {
       <Tabs defaultValue="ledger" className="space-y-4">
         <TabsList className="flex flex-wrap h-auto gap-1">
           <TabsTrigger value="ledger">{isRTL ? 'سجل المعاملات' : 'Transaction Ledger'}</TabsTrigger>
-          <TabsTrigger value="courses">{isRTL ? 'حسابات الكورسات' : 'Course Accounts'}</TabsTrigger>
+          <TabsTrigger value="courses">{isRTL ? 'حسابات الدورات' : 'Course Accounts'}</TabsTrigger>
           <TabsTrigger value="instructors">{isRTL ? 'حسابات المعلمين' : 'Instructor Accounts'}</TabsTrigger>
           <TabsTrigger value="methods">{isRTL ? 'طرق الدفع' : 'Payment Methods'}</TabsTrigger>
         </TabsList>
@@ -556,7 +556,7 @@ export const AccountingLedger = () => {
                 <div className="relative w-full md:w-72">
                   <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                   <Input
-                    placeholder={isRTL ? 'بحث بالاسم أو الكورس...' : 'Search by name or course...'}
+                    placeholder={isRTL ? 'بحث بالاسم أو الدورة...' : 'Search by name or course...'}
                     value={search}
                     onChange={e => setSearch(e.target.value)}
                     className="ps-10"
@@ -576,7 +576,7 @@ export const AccountingLedger = () => {
                     <TableRow>
                       <TableHead className="min-w-[100px]">{isRTL ? 'التاريخ' : 'Date'}</TableHead>
                       <TableHead>{isRTL ? 'الطالب' : 'Student'}</TableHead>
-                      <TableHead>{isRTL ? 'الكورس' : 'Course'}</TableHead>
+                      <TableHead>{isRTL ? 'الدورة' : 'Course'}</TableHead>
                       <TableHead>{isRTL ? 'المعلم' : 'Instructor'}</TableHead>
                       <TableHead className="text-center">{isRTL ? 'المبلغ' : 'Amount'}</TableHead>
                       <TableHead className="text-center">{isRTL ? 'خصم' : 'Disc.'}</TableHead>
@@ -628,14 +628,14 @@ export const AccountingLedger = () => {
         <TabsContent value="courses">
           <Card>
             <CardHeader>
-              <CardTitle>{isRTL ? 'حسابات كل كورس بالتفصيل' : 'Detailed Course Accounts'}</CardTitle>
+              <CardTitle>{isRTL ? 'حسابات كل دورة بالتفصيل' : 'Detailed Course Accounts'}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>{isRTL ? 'الكورس' : 'Course'}</TableHead>
+                      <TableHead>{isRTL ? 'الدورة' : 'Course'}</TableHead>
                       <TableHead>{isRTL ? 'المعلم' : 'Instructor'}</TableHead>
                       <TableHead className="text-center">{isRTL ? 'المبيعات' : 'Sales'}</TableHead>
                       <TableHead className="text-center">{isRTL ? 'المسجلين' : 'Enrolled'}</TableHead>
@@ -691,7 +691,7 @@ export const AccountingLedger = () => {
                     <TableRow>
                       <TableHead>{isRTL ? 'المعلم' : 'Instructor'}</TableHead>
                       <TableHead>{isRTL ? 'البريد' : 'Email'}</TableHead>
-                      <TableHead className="text-center">{isRTL ? 'الكورسات' : 'Courses'}</TableHead>
+                      <TableHead className="text-center">{isRTL ? 'الدورات' : 'Courses'}</TableHead>
                       <TableHead className="text-center">{isRTL ? 'إجمالي الأرباح' : 'Total Earned'}</TableHead>
                       <TableHead className="text-center">{isRTL ? 'مدفوع' : 'Paid'}</TableHead>
                       <TableHead className="text-center">{isRTL ? 'معلق' : 'Pending'}</TableHead>

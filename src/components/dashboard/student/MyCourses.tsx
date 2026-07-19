@@ -54,7 +54,7 @@ export const MyCourses = ({ limit, showViewAll, onViewAll }: MyCoursesProps) => 
     <div className="card-premium p-6">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-bold">
-          {language === 'ar' ? 'كورساتي' : 'My Courses'}
+          {language === 'ar' ? 'دوراتي' : 'My Courses'}
         </h2>
         {showViewAll && onViewAll && (
           <Button variant="ghost" onClick={onViewAll} className="text-primary">
@@ -117,11 +117,11 @@ export const MyCourses = ({ limit, showViewAll, onViewAll }: MyCoursesProps) => 
       ) : (
         <EmptyState
           icon={GraduationCap}
-          title={language === 'ar' ? 'لا توجد كورسات بعد' : 'No courses yet'}
+          title={language === 'ar' ? 'لا توجد دورات بعد' : 'No courses yet'}
           description={language === 'ar' 
-            ? 'ابدأ رحلتك التعليمية الآن واستكشف مجموعة واسعة من الكورسات المميزة' 
+            ? 'ابدأ رحلتك التعليمية الآن واستكشف مجموعة واسعة من الدورات المميزة' 
             : 'Start your learning journey now and explore our wide range of amazing courses'}
-          actionLabel={language === 'ar' ? 'تصفح الكورسات' : 'Browse Courses'}
+          actionLabel={language === 'ar' ? 'تصفح الدورات' : 'Browse Courses'}
           actionLink="/courses"
           variant="card"
           illustration="courses"

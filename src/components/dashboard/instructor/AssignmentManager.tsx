@@ -184,7 +184,7 @@ export const AssignmentManager = () => {
           </DialogHeader>
           <div className="space-y-4">
             <Select value={selectedCourse} onValueChange={v => { setSelectedCourse(v); setSelectedChapter(''); }}>
-              <SelectTrigger><SelectValue placeholder={isAr ? 'اختر الكورس' : 'Select Course'} /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder={isAr ? 'اختر الدورة' : 'Select Course'} /></SelectTrigger>
               <SelectContent>
                 {courses?.map(c => <SelectItem key={c.id} value={c.id}>{isAr ? c.title_ar : c.title}</SelectItem>)}
               </SelectContent>

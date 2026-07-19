@@ -106,7 +106,7 @@ const CertificateVerify = () => {
                   <GraduationCap className="w-5 h-5 text-primary" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">{isRTL ? 'الكورس' : 'Course'}</p>
+                  <p className="text-xs text-muted-foreground">{isRTL ? 'الدورة' : 'Course'}</p>
                   <p className="font-semibold text-foreground">
                     {isRTL ? (certificate.courses as any)?.title_ar : (certificate.courses as any)?.title}
                   </p>

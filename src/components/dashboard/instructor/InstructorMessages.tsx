@@ -67,7 +67,7 @@ export const InstructorMessages = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const t = language === 'ar' ? {
-    title: 'محادثات الكورسات',
+    title: 'محادثات الدورات',
     searchPlaceholder: 'ابحث...',
     noConversations: 'لا توجد محادثات',
     noMessages: 'لا توجد رسائل',
@@ -76,7 +76,7 @@ export const InstructorMessages = () => {
     back: 'رجوع',
     unread: 'غير مقروءة',
     students: 'طالب',
-    fromCourse: 'من كورس',
+    fromCourse: 'من دورة',
   } : {
     title: 'Course Conversations',
     searchPlaceholder: 'Search...',

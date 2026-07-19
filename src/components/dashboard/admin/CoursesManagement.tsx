@@ -202,7 +202,7 @@ export const CoursesManagement = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-courses'] });
-      toast.success(language === 'ar' ? 'تم إنشاء الكورس بنجاح' : 'Course created successfully');
+      toast.success(language === 'ar' ? 'تم إنشاء الدورة بنجاح' : 'Course created successfully');
       setIsDialogOpen(false);
       resetForm();
     },
@@ -229,7 +229,7 @@ export const CoursesManagement = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-courses'] });
-      toast.success(language === 'ar' ? 'تم تحديث الكورس' : 'Course updated');
+      toast.success(language === 'ar' ? 'تم تحديث الدورة' : 'Course updated');
       setIsDialogOpen(false);
       resetForm();
     },
@@ -255,12 +255,12 @@ export const CoursesManagement = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-courses'] });
       queryClient.invalidateQueries({ queryKey: ['courses'] });
-      toast.success(language === 'ar' ? 'تم حذف الكورس بنجاح' : 'Course deleted successfully');
+      toast.success(language === 'ar' ? 'تم حذف الدورة بنجاح' : 'Course deleted successfully');
       setDeletingCourseId(null);
     },
     onError: (error) => {
       console.error('Delete error:', error);
-      toast.error(language === 'ar' ? 'فشل حذف الكورس' : 'Failed to delete course');
+      toast.error(language === 'ar' ? 'فشل حذف الدورة' : 'Failed to delete course');
       setDeletingCourseId(null);
     },
   });
@@ -331,7 +331,7 @@ export const CoursesManagement = () => {
 
   const handleGenerateAIImage = async () => {
     if (!formData.title && !formData.title_ar) {
-      toast.error(language === 'ar' ? 'أدخل عنوان الكورس أولاً' : 'Enter course title first');
+      toast.error(language === 'ar' ? 'أدخل عنوان الدورة أولاً' : 'Enter course title first');
       return;
     }
     
@@ -423,25 +423,25 @@ export const CoursesManagement = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">
-            {language === 'ar' ? 'إدارة الكورسات' : 'Courses Management'}
+            {language === 'ar' ? 'إدارة الدورات' : 'Courses Management'}
           </h1>
           <p className="text-muted-foreground">
-            {language === 'ar' ? 'إنشاء وإدارة الكورسات' : 'Create and manage courses'}
+            {language === 'ar' ? 'إنشاء وإدارة الدورات' : 'Create and manage courses'}
           </p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
           <DialogTrigger asChild>
             <Button className="btn-gold">
               <Plus className="w-4 h-4 me-2" />
-              {language === 'ar' ? 'كورس جديد' : 'New Course'}
+              {language === 'ar' ? 'دورة جديد' : 'New Course'}
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {editingCourse 
-                  ? (language === 'ar' ? 'تعديل الكورس' : 'Edit Course')
-                  : (language === 'ar' ? 'كورس جديد' : 'New Course')}
+                  ? (language === 'ar' ? 'تعديل الدورة' : 'Edit Course')
+                  : (language === 'ar' ? 'دورة جديد' : 'New Course')}
               </DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4">
@@ -648,7 +648,7 @@ export const CoursesManagement = () => {
               <div className="space-y-3">
                 <Label className="flex items-center gap-2">
                   <ImageIcon className="w-4 h-4" />
-                  {language === 'ar' ? 'صورة الكورس' : 'Course Thumbnail'}
+                  {language === 'ar' ? 'صورة الدورة' : 'Course Thumbnail'}
                 </Label>
                 
                 {thumbnailUrl ? (
@@ -763,7 +763,7 @@ export const CoursesManagement = () => {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>{language === 'ar' ? 'الكورس' : 'Course'}</TableHead>
+                <TableHead>{language === 'ar' ? 'الدورة' : 'Course'}</TableHead>
                 <TableHead>{language === 'ar' ? 'المدرس' : 'Instructor'}</TableHead>
                 <TableHead>{language === 'ar' ? 'السعر' : 'Price'}</TableHead>
                 <TableHead>{language === 'ar' ? 'التسجيلات' : 'Enrollments'}</TableHead>
@@ -896,11 +896,11 @@ export const CoursesManagement = () => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {language === 'ar' ? 'تأكيد حذف الكورس' : 'Confirm Course Deletion'}
+              {language === 'ar' ? 'تأكيد حذف الدورة' : 'Confirm Course Deletion'}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {language === 'ar' 
-                ? 'هل أنت متأكد من حذف هذا الكورس؟ سيتم حذف جميع الدروس والتسجيلات المرتبطة به. لا يمكن التراجع عن هذا الإجراء.'
+                ? 'هل أنت متأكد من حذف هذا الدورة؟ سيتم حذف جميع الدروس والتسجيلات المرتبطة به. لا يمكن التراجع عن هذا الإجراء.'
                 : 'Are you sure you want to delete this course? All associated lessons and enrollments will be deleted. This action cannot be undone.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -915,7 +915,7 @@ export const CoursesManagement = () => {
               {deleteCourseMutation.isPending ? (
                 <Loader2 className="w-4 h-4 animate-spin me-2" />
               ) : null}
-              {language === 'ar' ? 'حذف الكورس' : 'Delete Course'}
+              {language === 'ar' ? 'حذف الدورة' : 'Delete Course'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

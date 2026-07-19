@@ -93,7 +93,7 @@ export const CourseReviews = ({ courseId, isRTL }: CourseReviewsProps) => {
     update: isRTL ? 'تحديث التقييم' : 'Update Review',
     cancel: isRTL ? 'إلغاء' : 'Cancel',
     noReviews: isRTL ? 'لا توجد تقييمات بعد. كن أول من يقيّم!' : 'No reviews yet. Be the first to review!',
-    mustComplete: isRTL ? 'يجب إكمال الكورس بنسبة 100% لتتمكن من التقييم' : 'You must complete 100% of the course to leave a review',
+    mustComplete: isRTL ? 'يجب إكمال الدورة بنسبة 100% لتتمكن من التقييم' : 'You must complete 100% of the course to leave a review',
     loginToReview: isRTL ? 'سجل دخولك لتتمكن من التقييم' : 'Log in to write a review',
     selectRating: isRTL ? 'يرجى اختيار تقييم' : 'Please select a rating',
     success: isRTL ? 'تم إرسال تقييمك بنجاح' : 'Review submitted successfully',
@@ -262,7 +262,7 @@ export const CourseReviews = ({ courseId, isRTL }: CourseReviewsProps) => {
           <p className="text-sm text-muted-foreground text-center py-4">{t.loginToReview}</p>
         ) : myReview && editingId !== myReview.id ? (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span>{isRTL ? 'لقد قيّمت هذا الكورس بالفعل' : 'You already reviewed this course'}</span>
+            <span>{isRTL ? 'لقد قيّمت هذا الدورة بالفعل' : 'You already reviewed this course'}</span>
           </div>
         ) : !canReview ? (
           <p className="text-sm text-muted-foreground text-center py-4">{t.mustComplete}</p>

@@ -36,7 +36,7 @@ export const DashboardStats = () => {
 
   const statCards = [
     {
-      label: language === 'ar' ? 'كورساتي' : 'My Courses',
+      label: language === 'ar' ? 'دوراتي' : 'My Courses',
       value: stats?.enrollments || 0,
       icon: BookOpen,
       gradient: 'from-primary to-primary/70',

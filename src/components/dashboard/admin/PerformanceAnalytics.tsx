@@ -205,7 +205,7 @@ export const PerformanceAnalytics = () => {
       color: 'hsl(var(--primary))',
     },
     courses: {
-      label: language === 'ar' ? 'الكورسات' : 'Courses',
+      label: language === 'ar' ? 'الدورات' : 'Courses',
       color: 'hsl(var(--secondary))',
     },
     enrollments: {
@@ -221,7 +221,7 @@ export const PerformanceAnalytics = () => {
   // Chart data
   const queryTimeData = dbStats ? [
     { name: language === 'ar' ? 'المستخدمين' : 'Users', time: dbStats.profiles.time },
-    { name: language === 'ar' ? 'الكورسات' : 'Courses', time: dbStats.courses.time },
+    { name: language === 'ar' ? 'الدورات' : 'Courses', time: dbStats.courses.time },
     { name: language === 'ar' ? 'التسجيلات' : 'Enrollments', time: dbStats.enrollments.time },
     { name: language === 'ar' ? 'المدفوعات' : 'Payments', time: dbStats.payments.time },
   ] : [];
@@ -347,7 +347,7 @@ export const PerformanceAnalytics = () => {
             <div className="space-y-4">
               {dbStats && [
                 { name: language === 'ar' ? 'المستخدمين' : 'Users', count: dbStats.profiles.count, time: dbStats.profiles.time, color: 'bg-primary' },
-                { name: language === 'ar' ? 'الكورسات' : 'Courses', count: dbStats.courses.count, time: dbStats.courses.time, color: 'bg-secondary' },
+                { name: language === 'ar' ? 'الدورات' : 'Courses', count: dbStats.courses.count, time: dbStats.courses.time, color: 'bg-secondary' },
                 { name: language === 'ar' ? 'التسجيلات' : 'Enrollments', count: dbStats.enrollments.count, time: dbStats.enrollments.time, color: 'bg-accent' },
                 { name: language === 'ar' ? 'المدفوعات' : 'Payments', count: dbStats.payments.count, time: dbStats.payments.time, color: 'bg-success' },
               ].map((table, index) => (
@@ -468,7 +468,7 @@ export const PerformanceAnalytics = () => {
               },
               {
                 title: { ar: 'تقسيم الصفحات', en: 'Pagination' },
-                description: { ar: 'صفحة الكورسات تعرض 12 كورس لكل صفحة', en: 'Courses page displays 12 courses per page' },
+                description: { ar: 'صفحة الدورات تعرض 12 دورة لكل صفحة', en: 'Courses page displays 12 courses per page' },
                 status: 'active'
               },
             ].map((tip, index) => (
