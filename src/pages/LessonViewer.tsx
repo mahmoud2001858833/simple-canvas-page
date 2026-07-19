@@ -96,7 +96,7 @@ const LessonViewer = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { language } = useLanguage();
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const { startOnboarding, state } = useOnboarding();
   const isRTL = language === "ar";
 
