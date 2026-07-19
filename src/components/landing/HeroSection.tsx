@@ -179,7 +179,7 @@ const HeroSection = () => {
                 </div>
                 <div>
                   <div className="text-[11px] text-muted-foreground font-medium">{dir === 'rtl' ? 'تقييم' : 'Rating'}</div>
-                  <div className="font-bold text-sm text-foreground">4.9/5</div>
+                  <div className="font-bold text-sm text-foreground">{stats.avgRating > 0 ? `${stats.avgRating}/5` : '—'}</div>
                 </div>
               </motion.div>
 
