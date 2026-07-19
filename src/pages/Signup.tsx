@@ -699,7 +699,7 @@ const Signup = () => {
                 className="space-y-2"
               >
                 <Label htmlFor="phone" className="text-foreground/80">
-                  {language === 'ar' ? 'رقم الهاتف' : 'Phone Number'}
+                  {language === 'ar' ? 'رقم الهاتف *' : 'Phone Number *'}
                 </Label>
                 <div className="relative group/input">
                   <div className={`absolute inset-0 bg-gradient-to-r from-sky to-primary rounded-lg blur-sm opacity-0 transition-opacity duration-300 ${focusedField === 'phone' ? 'opacity-50' : 'group-hover/input:opacity-25'}`} />
