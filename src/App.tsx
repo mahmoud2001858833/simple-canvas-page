@@ -209,6 +209,7 @@ const App = () => (
                           <Route path="/quiz/:quizId" element={<QuizPage />} />
                           <Route path="/verify/:token" element={<CertificateVerify />} />
                           <Route path="/tutorials" element={<Tutorials />} />
+                          <Route path="/terms" element={<Terms />} />
                           <Route path="*" element={<NotFound />} />
                         </Routes>
                       </Suspense>
