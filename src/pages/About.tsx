@@ -4,10 +4,13 @@ import Navbar from '@/components/landing/Navbar';
 import Footer from '@/components/landing/Footer';
 import { Target, Eye, Heart, Users, BookOpen, Award, Sparkles, Shield, GraduationCap, TrendingUp, CheckCircle } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
+import { usePlatformStats } from '@/hooks/usePlatformStats';
 
 const About = () => {
   const { language, dir } = useLanguage();
   const isArabic = language === 'ar';
+  const platformStats = usePlatformStats();
+  const fmt = (n: number) => new Intl.NumberFormat(isArabic ? 'ar-EG' : 'en-US').format(n);
 
   const content = {
     ar: {
@@ -66,10 +69,10 @@ const About = () => {
       stats: {
         title: 'إنجازاتنا',
         items: [
-          { value: '50,000+', label: 'طالب مسجل' },
-          { value: '500+', label: 'دورة تدريبية' },
-          { value: '100+', label: 'مدرس خبير' },
-          { value: '95%', label: 'نسبة رضا الطلاب' }
+          { value: fmt(platformStats.students), label: 'طالب مسجل' },
+          { value: fmt(platformStats.courses), label: 'دورة تدريبية' },
+          { value: fmt(platformStats.instructors), label: 'مدرس خبير' },
+          { value: platformStats.satisfactionPercent > 0 ? `${platformStats.satisfactionPercent}%` : '—', label: 'نسبة رضا الطلاب' }
         ]
       },
     },
@@ -129,10 +132,10 @@ const About = () => {
       stats: {
         title: 'Our Achievements',
         items: [
-          { value: '50,000+', label: 'Registered Students' },
-          { value: '500+', label: 'Courses' },
-          { value: '100+', label: 'Expert Instructors' },
-          { value: '95%', label: 'Student Satisfaction' }
+          { value: fmt(platformStats.students), label: 'Registered Students' },
+          { value: fmt(platformStats.courses), label: 'Courses' },
+          { value: fmt(platformStats.instructors), label: 'Expert Instructors' },
+          { value: platformStats.satisfactionPercent > 0 ? `${platformStats.satisfactionPercent}%` : '—', label: 'Student Satisfaction' }
         ]
       },
     }

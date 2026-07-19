@@ -7,9 +7,11 @@ import { useSmoothScroll } from '@/hooks/useSmoothScroll';
 import AnimatedBackground from './AnimatedBackground';
 import heroStudent from '@/assets/hero-student.png';
 import logo from '@/assets/logo.png';
+import { usePlatformStats } from '@/hooks/usePlatformStats';
 const HeroSection = () => {
   const { t, dir } = useLanguage();
   const { scrollToElement } = useSmoothScroll();
+  const stats = usePlatformStats();
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -177,7 +179,7 @@ const HeroSection = () => {
                 </div>
                 <div>
                   <div className="text-[11px] text-muted-foreground font-medium">{dir === 'rtl' ? 'تقييم' : 'Rating'}</div>
-                  <div className="font-bold text-sm text-foreground">4.9/5</div>
+                  <div className="font-bold text-sm text-foreground">{stats.avgRating > 0 ? `${stats.avgRating}/5` : '—'}</div>
                 </div>
               </motion.div>
 
