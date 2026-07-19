@@ -471,6 +471,7 @@ const LessonViewer = () => {
 
   const isLessonAccessible = (lesson: any, _index: number) => {
     if (lesson.is_preview) return true;
+    if (hasStaffFreeAccess) return true;
     if (!enrollment || enrollment.status !== 'active') return false;
     if (paidPercentage >= 100) return true;
     const chapterId = (lesson as any).chapter_id;
