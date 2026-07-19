@@ -211,9 +211,14 @@ const LessonViewer = () => {
   const sortedChapters = [...chaptersWithContent].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
   const accessibleChapterIds = new Set(sortedChapters.slice(0, accessibleChapterCount).map(ch => ch.id));
 
+  // Admin: free access to everything. Instructor: free access to own courses only.
+  const hasStaffFreeAccess = role === 'admin'
+    || (role === 'instructor' && !!user && !!(course as any)?.instructor_id && (course as any).instructor_id === user.id);
+
   // Check access - preview lessons are accessible to everyone (even without login)
   const hasAccess = (() => {
     if (currentLesson?.is_preview) return true;
+    if (hasStaffFreeAccess) return true;
     if (!enrollment || enrollment.status !== 'active') return false;
     if (paidPercentage >= 100) return true;
     const chapterId = (currentLesson as any)?.chapter_id;
