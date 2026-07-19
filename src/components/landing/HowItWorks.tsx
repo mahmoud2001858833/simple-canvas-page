@@ -10,7 +10,7 @@ const HowItWorks = () => {
       icon: UserPlus,
       title: language === 'ar' ? 'إنشاء حساب' : 'Create Account',
       description: language === 'ar' 
-        ? 'سجل مجاناً واختر تخصصك وجامعتك'
+        ? 'سجل مجاناً واختر تخصصك وجهتك'
         : 'Sign up for free and choose your major and university',
       color: 'from-emerald-500 to-teal-500',
     },

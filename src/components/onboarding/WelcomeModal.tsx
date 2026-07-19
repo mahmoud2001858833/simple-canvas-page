@@ -23,7 +23,7 @@ const WelcomeModal = () => {
         {
           icon: BookOpen,
           title: 'دورات متخصصة',
-          description: 'تصفح مكتبة واسعة من الدورات المصممة لجامعتك وتخصصك',
+          description: 'تصفح مكتبة واسعة من الدورات المصممة لجهتك وتخصصك',
         },
         {
           icon: FileText,

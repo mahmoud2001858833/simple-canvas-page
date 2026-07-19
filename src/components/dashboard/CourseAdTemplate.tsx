@@ -594,7 +594,7 @@ export const CourseAdTemplate = ({
                 <Input value={editData.title} onChange={(e) => setEditData(d => ({ ...d, title: e.target.value }))} onBlur={() => drawAd()} />
               </div>
               <div>
-                <Label className="text-xs">{isRTL ? 'الجامعة' : 'University'}</Label>
+                <Label className="text-xs">{isRTL ? 'الجهة' : 'University'}</Label>
                 <Input value={editData.university} onChange={(e) => setEditData(d => ({ ...d, university: e.target.value }))} onBlur={() => drawAd()} />
               </div>
               <div>

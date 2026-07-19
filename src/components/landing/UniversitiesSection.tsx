@@ -66,11 +66,11 @@ const UniversitiesSection = () => {
           className="text-center"
         >
           <h2 className="text-3xl md:text-4xl font-bold mb-4 bg-gradient-to-r from-primary via-ocean to-secondary bg-clip-text text-transparent">
-            {language === 'ar' ? 'الجامعات' : 'Universities'}
+            {language === 'ar' ? 'الجهات' : 'Universities'}
           </h2>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
             {language === 'ar'
-              ? 'جميع الجامعات المحلية والعالمية'
+              ? 'جميع الجهات المحلية والعالمية'
               : 'All Local and International Universities'}
           </p>
         </motion.div>
@@ -86,7 +86,7 @@ const UniversitiesSection = () => {
           <div className="text-center py-12">
             <GraduationCap className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
             <p className="text-muted-foreground">
-              {language === 'ar' ? 'لا توجد جامعات متاحة حالياً' : 'No universities available'}
+              {language === 'ar' ? 'لا توجد جهات متاحة حالياً' : 'No universities available'}
             </p>
           </div>
         ) : (

@@ -22,7 +22,7 @@ const TestimonialsSection = () => {
     {
       name: language === 'ar' ? 'أحمد محمد' : 'Ahmed Mohammed',
       role: language === 'ar' ? 'طالب هندسة' : 'Engineering Student',
-      university: language === 'ar' ? 'جامعة الملك سعود' : 'King Saud University',
+      university: language === 'ar' ? 'جهة الملك سعود' : 'King Saud University',
       content: language === 'ar'
         ? 'المنصة ساعدتني كثيراً في فهم المواد الصعبة. الشرح واضح والمدرسين ممتازين!'
         : 'The platform helped me a lot in understanding difficult subjects. Clear explanations and excellent instructors!',
@@ -32,7 +32,7 @@ const TestimonialsSection = () => {
     {
       name: language === 'ar' ? 'سارة العتيبي' : 'Sara Al-Otaibi',
       role: language === 'ar' ? 'طالبة طب' : 'Medical Student',
-      university: language === 'ar' ? 'جامعة الملك عبدالعزيز' : 'King Abdulaziz University',
+      university: language === 'ar' ? 'جهة الملك عبدالعزيز' : 'King Abdulaziz University',
       content: language === 'ar'
         ? 'أفضل منصة تعليمية استخدمتها. الدروس المباشرة تفاعلية جداً والتسجيلات واضحة.'
         : 'Best educational platform I have used. Live lessons are very interactive and recordings are clear.',
@@ -42,7 +42,7 @@ const TestimonialsSection = () => {
     {
       name: language === 'ar' ? 'خالد الشمري' : 'Khalid Al-Shammari',
       role: language === 'ar' ? 'طالب إدارة أعمال' : 'Business Student',
-      university: language === 'ar' ? 'جامعة القصيم' : 'Qassim University',
+      university: language === 'ar' ? 'جهة القصيم' : 'Qassim University',
       content: language === 'ar'
         ? 'نظام الدفع المرن ساعدني كثيراً. والشهادات المعتمدة أضافت قيمة كبيرة لسيرتي الذاتية.'
         : 'Flexible payment system helped me a lot. Certified certificates added great value to my CV.',

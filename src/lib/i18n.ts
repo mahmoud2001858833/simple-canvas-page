@@ -8,7 +8,7 @@ export const translations = {
     nav: {
       home: 'الرئيسية',
       courses: 'الدورات',
-      universities: 'الجامعات',
+      universities: 'الجهات',
       customCourse: 'اطلب دورة مخصص',
       about: 'عن جسوركم',
       contact: 'تواصل معنا',
@@ -21,7 +21,7 @@ export const translations = {
     hero: {
       title: 'جسوركم',
       subtitle: 'منصتك التعليمية الذكية',
-      description: 'نوفر لك شروحات أكاديمية احترافية لجميع الجامعات المحلية والعالمية، مع إمكانية طلب دورات مخصصة حسب احتياجاتك',
+      description: 'نوفر لك شروحات أكاديمية احترافية لجميع الجهات المحلية والعالمية، مع إمكانية طلب دورات مخصصة حسب احتياجاتك',
       cta: 'ابدأ رحلتك التعليمية',
       exploreCourses: 'استكشف الدورات',
     },
@@ -29,7 +29,7 @@ export const translations = {
     stats: {
       students: 'طالب',
       courses: 'دورة',
-      universities: 'جامعة',
+      universities: 'جهة',
       instructors: 'مدرس',
     },
     // الميزات
@@ -38,7 +38,7 @@ export const translations = {
       subtitle: 'منصة تعليمية متكاملة مصممة خصيصاً لاحتياجات الطالب السعودي',
       academic: {
         title: 'شروحات أكاديمية',
-        description: 'شروحات متخصصة لجميع المقررات الجامعية في السعودية',
+        description: 'شروحات متخصصة لجميع المقررات الأكاديمية في السعودية',
       },
       custom: {
         title: 'دورات مخصصة',
@@ -61,10 +61,10 @@ export const translations = {
         description: 'احصل على شهادات إتمام لجميع الدورات',
       },
     },
-    // الجامعات
+    // الجهات
     universities: {
-      title: 'الجامعات المدعومة',
-      subtitle: 'نغطي جميع الجامعات السعودية الكبرى',
+      title: 'الجهات المدعومة',
+      subtitle: 'نغطي جميع الجهات السعودية الكبرى',
     },
     // الدورات
     courses: {
@@ -79,7 +79,7 @@ export const translations = {
     },
     // الفوتر
     footer: {
-      description: 'منصة تعليمية ذكية للطلاب الجامعيين في السعودية',
+      description: 'منصة تعليمية ذكية للطلاب الأكاديميين في السعودية',
       quickLinks: 'روابط سريعة',
       support: 'الدعم',
       legal: 'قانوني',
