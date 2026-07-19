@@ -499,7 +499,6 @@ export const InstructorLessons = ({ courseId, courseTitle, chapterId, chapterTit
                 {quiz.quiz_type === 'pdf' ? 'PDF' : (language === 'ar' ? 'إلكتروني' : 'Interactive')}
               </Badge>
               {/* Delete restricted to admins per platform policy */}
-              </Button>
             </div>
           ))}
         </div>
