@@ -7,9 +7,11 @@ import { useSmoothScroll } from '@/hooks/useSmoothScroll';
 import AnimatedBackground from './AnimatedBackground';
 import heroStudent from '@/assets/hero-student.png';
 import logo from '@/assets/logo.png';
+import { usePlatformStats } from '@/hooks/usePlatformStats';
 const HeroSection = () => {
   const { t, dir } = useLanguage();
   const { scrollToElement } = useSmoothScroll();
+  const stats = usePlatformStats();
 
   const containerVariants = {
     hidden: { opacity: 0 },
