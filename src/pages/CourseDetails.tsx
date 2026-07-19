@@ -359,7 +359,12 @@ const CourseDetails = () => {
   const sortedChapters = [...chaptersWithContent].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
   const accessibleChapterIds = new Set(sortedChapters.slice(0, accessibleChapterCount).map(ch => ch.id));
 
+  // Admin: free access to everything. Instructor: free access to own courses only.
+  const hasStaffFreeAccess = role === 'admin'
+    || (role === 'instructor' && !!user && !!(course as any)?.instructor_id && (course as any).instructor_id === user.id);
+
   const isChapterAccessible = (chapterId: string | null) => {
+    if (hasStaffFreeAccess) return true;
     if (!enrollment || enrollment.status !== 'active') return false;
     if (paidPercentage >= 100) return true;
     if (!chapterId) return true; // lessons without chapters are always accessible
@@ -368,6 +373,7 @@ const CourseDetails = () => {
 
   const isLessonAccessible = (lesson: any, _index: number) => {
     if (lesson.is_preview) return true;
+    if (hasStaffFreeAccess) return true;
     if (!enrollment || enrollment.status !== 'active') return false;
     if (paidPercentage >= 100) return true;
     return isChapterAccessible(lesson.chapter_id);
