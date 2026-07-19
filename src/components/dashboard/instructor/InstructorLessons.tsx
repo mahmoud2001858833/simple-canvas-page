@@ -477,9 +477,7 @@ export const InstructorLessons = ({ courseId, courseTitle, chapterId, chapterTit
                 <p className="text-sm font-medium truncate">{language === 'ar' ? file.title_ar : file.title}</p>
               </div>
               <Badge variant="outline" className="text-xs">{language === 'ar' ? 'ملف' : 'File'}</Badge>
-              <Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteChapterFile(file.id)}>
-                <Trash2 className="w-4 h-4" />
-              </Button>
+              {/* Delete restricted to admins per platform policy */}
             </div>
           ))}
         </div>
