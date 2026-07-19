@@ -1,93 +1,34 @@
+# خطة التنفيذ
 
+## 1) نص السياسات الجديد
+- تحديث `platform_settings` (المفتاحان `instructor_policies_ar` و`instructor_policies_en`) بالنص الكامل الذي أرسلته، ليظهر تلقائياً في شاشة onboarding للمعلم.
+- إنشاء صفحة عامة `/terms` تعرض النص الكامل مقسّماً لأقسام (عام، معلمين، مدفوعات، طلاب، ختامي) مع دعم عربي/إنجليزي، وربطها من الفوتر.
 
-# Fix AlinmaPay 601 Error — Match Exact Postman Contract
+## 2) استبدال «كورسات» بـ«دورات»
+- استبدال شامل في كل ملفات الواجهة العربية:
+  - `src/lib/i18n.ts` (كل المفاتيح)
+  - كل مكونات `landing/`, `dashboard/`, `pages/` (النصوص الحرفية العربية فقط)
+- لا تغيير على أسماء الجداول أو المسارات (courses يبقى في الكود والـ URLs).
 
-## Problem
-The current edge function sends a **top-level `trackId`** field in the request body. The official Postman documentation does NOT include this field — the order identifier only appears inside `order.orderId`. This extra/unexpected field is likely causing the gateway to reject with 601.
+## 3) صلاحيات المعاينة والوصول
+- **الأدمن**: عند فتح صفحة الدورات أو تفاصيل أي دورة، يُعامل كطالب مسجَّل في كل الدورات — يفتح كل الفيديوهات/الملفات/الاختبارات مجاناً دون شراء.
+  - تنفيذ: تعديل شرط الوصول في `CourseDetails.tsx`, `LessonViewer.tsx`, `Checkout.tsx` والـ hooks المتعلقة بالفيديو ليتحقق من `has_role(admin)` كبديل عن التسجيل الفعّال. (RLS للأدمن أصلاً مفتوح، لكن الواجهة تخفي المحتوى — سنكشفه.)
+- **المعلم**: عند فتح صفحة الدورات، يستطيع فتح دوراته هو فقط (التي هو `instructor_id` عليها) كاملة مجاناً بدون شراء. باقي الدورات تظهر لكن تتطلب شراء.
 
-## Root Cause (from Postman docs vs current code)
+## 4) قيود إضافية للمعلم
+- **منع المعلم من حذف محتواه** بعد الرفع: تعديل RLS لجداول `courses`, `chapters`, `lessons`, `chapter_files`, `lesson_attachments`, `quizzes`, `quiz_questions`, `quiz_options`, `assignments` بحيث:
+  - المعلم يستطيع INSERT + UPDATE محتواه.
+  - **DELETE يبقى للأدمن فقط** (تُلغى سياسات DELETE الحالية للمعلم).
+- إخفاء `UI` أزرار الحذف من لوحة المعلم في: `InstructorCourses`, `InstructorChapters`, `InstructorLessons`, `ChapterManager`, `AssignmentManager`, `QuizEditor`, `LessonFileUploader`, `ChapterFileUploader`.
 
-Current code sends:
-```json
-{
-  "terminalId": "...",
-  "password": "...",
-  "trackId": "1234567890123",   // ← NOT in Postman docs
-  "paymentType": 1,
-  "signature": "...",
-  ...
-}
-```
+## 5) خصوصية بيانات الطالب أمام المعلم
+- في كل مكان يعرض للمعلم قائمة طلاب دورته (`InstructorStudents`, `StudentEngagementAnalytics`, رسائل الدورة، تقييمات، مناقشات): إخفاء البيانات الشخصية للطالب (الاسم الكامل، الإيميل، رقم الهاتف، الصورة) واستبدالها بمعرّف مجهول مثل «طالب #1234» أو أول حرف من الاسم.
+  - يبقى للمعلم رؤية: تقدم الدورة، درجات الاختبارات، الرسائل داخل الدورة (مع الاسم المجهول)، حالة الاشتراك.
+  - تُطبَّق أيضاً على RLS لجدول `profiles` عبر منح المعلم قراءة أعمدة محدودة فقط (سنستخدم view مخصّصة `profiles_public_for_instructor`).
 
-Postman docs show (Hosted Payment Page):
-```json
-{
-  "terminalId": "...",
-  "password": "...",
-  "signature": "...",
-  "paymentType": 1,
-  "merchantIp": "10.10.10.10",
-  "customerIp": "10.10.10.10",
-  "amount": "5.00",
-  "country": "SA",
-  "currency": "SAR",
-  "order": { "orderId": "UNIQUE_ID" },
-  "customer": { ... },
-  "additionalDetails": { "userData": "{...}" }
-}
-```
+## أسئلة تحتاج تأكيدك قبل التنفيذ
+1. **حذف المحتوى**: هل المعلم يستطيع فقط UPDATE ولا يحذف نهائياً؟ أم يحذف فقط قبل نشر الدورة (وبعد النشر يمنع)؟
+2. **خصوصية الطالب**: هل نُخفي الاسم كاملاً (نستبدله بـ«طالب #ID») أم نعرض الاسم الأول فقط؟ وهل الرسائل داخل الدورة يجب أن تبقى باسم مستعار أيضاً؟
+3. **معاينة الأدمن**: هل يفتح الأدمن الدورات مباشرة (بدون زر تبديل)؟ أفهم من كلامك: نعم مباشرة — أؤكد قبل التنفيذ.
 
-## Plan
-
-### Step 1: Rewrite the payload in `create-alinma-payment/index.ts`
-
-- **Remove** top-level `trackId` from the request body
-- **Keep** the signature formula as `orderId|terminalId|password|merchantKey|amount|currency` (same as before, just using orderId variable name for clarity)
-- **Match exact field order** from Postman: `terminalId`, `password`, `signature`, `paymentType`, `merchantIp`, `customerIp`, `amount`, `country`, `currency`, `order`, `customer`, `additionalDetails`
-- **Remove** all retry/variant logic — send exactly ONE payload to ONE URL
-- **No headers auth** — Postman shows no special headers (no `authorization` header for Hosted Payment Page)
-
-### Step 2: Simplify the function
-
-- Remove `payloadVariants` loop, `callGateway` with auth header variations
-- Single `fetch()` call to `https://pg.alinmapay.com.sa/Transactions/v2/payments/pay-request`
-- Keep signature generation, payment record creation, and error handling
-
-### Step 3: Deploy and verify
-
-- Deploy the edge function
-- Check logs to confirm the exact payload being sent
-
-## Technical Details
-
-The signature input string remains: `orderId|terminalId|password|merchantKey|amount|currency`
-
-The request body will be exactly:
-```json
-{
-  "terminalId": "TER...",
-  "password": "TER...",
-  "signature": "<sha256_hex>",
-  "paymentType": 1,
-  "merchantIp": "10.10.10.10",
-  "customerIp": "10.10.10.10",
-  "amount": "5.00",
-  "country": "SA",
-  "currency": "SAR",
-  "order": {
-    "orderId": "<unique_per_request>"
-  },
-  "customer": {
-    "cardHolderName": "Customer Name",
-    "customerEmail": "email@example.com",
-    "billingAddressStreet": "",
-    "billingAddressCountry": "SA"
-  },
-  "additionalDetails": {
-    "userData": "{\"paymentId\":\"...\",\"courseId\":\"...\"}"
-  }
-}
-```
-
-No extra fields. No retries. No header-based auth. Exact Postman match.
-
+بعد إجاباتك أنفذ كل شيء على دفعة واحدة.
