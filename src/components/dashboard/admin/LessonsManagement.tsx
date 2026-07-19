@@ -135,7 +135,7 @@ export const LessonsManagement = ({ courseId, courseTitle, chapterId, onBack }: 
 
   const texts = {
     ar: {
-      back: 'رجوع للكورسات',
+      back: 'رجوع للدورات',
       lessonsFor: 'دروس:',
       newLesson: 'درس جديد',
       editLesson: 'تعديل الدرس',

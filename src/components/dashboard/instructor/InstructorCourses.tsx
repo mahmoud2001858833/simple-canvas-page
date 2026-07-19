@@ -127,18 +127,18 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
 
   const texts = {
     ar: {
-      title: 'كورساتي',
+      title: 'دوراتي',
       viewAll: 'عرض الكل',
-      addCourse: 'إضافة كورس',
-      editCourse: 'تعديل الكورس',
-      noCourses: 'لا توجد كورسات بعد',
+      addCourse: 'إضافة دورة',
+      editCourse: 'تعديل الدورة',
+      noCourses: 'لا توجد دورات بعد',
       students: 'طالب',
       hours: 'ساعة',
       active: 'نشط',
       inactive: 'غير نشط',
       featured: 'مميز',
-      courseTitle: 'عنوان الكورس (إنجليزي)',
-      courseTitleAr: 'عنوان الكورس (عربي)',
+      courseTitle: 'عنوان الدورة (إنجليزي)',
+      courseTitleAr: 'عنوان الدورة (عربي)',
       courseDesc: 'الوصف (إنجليزي)',
       courseDescAr: 'الوصف (عربي)',
       price: 'السعر (ر.س)',
@@ -147,11 +147,11 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
       isFeatured: 'مميز',
       save: 'حفظ',
       cancel: 'إلغاء',
-      successAdd: 'تم إضافة الكورس بنجاح',
-      successEdit: 'تم تحديث الكورس بنجاح',
+      successAdd: 'تم إضافة الدورة بنجاح',
+      successEdit: 'تم تحديث الدورة بنجاح',
       error: 'حدث خطأ',
       manageLessons: 'إدارة الدروس',
-      courseImage: 'صورة الكورس',
+      courseImage: 'صورة الدورة',
       uploadImage: 'رفع صورة',
       uploading: 'جاري الرفع...',
       removeImage: 'إزالة الصورة',
@@ -433,7 +433,7 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
 
   const handleGenerateAIImage = async () => {
     if (!formData.title) {
-      toast.error(language === 'ar' ? 'يرجى إدخال عنوان الكورس أولاً' : 'Please enter course title first');
+      toast.error(language === 'ar' ? 'يرجى إدخال عنوان الدورة أولاً' : 'Please enter course title first');
       return;
     }
     setIsGeneratingAI(true);

@@ -257,7 +257,7 @@ export const InstructorSettings = () => {
             </CardTitle>
             <CardDescription>
               {isRTL 
-                ? 'حدد النسبة المئوية التي يحصل عليها المعلم من مبيعات كورساته'
+                ? 'حدد النسبة المئوية التي يحصل عليها المعلم من مبيعات دوراته'
                 : 'Set the percentage instructors receive from their course sales'}
             </CardDescription>
           </CardHeader>
@@ -294,7 +294,7 @@ export const InstructorSettings = () => {
               </h4>
               <p className="text-sm text-muted-foreground">
                 {isRTL 
-                  ? `لكورس بسعر 100 ريال: المعلم يحصل على ${commissionRate} ريال، المنصة تحصل على ${100 - commissionRate} ريال`
+                  ? `لدورة بسعر 100 ريال: المعلم يحصل على ${commissionRate} ريال، المنصة تحصل على ${100 - commissionRate} ريال`
                   : `For a 100 SAR course: Instructor gets ${commissionRate} SAR, Platform gets ${100 - commissionRate} SAR`}
               </p>
             </div>

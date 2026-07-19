@@ -543,7 +543,7 @@ export const WorkflowDashboard = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>{language === 'ar' ? 'المعلم' : 'Instructor'}</TableHead>
-                      <TableHead>{language === 'ar' ? 'الكورسات' : 'Courses'}</TableHead>
+                      <TableHead>{language === 'ar' ? 'الدورات' : 'Courses'}</TableHead>
                       <TableHead>{language === 'ar' ? 'الدروس' : 'Lessons'}</TableHead>
                       <TableHead>{language === 'ar' ? 'الطلاب' : 'Students'}</TableHead>
                       <TableHead>{language === 'ar' ? 'بانتظار الموافقة' : 'Pending'}</TableHead>
@@ -741,7 +741,7 @@ export const WorkflowDashboard = () => {
                               <div className="p-4 space-y-2">
                                 <h4 className="text-sm font-semibold mb-3 flex items-center gap-2">
                                   <BookOpen className="w-4 h-4 text-primary" />
-                                  {language === 'ar' ? 'تفاصيل الكورسات والأقساط' : 'Course & Payment Details'}
+                                  {language === 'ar' ? 'تفاصيل الدورات والأقساط' : 'Course & Payment Details'}
                                 </h4>
                                 <div className="grid gap-2">
                                   {student.enrollmentDetails.map((ed: any, idx: number) => (

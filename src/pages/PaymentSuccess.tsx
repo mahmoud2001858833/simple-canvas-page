@@ -183,7 +183,7 @@ const PaymentSuccess = () => {
               {shouldRedirect && (
                 <p className="text-sm text-primary mt-3 font-medium">
                   {isRTL 
-                    ? `سيتم توجيهك للكورس خلال ${countdown} ثوان...`
+                    ? `سيتم توجيهك للدورة خلال ${countdown} ثوان...`
                     : `Redirecting to your course in ${countdown} seconds...`
                   }
                 </p>
@@ -224,7 +224,7 @@ const PaymentSuccess = () => {
                         }
                       </h3>
                       <p className="text-sm text-muted-foreground">
-                        {course ? (isRTL ? 'كورس' : 'Course') : (isRTL ? 'طلب مخصص' : 'Custom Request')}
+                        {course ? (isRTL ? 'دورة' : 'Course') : (isRTL ? 'طلب مخصص' : 'Custom Request')}
                       </p>
                     </div>
                     <div className="text-right">

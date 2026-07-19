@@ -22,8 +22,8 @@ const WelcomeModal = () => {
       features: [
         {
           icon: BookOpen,
-          title: 'كورسات متخصصة',
-          description: 'تصفح مكتبة واسعة من الكورسات المصممة لجامعتك وتخصصك',
+          title: 'دورات متخصصة',
+          description: 'تصفح مكتبة واسعة من الدورات المصممة لجامعتك وتخصصك',
         },
         {
           icon: FileText,
@@ -33,7 +33,7 @@ const WelcomeModal = () => {
         {
           icon: Trophy,
           title: 'شهادات معتمدة',
-          description: 'احصل على شهادات إتمام عند إكمال الكورسات',
+          description: 'احصل على شهادات إتمام عند إكمال الدورات',
         },
       ],
       startButton: 'ابدأ الجولة التعريفية',

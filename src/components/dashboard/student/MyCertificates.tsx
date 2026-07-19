@@ -104,9 +104,9 @@ export const MyCertificates = () => {
           icon={Award}
           title={language === 'ar' ? 'لا توجد شهادات بعد' : 'No certificates yet'}
           description={language === 'ar' 
-            ? 'أكمل كورساتك بنجاح للحصول على شهادات إتمام معتمدة تضيف قيمة لمسيرتك المهنية' 
+            ? 'أكمل دوراتك بنجاح للحصول على شهادات إتمام معتمدة تضيف قيمة لمسيرتك المهنية' 
             : 'Complete your courses successfully to earn certified completion certificates that add value to your career'}
-          actionLabel={language === 'ar' ? 'تصفح الكورسات' : 'Browse Courses'}
+          actionLabel={language === 'ar' ? 'تصفح الدورات' : 'Browse Courses'}
           actionLink="/courses"
           variant="card"
           illustration="certificates"

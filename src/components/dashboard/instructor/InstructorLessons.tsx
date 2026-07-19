@@ -89,7 +89,7 @@ export const InstructorLessons = ({ courseId, courseTitle, chapterId, chapterTit
   });
 
   const t = language === 'ar' ? {
-    back: chapterId ? 'رجوع للفصول' : 'رجوع للكورسات',
+    back: chapterId ? 'رجوع للفصول' : 'رجوع للدورات',
     lessonsFor: 'دروس:',
     newLesson: 'درس جديد',
     editLesson: 'تعديل الدرس',
@@ -358,9 +358,7 @@ export const InstructorLessons = ({ courseId, courseTitle, chapterId, chapterTit
         <Button variant="ghost" size="icon" onClick={() => handleEdit(lesson)}>
           <Edit className="w-4 h-4" />
         </Button>
-        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => deleteMutation.mutate(lesson.id)}>
-          <Trash2 className="w-4 h-4" />
-        </Button>
+        {/* Delete restricted to admins per platform policy */}
       </div>
     </div>
   );
@@ -479,9 +477,7 @@ export const InstructorLessons = ({ courseId, courseTitle, chapterId, chapterTit
                 <p className="text-sm font-medium truncate">{language === 'ar' ? file.title_ar : file.title}</p>
               </div>
               <Badge variant="outline" className="text-xs">{language === 'ar' ? 'ملف' : 'File'}</Badge>
-              <Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteChapterFile(file.id)}>
-                <Trash2 className="w-4 h-4" />
-              </Button>
+              {/* Delete restricted to admins per platform policy */}
             </div>
           ))}
         </div>
@@ -502,9 +498,7 @@ export const InstructorLessons = ({ courseId, courseTitle, chapterId, chapterTit
               <Badge variant="outline" className="text-xs">
                 {quiz.quiz_type === 'pdf' ? 'PDF' : (language === 'ar' ? 'إلكتروني' : 'Interactive')}
               </Badge>
-              <Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteQuiz(quiz.id)}>
-                <Trash2 className="w-4 h-4" />
-              </Button>
+              {/* Delete restricted to admins per platform policy */}
             </div>
           ))}
         </div>

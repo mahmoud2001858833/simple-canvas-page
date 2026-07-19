@@ -424,7 +424,7 @@ export const FinancialDashboard = () => {
                 <Award className="w-8 h-8 text-primary" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">{isRTL ? 'أفضل كورس مبيعاً' : 'Best Selling Course'}</p>
+                <p className="text-sm text-muted-foreground">{isRTL ? 'أفضل دورة مبيعاً' : 'Best Selling Course'}</p>
                 <p className="text-xl font-bold mt-1">{stats?.bestCourse || '-'}</p>
               </div>
             </div>
@@ -519,7 +519,7 @@ export const FinancialDashboard = () => {
       {/* Tables Section */}
       <Tabs defaultValue="courses" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="courses">{isRTL ? 'إيرادات الكورسات' : 'Course Revenue'}</TabsTrigger>
+          <TabsTrigger value="courses">{isRTL ? 'إيرادات الدورات' : 'Course Revenue'}</TabsTrigger>
           <TabsTrigger value="instructors">{isRTL ? 'أرباح المعلمين' : 'Instructor Earnings'}</TabsTrigger>
           <TabsTrigger value="transactions">{isRTL ? 'المعاملات الأخيرة' : 'Recent Transactions'}</TabsTrigger>
           <TabsTrigger value="failed">{isRTL ? 'المعاملات الفاشلة' : 'Failed Payments'}</TabsTrigger>
@@ -529,14 +529,14 @@ export const FinancialDashboard = () => {
         <TabsContent value="courses">
           <Card>
             <CardHeader>
-              <CardTitle>{isRTL ? 'إيرادات كل كورس' : 'Revenue by Course'}</CardTitle>
+              <CardTitle>{isRTL ? 'إيرادات كل دورة' : 'Revenue by Course'}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>{isRTL ? 'الكورس' : 'Course'}</TableHead>
+                      <TableHead>{isRTL ? 'الدورة' : 'Course'}</TableHead>
                       <TableHead>{isRTL ? 'المعلم' : 'Instructor'}</TableHead>
                       <TableHead className="text-center">{isRTL ? 'المشتريات' : 'Purchases'}</TableHead>
                       <TableHead className="text-center">{isRTL ? 'الإيرادات' : 'Revenue'}</TableHead>
@@ -579,7 +579,7 @@ export const FinancialDashboard = () => {
                     <TableRow>
                       <TableHead>{isRTL ? 'المعلم' : 'Instructor'}</TableHead>
                       <TableHead>{isRTL ? 'البريد' : 'Email'}</TableHead>
-                      <TableHead className="text-center">{isRTL ? 'الكورسات' : 'Courses'}</TableHead>
+                      <TableHead className="text-center">{isRTL ? 'الدورات' : 'Courses'}</TableHead>
                       <TableHead className="text-center">{isRTL ? 'الإجمالي' : 'Total'}</TableHead>
                       <TableHead className="text-center">{isRTL ? 'مدفوع' : 'Paid'}</TableHead>
                       <TableHead className="text-center">{isRTL ? 'معلق' : 'Pending'}</TableHead>
@@ -618,7 +618,7 @@ export const FinancialDashboard = () => {
                     <TableRow>
                       <TableHead>{isRTL ? 'التاريخ' : 'Date'}</TableHead>
                       <TableHead>{isRTL ? 'المستخدم' : 'User'}</TableHead>
-                      <TableHead>{isRTL ? 'الكورس' : 'Course'}</TableHead>
+                      <TableHead>{isRTL ? 'الدورة' : 'Course'}</TableHead>
                       <TableHead className="text-center">{isRTL ? 'المبلغ' : 'Amount'}</TableHead>
                       <TableHead className="text-center">{isRTL ? 'الطريقة' : 'Method'}</TableHead>
                       <TableHead className="text-center">{isRTL ? 'الحالة' : 'Status'}</TableHead>

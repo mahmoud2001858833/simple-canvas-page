@@ -77,7 +77,7 @@ export const ProgressOverview = ({ limit }: ProgressOverviewProps) => {
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-bold flex items-center gap-2">
           <TrendingUp className="w-5 h-5 text-primary" />
-          {language === 'ar' ? 'تقدمي في الكورسات' : 'My Progress'}
+          {language === 'ar' ? 'تقدمي في الدورات' : 'My Progress'}
         </h2>
       </div>
 
@@ -115,7 +115,7 @@ export const ProgressOverview = ({ limit }: ProgressOverviewProps) => {
         <div className="text-center py-8">
           <TrendingUp className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
           <p className="text-muted-foreground">
-            {language === 'ar' ? 'ابدأ بكورس لتتبع تقدمك' : 'Start a course to track your progress'}
+            {language === 'ar' ? 'ابدأ بدورة لتتبع تقدمك' : 'Start a course to track your progress'}
           </p>
         </div>
       )}

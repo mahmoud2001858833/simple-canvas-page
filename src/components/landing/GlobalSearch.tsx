@@ -104,7 +104,7 @@ export const GlobalSearch = ({ isScrolled = false }: GlobalSearchProps) => {
               ref={inputRef}
               value={query}
               onChange={(e) => { setQuery(e.target.value); setIsOpen(true); }}
-              placeholder={isRTL ? 'ابحث عن كورس...' : 'Search courses...'}
+              placeholder={isRTL ? 'ابحث عن دورة...' : 'Search courses...'}
               className={`h-9 text-sm bg-background/90 backdrop-blur border-border/50 ${isRTL ? 'pr-9 pl-8' : 'pl-9 pr-8'}`}
             />
             <button

@@ -151,7 +151,7 @@ export const MajorsManagement = () => {
       toast.success(isRTL ? "تم حذف التخصص" : "Major deleted");
     },
     onError: () => {
-      toast.error(isRTL ? "حدث خطأ - قد تكون هناك كورسات مرتبطة" : "Error - may have linked courses");
+      toast.error(isRTL ? "حدث خطأ - قد تكون هناك دورات مرتبطة" : "Error - may have linked courses");
     },
   });
 

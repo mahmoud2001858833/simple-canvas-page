@@ -525,7 +525,7 @@ export const CourseAdTemplate = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ImageIcon className="w-5 h-5 text-primary" />
-            {isRTL ? 'صورة إعلان الكورس' : 'Course Ad Image'}
+            {isRTL ? 'صورة إعلان الدورة' : 'Course Ad Image'}
           </DialogTitle>
         </DialogHeader>
 
@@ -590,7 +590,7 @@ export const CourseAdTemplate = ({
           {isEditing && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-4 rounded-lg border bg-muted/20 text-sm">
               <div className="md:col-span-2">
-                <Label className="text-xs">{isRTL ? 'عنوان الكورس' : 'Title'}</Label>
+                <Label className="text-xs">{isRTL ? 'عنوان الدورة' : 'Title'}</Label>
                 <Input value={editData.title} onChange={(e) => setEditData(d => ({ ...d, title: e.target.value }))} onBlur={() => drawAd()} />
               </div>
               <div>

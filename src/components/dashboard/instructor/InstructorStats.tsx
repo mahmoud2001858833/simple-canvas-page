@@ -75,7 +75,7 @@ export const InstructorStats = () => {
 
   const statCards = [
     {
-      title: { ar: 'كورساتي', en: 'My Courses' },
+      title: { ar: 'دوراتي', en: 'My Courses' },
       value: stats.totalCourses,
       icon: BookOpen,
       gradient: 'from-primary to-primary/70',

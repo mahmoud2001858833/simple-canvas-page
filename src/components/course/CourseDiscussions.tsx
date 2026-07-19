@@ -210,7 +210,7 @@ export const CourseDiscussions = ({ courseId, isInstructor }: Props) => {
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold flex items-center gap-2">
           <MessageSquare className="w-5 h-5" />
-          {isAr ? 'منتدى الكورس' : 'Course Forum'}
+          {isAr ? 'منتدى الدورة' : 'Course Forum'}
         </h3>
         <Button size="sm" onClick={() => setNewPostDialog(true)}>
           <Plus className="w-4 h-4 me-2" />

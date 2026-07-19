@@ -166,10 +166,10 @@ export const AdminReports = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="w-5 h-5 text-primary" />
-              {language === 'ar' ? 'أكثر الكورسات تسجيلاً' : 'Top Enrolled Courses'}
+              {language === 'ar' ? 'أكثر الدورات تسجيلاً' : 'Top Enrolled Courses'}
             </CardTitle>
             <CardDescription>
-              {language === 'ar' ? 'الكورسات الأكثر شعبية' : 'Most popular courses'}
+              {language === 'ar' ? 'الدورات الأكثر شعبية' : 'Most popular courses'}
             </CardDescription>
           </CardHeader>
           <CardContent>

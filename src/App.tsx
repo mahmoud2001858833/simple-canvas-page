@@ -53,6 +53,7 @@ const VideoEditor = lazyRetry(() => import("./pages/dashboard/VideoEditor"));
 const QuizPage = lazyRetry(() => import("./pages/QuizPage"));
 const CertificateVerify = lazyRetry(() => import("./pages/CertificateVerify"));
 const Tutorials = lazyRetry(() => import("./pages/Tutorials"));
+const Terms = lazyRetry(() => import("./pages/Terms"));
 
 // Lazy loaded global components
 const WelcomeModal = lazy(() => import("./components/onboarding/WelcomeModal").then(m => ({ default: m.WelcomeModal })));
@@ -208,6 +209,7 @@ const App = () => (
                           <Route path="/quiz/:quizId" element={<QuizPage />} />
                           <Route path="/verify/:token" element={<CertificateVerify />} />
                           <Route path="/tutorials" element={<Tutorials />} />
+                          <Route path="/terms" element={<Terms />} />
                           <Route path="*" element={<NotFound />} />
                         </Routes>
                       </Suspense>

@@ -231,11 +231,11 @@ export const CouponsManagement = () => {
                 )}
               </div>
               <div className="space-y-2">
-                <Label>{isAr ? 'الكورس (اختياري - فارغ = جميع الكورسات)' : 'Course (optional — empty = all courses)'}</Label>
+                <Label>{isAr ? 'الدورة (اختياري - فارغ = جميع الدورات)' : 'Course (optional — empty = all courses)'}</Label>
                 <Select value={form.course_id || 'all'} onValueChange={v => setForm({ ...form, course_id: v === 'all' ? '' : v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">{isAr ? 'جميع الكورسات' : 'All courses'}</SelectItem>
+                    <SelectItem value="all">{isAr ? 'جميع الدورات' : 'All courses'}</SelectItem>
                     {coursesList.map((c: any) => (
                       <SelectItem key={c.id} value={c.id}>{isAr ? c.title_ar : c.title}</SelectItem>
                     ))}

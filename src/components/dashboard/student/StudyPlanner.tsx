@@ -140,7 +140,7 @@ export const StudyPlanner = () => {
                 onValueChange={(val) => setNewEvent(prev => ({ ...prev, course_id: val }))}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder={isRTL ? 'اختر الكورس (اختياري)' : 'Select course (optional)'} />
+                  <SelectValue placeholder={isRTL ? 'اختر الدورة (اختياري)' : 'Select course (optional)'} />
                 </SelectTrigger>
                 <SelectContent>
                   {enrolledCourses.map((e: any) => (

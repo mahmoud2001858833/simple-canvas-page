@@ -31,7 +31,7 @@ export const InstructorChapters = ({ courseId, courseTitle, onBack }: Instructor
   const [selectedChapter, setSelectedChapter] = useState<{ id: string; title: string } | null>(null);
 
   const t = isRTL ? {
-    back: 'رجوع للكورسات',
+    back: 'رجوع للدورات',
     chaptersFor: 'فصول:',
     newChapter: 'فصل جديد',
     editChapter: 'تعديل الفصل',
@@ -45,7 +45,7 @@ export const InstructorChapters = ({ courseId, courseTitle, onBack }: Instructor
     chapterDeleted: 'تم حذف الفصل',
     lessons: 'درس',
     manageLessons: 'إدارة الدروس',
-    createFirst: 'أنشئ فصلاً لتنظيم دروس الكورس',
+    createFirst: 'أنشئ فصلاً لتنظيم دروس الدورة',
   } : {
     back: 'Back to Courses',
     chaptersFor: 'Chapters for:',
@@ -244,9 +244,7 @@ export const InstructorChapters = ({ courseId, courseTitle, onBack }: Instructor
                   <Button variant="ghost" size="icon" onClick={(e) => handleEdit(chapter, e)}>
                     <Edit className="w-4 h-4" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); deleteMutation.mutate(chapter.id); }}>
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  {/* Delete restricted to admins per platform policy */}
                 </div>
               </div>
             );

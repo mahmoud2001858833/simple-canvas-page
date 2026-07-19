@@ -62,10 +62,10 @@ export const StudentDetailView = () => {
       subtitle: 'عرض لوحات تحكم الطلاب',
       search: 'ابحث عن طالب...',
       viewDashboard: 'عرض اللوحة',
-      courses: 'كورس',
+      courses: 'دورة',
       noStudents: 'لا يوجد طلاب',
       overview: 'نظرة عامة',
-      myCourses: 'الكورسات',
+      myCourses: 'الدورات',
       progress: 'التقدم',
       certificates: 'الشهادات',
       requests: 'الطلبات',
@@ -257,7 +257,7 @@ const StudentStatsPreview = ({ studentId, language }: { studentId: string; langu
   });
 
   const statCards = [
-    { label: language === 'ar' ? 'الكورسات' : 'Courses', value: stats?.enrollments || 0, icon: BookOpen, color: 'bg-primary' },
+    { label: language === 'ar' ? 'الدورات' : 'Courses', value: stats?.enrollments || 0, icon: BookOpen, color: 'bg-primary' },
     { label: language === 'ar' ? 'ساعات التعلم' : 'Learning Hours', value: `${(stats?.completedLessons || 0) * 0.5}`, icon: Clock, color: 'bg-secondary' },
     { label: language === 'ar' ? 'الشهادات' : 'Certificates', value: stats?.certificates || 0, icon: Award, color: 'bg-accent' },
     { label: language === 'ar' ? 'التقدم' : 'Progress', value: `${stats?.progress || 0}%`, icon: TrendingUp, color: 'bg-success' },
@@ -298,11 +298,11 @@ const StudentCoursesPreview = ({ studentId, language }: { studentId: string; lan
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{language === 'ar' ? 'الكورسات المسجلة' : 'Enrolled Courses'}</CardTitle>
+        <CardTitle>{language === 'ar' ? 'الدورات المسجلة' : 'Enrolled Courses'}</CardTitle>
       </CardHeader>
       <CardContent>
         {(!enrollments || enrollments.length === 0) ? (
-          <p className="text-center py-4 text-muted-foreground">{language === 'ar' ? 'لا توجد كورسات' : 'No courses'}</p>
+          <p className="text-center py-4 text-muted-foreground">{language === 'ar' ? 'لا توجد دورات' : 'No courses'}</p>
         ) : (
           <div className="space-y-3">
             {enrollments.map((enrollment: any) => (
@@ -378,12 +378,12 @@ const StudentProgressPreview = ({ studentId, language }: { studentId: string; la
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <TrendingUp className="w-5 h-5 text-primary" />
-          {language === 'ar' ? 'التقدم في الكورسات' : 'Course Progress'}
+          {language === 'ar' ? 'التقدم في الدورات' : 'Course Progress'}
         </CardTitle>
       </CardHeader>
       <CardContent>
         {(!enrollments || enrollments.length === 0) ? (
-          <p className="text-center py-4 text-muted-foreground">{language === 'ar' ? 'لا توجد كورسات' : 'No courses'}</p>
+          <p className="text-center py-4 text-muted-foreground">{language === 'ar' ? 'لا توجد دورات' : 'No courses'}</p>
         ) : (
           <div className="space-y-4">
             {enrollments.map((item: any) => (

@@ -47,7 +47,7 @@ export const InstructorStudents = () => {
     ar: {
       title: 'طلابي',
       searchPlaceholder: 'ابحث عن طالب...',
-      allCourses: 'جميع الكورسات',
+      allCourses: 'جميع الدورات',
       noStudents: 'لا يوجد طلاب مسجلين بعد',
       progress: 'التقدم',
       enrolledIn: 'مسجل في',
@@ -128,11 +128,14 @@ export const InstructorStudents = () => {
         const course = instructorCourses.find(c => c.id === enrollment.course_id);
 
         if (profile && course) {
+          // Privacy: instructors see anonymized identity only (Student #<short id>)
+          const shortId = enrollment.user_id.substring(0, 8).toUpperCase();
+          const anonName = `Student #${shortId}`;
           studentData.push({
             id: enrollment.id,
-            full_name: profile.full_name || profile.email || 'Unknown',
-            email: profile.email || '',
-            avatar_url: profile.avatar_url,
+            full_name: anonName,
+            email: '',
+            avatar_url: null,
             course_title: course.title,
             course_title_ar: course.title_ar,
             course_id: course.id,

@@ -68,7 +68,7 @@ export const AdminStats = () => {
       change: '+12%',
     },
     {
-      label: language === 'ar' ? 'الكورسات' : 'Courses',
+      label: language === 'ar' ? 'الدورات' : 'Courses',
       value: stats?.courses || 0,
       icon: BookOpen,
       gradient: 'from-secondary to-emerald',

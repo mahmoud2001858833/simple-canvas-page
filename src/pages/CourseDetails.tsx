@@ -57,9 +57,9 @@ const courseDetailsOnboardingSteps = [
   {
     id: "course-info",
     title: "Course Information",
-    title_ar: "معلومات الكورس",
+    title_ar: "معلومات الدورة",
     description: "View course details including duration, number of students, and lessons",
-    description_ar: "شاهد تفاصيل الكورس بما في ذلك المدة وعدد الطلاب والدروس",
+    description_ar: "شاهد تفاصيل الدورة بما في ذلك المدة وعدد الطلاب والدروس",
     target: "[data-onboarding='course-info']",
     placement: "bottom" as const,
   },
@@ -68,16 +68,16 @@ const courseDetailsOnboardingSteps = [
     title: "Enrollment Card",
     title_ar: "بطاقة الاشتراك",
     description: "See the price and enroll in the course from here",
-    description_ar: "شاهد السعر واشترك في الكورس من هنا",
+    description_ar: "شاهد السعر واشترك في الدورة من هنا",
     target: "[data-onboarding='course-enroll']",
     placement: "left" as const,
   },
   {
     id: "course-content",
     title: "Course Content",
-    title_ar: "محتوى الكورس",
+    title_ar: "محتوى الدورة",
     description: "Browse all lessons in this course. Free preview lessons are marked",
-    description_ar: "تصفح جميع الدروس في هذا الكورس. الدروس المجانية معلمة",
+    description_ar: "تصفح جميع الدروس في هذا الدورة. الدروس المجانية معلمة",
     target: "[data-onboarding='course-content']",
     placement: "top" as const,
   },
@@ -359,7 +359,12 @@ const CourseDetails = () => {
   const sortedChapters = [...chaptersWithContent].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
   const accessibleChapterIds = new Set(sortedChapters.slice(0, accessibleChapterCount).map(ch => ch.id));
 
+  // Admin: free access to everything. Instructor: free access to own courses only.
+  const hasStaffFreeAccess = role === 'admin'
+    || (role === 'instructor' && !!user && !!(course as any)?.instructor_id && (course as any).instructor_id === user.id);
+
   const isChapterAccessible = (chapterId: string | null) => {
+    if (hasStaffFreeAccess) return true;
     if (!enrollment || enrollment.status !== 'active') return false;
     if (paidPercentage >= 100) return true;
     if (!chapterId) return true; // lessons without chapters are always accessible
@@ -368,6 +373,7 @@ const CourseDetails = () => {
 
   const isLessonAccessible = (lesson: any, _index: number) => {
     if (lesson.is_preview) return true;
+    if (hasStaffFreeAccess) return true;
     if (!enrollment || enrollment.status !== 'active') return false;
     if (paidPercentage >= 100) return true;
     return isChapterAccessible(lesson.chapter_id);
@@ -416,9 +422,9 @@ const CourseDetails = () => {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center">
         <GraduationCap className="h-16 w-16 text-muted-foreground mb-4" />
-        <h1 className="text-2xl font-bold mb-2">{isRTL ? "الكورس غير موجود" : "Course Not Found"}</h1>
+        <h1 className="text-2xl font-bold mb-2">{isRTL ? "الدورة غير موجود" : "Course Not Found"}</h1>
         <Button asChild variant="outline" className="mt-4">
-          <Link to="/courses">{isRTL ? "العودة للكورسات" : "Back to Courses"}</Link>
+          <Link to="/courses">{isRTL ? "العودة للدورات" : "Back to Courses"}</Link>
         </Button>
       </div>
     );
@@ -440,7 +446,7 @@ const CourseDetails = () => {
             onClick={() => navigate("/courses")}
           >
             {isRTL ? (
-              <><ArrowRight className="h-4 w-4 ml-2" />العودة للكورسات</>
+              <><ArrowRight className="h-4 w-4 ml-2" />العودة للدورات</>
             ) : (
               <><ArrowLeft className="h-4 w-4 mr-2" />Back to Courses</>
             )}
@@ -524,11 +530,15 @@ const CourseDetails = () => {
                     </div>
                   )}
 
-                  {enrollment?.status === "active" ? (
+                  {enrollment?.status === "active" || hasStaffFreeAccess ? (
                     <div className="space-y-4">
                       <div className="flex items-center gap-2 text-green-600">
                         <CheckCircle className="h-5 w-5" />
-                        <span className="font-medium">{isRTL ? "أنت مشترك في هذا الكورس" : "You're enrolled"}</span>
+                        <span className="font-medium">
+                          {hasStaffFreeAccess && !enrollment
+                            ? (isRTL ? (role === 'admin' ? 'وصول الأدمن الكامل' : 'وصول المعلم لدورتك') : 'Full access')
+                            : (isRTL ? "أنت مشترك في هذه الدورة" : "You're enrolled")}
+                        </span>
                       </div>
                       <div>
                         <div className="flex justify-between text-sm mb-2">
@@ -542,7 +552,7 @@ const CourseDetails = () => {
                           <Play className="h-4 w-4 mr-2" />{isRTL ? "متابعة التعلم" : "Continue Learning"}
                         </Link>
                       </Button>
-                      {course?.instructor_id && (
+                      {course?.instructor_id && enrollment && (
                         <Button variant="outline" className="w-full" onClick={() => setShowChat(true)}>
                           <MessageSquare className="h-4 w-4 me-2" />
                           {isRTL ? 'تواصل مع المعلم' : 'Contact Instructor'}
@@ -574,7 +584,7 @@ const CourseDetails = () => {
             <Card data-onboarding="course-content">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <BookOpen className="h-5 w-5" />{isRTL ? "محتوى الكورس" : "Course Content"}
+                  <BookOpen className="h-5 w-5" />{isRTL ? "محتوى الدورة" : "Course Content"}
                   {lessons.length > 0 && (
                     <Badge variant="secondary" className="text-xs ms-2">
                       {(() => {
@@ -671,10 +681,10 @@ const CourseDetails = () => {
                                       if (accessible) {
                                         navigate(`/courses/${id}/lessons/${lesson.id}`);
                                       } else if (!user) {
-                                        toast.info(isRTL ? 'سجّل دخولك أولاً ثم اشترِ الكورس لمشاهدة هذا الدرس' : 'Please login and purchase the course to watch this lesson');
+                                        toast.info(isRTL ? 'سجّل دخولك أولاً ثم اشترِ الدورة لمشاهدة هذا الدرس' : 'Please login and purchase the course to watch this lesson');
                                         navigate('/login');
                                       } else if (!enrollment) {
-                                        toast.info(isRTL ? 'اشترِ الكورس لمشاهدة هذا الدرس' : 'Purchase the course to watch this lesson');
+                                        toast.info(isRTL ? 'اشترِ الدورة لمشاهدة هذا الدرس' : 'Purchase the course to watch this lesson');
                                         navigate(`/checkout/${id}`);
                                       } else if (enrollment?.status === 'active') {
                                         navigate(`/checkout/${id}`);
@@ -716,7 +726,7 @@ const CourseDetails = () => {
 
                               {/* Chapter Files */}
                               {group.chapter && chapterFiles.filter((f: any) => f.chapter_id === group.chapter.id).map((file: any) => {
-                                const fileAccessible = enrollment?.status === 'active' || isAdminOrInstructor;
+                                const fileAccessible = enrollment?.status === "active" || hasStaffFreeAccess;
                                 return (
                                   <div key={`file-${file.id}`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/60">
                                     <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
@@ -744,7 +754,7 @@ const CourseDetails = () => {
 
                               {/* Quizzes */}
                               {group.chapter && quizzes.filter((q: any) => q.chapter_id === group.chapter.id).map((quiz: any) => {
-                                const quizAccessible = enrollment?.status === 'active' || isAdminOrInstructor;
+                                const quizAccessible = enrollment?.status === "active" || hasStaffFreeAccess;
                                 return (
                                   <div
                                     key={`quiz-${quiz.id}`}
@@ -795,7 +805,7 @@ const CourseDetails = () => {
             <CourseReviews courseId={id!} isRTL={isRTL} />
 
             {/* Course Forum */}
-            {(enrollment?.status === 'active' || isAdminOrInstructor) && (
+            {(enrollment?.status === "active" || hasStaffFreeAccess) && (
               <Card>
                 <CardContent className="pt-6">
                   <CourseDiscussions courseId={id!} isInstructor={isAdminOrInstructor} />
@@ -853,7 +863,7 @@ const CourseDetails = () => {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="flex justify-between items-center">
-              <span>{isRTL ? "سعر الكورس" : "Course Price"}</span>
+              <span>{isRTL ? "سعر الدورة" : "Course Price"}</span>
               <span className="font-bold text-lg">{course.price} {isRTL ? "ر.س" : "SAR"}</span>
             </div>
           </div>

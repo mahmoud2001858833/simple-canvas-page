@@ -67,7 +67,7 @@ const lessonOnboardingSteps = [
     title: "Your Progress",
     title_ar: "تقدمك",
     description: "Track your course progress here. Complete lessons to move forward",
-    description_ar: "تتبع تقدمك في الكورس هنا. أكمل الدروس للتقدم",
+    description_ar: "تتبع تقدمك في الدورة هنا. أكمل الدروس للتقدم",
     target: "[data-onboarding='lesson-progress']",
     placement: "left" as const,
   },
@@ -96,7 +96,7 @@ const LessonViewer = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { language } = useLanguage();
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const { startOnboarding, state } = useOnboarding();
   const isRTL = language === "ar";
 
@@ -211,9 +211,14 @@ const LessonViewer = () => {
   const sortedChapters = [...chaptersWithContent].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
   const accessibleChapterIds = new Set(sortedChapters.slice(0, accessibleChapterCount).map(ch => ch.id));
 
+  // Admin: free access to everything. Instructor: free access to own courses only.
+  const hasStaffFreeAccess = role === 'admin'
+    || (role === 'instructor' && !!user && !!(course as any)?.instructor_id && (course as any).instructor_id === user.id);
+
   // Check access - preview lessons are accessible to everyone (even without login)
   const hasAccess = (() => {
     if (currentLesson?.is_preview) return true;
+    if (hasStaffFreeAccess) return true;
     if (!enrollment || enrollment.status !== 'active') return false;
     if (paidPercentage >= 100) return true;
     const chapterId = (currentLesson as any)?.chapter_id;
@@ -466,6 +471,7 @@ const LessonViewer = () => {
 
   const isLessonAccessible = (lesson: any, _index: number) => {
     if (lesson.is_preview) return true;
+    if (hasStaffFreeAccess) return true;
     if (!enrollment || enrollment.status !== 'active') return false;
     if (paidPercentage >= 100) return true;
     const chapterId = (lesson as any).chapter_id;
@@ -491,7 +497,7 @@ const LessonViewer = () => {
           </h1>
           <Button asChild variant="outline" className="mt-4">
             <Link to={`/courses/${courseId}`}>
-              {isRTL ? "العودة للكورس" : "Back to Course"}
+              {isRTL ? "العودة للدورة" : "Back to Course"}
             </Link>
           </Button>
         </div>
@@ -514,7 +520,7 @@ const LessonViewer = () => {
           <p className="text-muted-foreground mb-4">
             {isLockedByInstallment
               ? (isRTL ? "ادفع القسط التالي لفتح هذا الفصل" : "Pay the next installment to unlock this chapter")
-              : (isRTL ? "اشترك في الكورس للوصول لهذا الدرس" : "Enroll in the course to access this lesson")
+              : (isRTL ? "اشترك في الدورة للوصول لهذا الدرس" : "Enroll in the course to access this lesson")
             }
           </p>
           <Button asChild>
@@ -550,7 +556,7 @@ const LessonViewer = () => {
               >
                 {isRTL ? <ArrowRight className="h-4 w-4" /> : <ArrowLeft className="h-4 w-4" />}
                 <span className="ml-2">
-                  {isRTL ? "العودة للكورس" : "Back to Course"}
+                  {isRTL ? "العودة للدورة" : "Back to Course"}
                 </span>
               </Button>
               <Separator orientation="vertical" className="h-6" />
@@ -967,7 +973,7 @@ const LessonViewer = () => {
             )}
 
             {/* Lesson Attachments */}
-            <LessonAttachments lessonId={lessonId!} isRTL={isRTL} isEnrolled={!!enrollment && enrollment.status === 'active'} />
+            <LessonAttachments lessonId={lessonId!} isRTL={isRTL} isEnrolled={(!!enrollment && enrollment.status === "active") || hasStaffFreeAccess} />
 
             {/* AI Assistant */}
             {(course as any)?.ai_enabled && (
@@ -1027,7 +1033,7 @@ const LessonViewer = () => {
           <div className="p-4 border-b">
             <h3 className="font-semibold flex items-center gap-2">
               <BookOpen className="h-4 w-4" />
-              {isRTL ? "محتوى الكورس" : "Course Content"}
+              {isRTL ? "محتوى الدورة" : "Course Content"}
             </h3>
             <p className="text-sm text-muted-foreground mt-1">
               {completedLessons}/{lessons.length}{" "}

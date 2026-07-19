@@ -54,7 +54,7 @@ const instructorVideos: VideoItem[] = [
     url: instructorSignup.url,
   },
   {
-    title_ar: 'رفع الكورسات',
+    title_ar: 'رفع الدورات',
     title_en: 'Uploading Courses',
     desc_ar: 'شرح طريقة رفع الدورات والدروس وإدارة المحتوى التعليمي',
     desc_en: 'How to upload courses, lessons and manage your content',

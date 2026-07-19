@@ -34,7 +34,7 @@ export const InstructorAnalytics = () => {
 
   const texts = {
     ar: {
-      title: 'تحليلات الكورسات',
+      title: 'تحليلات الدورات',
       views: 'المشاهدات',
       completionRate: 'معدل الإكمال',
       avgRating: 'متوسط التقييم',
@@ -43,14 +43,14 @@ export const InstructorAnalytics = () => {
       completed: 'أكمل',
       reviews: 'تقييم',
       noData: 'لا توجد بيانات بعد',
-      noCourses: 'لا توجد كورسات بعد',
+      noCourses: 'لا توجد دورات بعد',
       overallStats: 'الإحصائيات العامة',
       totalViews: 'إجمالي المشاهدات',
       totalRevenue: 'إجمالي الإيرادات',
       avgCompletion: 'متوسط معدل الإكمال',
       avgRatingAll: 'متوسط التقييم العام',
-      revenueChart: 'الإيرادات حسب الكورس',
-      courseDetails: 'تفاصيل كل كورس',
+      revenueChart: 'الإيرادات حسب الدورة',
+      courseDetails: 'تفاصيل كل دورة',
       sar: 'ر.س',
       active: 'نشط',
       inactive: 'غير نشط',

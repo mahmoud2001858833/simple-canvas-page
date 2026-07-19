@@ -32,8 +32,8 @@ const signupSchema = z.object({
     .min(8, { message: 'كلمة المرور يجب أن تكون 8 أحرف على الأقل' })
     .max(72, { message: 'كلمة المرور طويلة جداً' }),
   phone: z.string()
-    .optional()
-    .refine((val) => !val || /^[0-9]{7,15}$/.test(val), {
+    .min(1, { message: 'رقم الهاتف مطلوب' })
+    .refine((val) => /^[0-9]{7,15}$/.test(val), {
       message: 'رقم الهاتف غير صحيح',
     }),
 });
@@ -699,7 +699,7 @@ const Signup = () => {
                 className="space-y-2"
               >
                 <Label htmlFor="phone" className="text-foreground/80">
-                  {language === 'ar' ? 'رقم الهاتف' : 'Phone Number'}
+                  {language === 'ar' ? 'رقم الهاتف *' : 'Phone Number *'}
                 </Label>
                 <div className="relative group/input">
                   <div className={`absolute inset-0 bg-gradient-to-r from-sky to-primary rounded-lg blur-sm opacity-0 transition-opacity duration-300 ${focusedField === 'phone' ? 'opacity-50' : 'group-hover/input:opacity-25'}`} />
@@ -737,7 +737,8 @@ const Signup = () => {
                           "ps-10 bg-background/50 border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-300",
                           validationErrors.phone && "border-destructive"
                         )}
-                        placeholder={language === 'ar' ? 'اختياري' : 'Optional'}
+                        placeholder={language === 'ar' ? 'مطلوب' : 'Required'}
+                        required
                         dir="ltr"
                         disabled={loading || redirecting}
                       />

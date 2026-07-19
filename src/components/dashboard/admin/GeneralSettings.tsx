@@ -261,9 +261,9 @@ export const GeneralSettings = () => {
             <Separator />
             <div className="flex items-center justify-between">
               <div>
-                <p className="font-medium">{language === 'ar' ? 'طلبات الكورسات' : 'Course Requests'}</p>
+                <p className="font-medium">{language === 'ar' ? 'طلبات الدورات' : 'Course Requests'}</p>
                 <p className="text-sm text-muted-foreground">
-                  {language === 'ar' ? 'السماح بطلب كورسات مخصصة' : 'Allow custom course requests'}
+                  {language === 'ar' ? 'السماح بطلب دورات مخصصة' : 'Allow custom course requests'}
                 </p>
               </div>
               <Switch checked={enableCourseRequests} onCheckedChange={setEnableCourseRequests} />
