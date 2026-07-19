@@ -69,10 +69,10 @@ const About = () => {
       stats: {
         title: 'إنجازاتنا',
         items: [
-          { value: '50,000+', label: 'طالب مسجل' },
-          { value: '500+', label: 'دورة تدريبية' },
-          { value: '100+', label: 'مدرس خبير' },
-          { value: '95%', label: 'نسبة رضا الطلاب' }
+          { value: fmt(platformStats.students), label: 'طالب مسجل' },
+          { value: fmt(platformStats.courses), label: 'دورة تدريبية' },
+          { value: fmt(platformStats.instructors), label: 'مدرس خبير' },
+          { value: platformStats.satisfactionPercent > 0 ? `${platformStats.satisfactionPercent}%` : '—', label: 'نسبة رضا الطلاب' }
         ]
       },
     },
