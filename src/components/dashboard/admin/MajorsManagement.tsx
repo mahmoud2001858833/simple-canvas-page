@@ -232,7 +232,7 @@ export const MajorsManagement = () => {
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label>{isRTL ? "الجامعة" : "University"}</Label>
+                <Label>{isRTL ? "الجهة" : "University"}</Label>
                 <Select
                   value={selectedUniversity}
                   onValueChange={(value) => {
@@ -241,7 +241,7 @@ export const MajorsManagement = () => {
                   }}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder={isRTL ? "اختر الجامعة" : "Select university"} />
+                    <SelectValue placeholder={isRTL ? "اختر الجهة" : "Select university"} />
                   </SelectTrigger>
                   <SelectContent>
                     {universities.map((uni) => (
@@ -323,10 +323,10 @@ export const MajorsManagement = () => {
               }}
             >
               <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder={isRTL ? "جميع الجامعات" : "All Universities"} />
+                <SelectValue placeholder={isRTL ? "جميع الجهات" : "All Universities"} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">{isRTL ? "جميع الجامعات" : "All Universities"}</SelectItem>
+                <SelectItem value="all">{isRTL ? "جميع الجهات" : "All Universities"}</SelectItem>
                 {universities.map((uni) => (
                   <SelectItem key={uni.id} value={uni.id}>
                     {isRTL ? uni.name_ar : uni.name}
@@ -360,7 +360,7 @@ export const MajorsManagement = () => {
                 <TableRow>
                   <TableHead>{isRTL ? "التخصص" : "Major"}</TableHead>
                   <TableHead>{isRTL ? "الكلية" : "College"}</TableHead>
-                  <TableHead>{isRTL ? "الجامعة" : "University"}</TableHead>
+                  <TableHead>{isRTL ? "الجهة" : "University"}</TableHead>
                   <TableHead>{isRTL ? "الحالة" : "Status"}</TableHead>
                   <TableHead>{isRTL ? "الإجراءات" : "Actions"}</TableHead>
                 </TableRow>

@@ -110,7 +110,7 @@ export const DashboardSidebar = ({ activeTab, onTabChange, isOpen, onToggle, use
     { id: 'student-detail', label: { ar: 'الطالب بالتفصيل', en: 'Student Detail' }, icon: StudentIcon, onboardingId: null, showBadge: false, isAction: false },
     { id: 'courses', label: { ar: 'الدورات', en: 'Courses' }, icon: BookOpen, onboardingId: null, showBadge: false, isAction: false },
     { id: 'course-approvals', label: { ar: 'موافقة على دورات المعلم', en: 'Course Approvals' }, icon: CheckCircle, onboardingId: null, showBadge: false, isAction: false },
-    { id: 'universities', label: { ar: 'الجامعات', en: 'Universities' }, icon: Building2, onboardingId: null, showBadge: false, isAction: false },
+    { id: 'universities', label: { ar: 'الجهات', en: 'Universities' }, icon: Building2, onboardingId: null, showBadge: false, isAction: false },
     { id: 'colleges', label: { ar: 'الكليات', en: 'Colleges' }, icon: School, onboardingId: null, showBadge: false, isAction: false },
     { id: 'majors', label: { ar: 'التخصصات', en: 'Majors' }, icon: GraduationCap, onboardingId: null, showBadge: false, isAction: false },
     { id: 'students-by-major', label: { ar: 'الطلاب حسب التخصص', en: 'Students by Major' }, icon: Users, onboardingId: null, showBadge: false, isAction: false },

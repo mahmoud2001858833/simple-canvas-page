@@ -560,7 +560,7 @@ export const CoursesManagement = () => {
               {/* University, College, Major, Study Year */}
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>{language === 'ar' ? 'الجامعة' : 'University'}</Label>
+                  <Label>{language === 'ar' ? 'الجهة' : 'University'}</Label>
                   <Select
                     value={selectedUniversityId}
                     onValueChange={(value) => {
@@ -570,7 +570,7 @@ export const CoursesManagement = () => {
                     }}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder={language === 'ar' ? 'اختر الجامعة' : 'Select University'} />
+                      <SelectValue placeholder={language === 'ar' ? 'اختر الجهة' : 'Select University'} />
                     </SelectTrigger>
                     <SelectContent>
                       {universities?.map((uni: any) => (

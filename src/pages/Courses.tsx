@@ -35,9 +35,9 @@ const coursesOnboardingSteps = [
   {
     id: "courses-filters",
     title: "Filter by University",
-    title_ar: "فلترة حسب الجامعة",
+    title_ar: "فلترة حسب الجهة",
     description: "Filter courses by university, college, and major to find what fits your studies",
-    description_ar: "فلتر الدورات حسب الجامعة والكلية والتخصص للعثور على ما يناسب دراستك",
+    description_ar: "فلتر الدورات حسب الجهة والكلية والتخصص للعثور على ما يناسب دراستك",
     target: "[data-onboarding='courses-filters']",
     placement: "bottom" as const,
   },
@@ -298,7 +298,7 @@ const Courses = () => {
           </h1>
           <p className="text-lg text-center opacity-90 max-w-2xl mx-auto">
             {isRTL
-              ? "اكتشف مجموعة واسعة من الدورات المصممة خصيصًا لتخصصك الجامعي"
+              ? "اكتشف مجموعة واسعة من الدورات المصممة خصيصًا لتخصصك الأكاديمي"
               : "Discover a wide range of courses tailored to your university major"}
           </p>
         </div>
@@ -334,10 +334,10 @@ const Courses = () => {
               <div data-onboarding="courses-filters">
                 <Select value={selectedUniversity} onValueChange={handleUniversityChange}>
                   <SelectTrigger>
-                    <SelectValue placeholder={isRTL ? "الجامعة" : "University"} />
+                    <SelectValue placeholder={isRTL ? "الجهة" : "University"} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">{isRTL ? "جميع الجامعات" : "All Universities"}</SelectItem>
+                    <SelectItem value="all">{isRTL ? "جميع الجهات" : "All Universities"}</SelectItem>
                     {universities.map((uni) => (
                       <SelectItem key={uni.id} value={uni.id}>
                         {isRTL ? uni.name_ar : uni.name}

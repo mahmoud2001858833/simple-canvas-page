@@ -435,7 +435,7 @@ export const RequestsManagement = () => {
           {classification.university && (
             <div className="flex items-center gap-2">
               <Building className="w-4 h-4 text-muted-foreground" />
-              <span className="text-muted-foreground">{language === 'ar' ? 'الجامعة:' : 'University:'}</span>
+              <span className="text-muted-foreground">{language === 'ar' ? 'الجهة:' : 'University:'}</span>
               <span className="font-medium">{classification.university}</span>
             </div>
           )}
@@ -980,7 +980,7 @@ export const RequestsManagement = () => {
           {editingAI && (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>{language === 'ar' ? 'الجامعة' : 'University'}</Label>
+                <Label>{language === 'ar' ? 'الجهة' : 'University'}</Label>
                 <Input
                   value={editingAI.data.university || ''}
                   onChange={(e) => setEditingAI({

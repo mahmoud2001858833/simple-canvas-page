@@ -41,7 +41,7 @@ const Footer = () => {
             </Link>
             <p className="text-white/60 mb-6 leading-relaxed">
               {language === 'ar'
-                ? 'منصة تعليمية رقمية متخصصة في تقديم الدورات الأكاديمية للطلاب الجامعيين في المملكة العربية السعودية.'
+                ? 'منصة تعليمية رقمية متخصصة في تقديم الدورات الأكاديمية للطلاب الأكاديميين في المملكة العربية السعودية.'
                 : 'A digital educational platform specialized in providing academic courses for university students in Saudi Arabia.'}
             </p>
             {/* Social Links */}

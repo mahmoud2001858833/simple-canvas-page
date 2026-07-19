@@ -84,7 +84,7 @@ export const CustomCourseRequest = () => {
       analysisComplete: 'تم التحليل',
       analysisFailed: 'فشل التحليل',
       aiPowered: 'مدعوم بالذكاء الاصطناعي',
-      university: 'الجامعة',
+      university: 'الجهة',
       college: 'الكلية',
       major: 'التخصص',
       subject: 'المادة',

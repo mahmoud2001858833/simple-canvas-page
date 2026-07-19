@@ -142,10 +142,10 @@ export const StudentsByMajor = () => {
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Users className="w-7 h-7 text-primary" />
-            {isRTL ? 'الطلاب حسب التخصص والجامعة' : 'Students by Major & University'}
+            {isRTL ? 'الطلاب حسب التخصص والجهة' : 'Students by Major & University'}
           </h1>
           <p className="text-muted-foreground mt-1">
-            {isRTL ? 'عرض الطلاب المسجلين حسب التخصص أو الجامعة' : 'View enrolled students by major or university'}
+            {isRTL ? 'عرض الطلاب المسجلين حسب التخصص أو الجهة' : 'View enrolled students by major or university'}
           </p>
         </div>
         
@@ -186,10 +186,10 @@ export const StudentsByMajor = () => {
             }}>
               <SelectTrigger>
                 <Building2 className="w-4 h-4 me-2 text-muted-foreground" />
-                <SelectValue placeholder={isRTL ? 'الجامعة' : 'University'} />
+                <SelectValue placeholder={isRTL ? 'الجهة' : 'University'} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">{isRTL ? 'كل الجامعات' : 'All Universities'}</SelectItem>
+                <SelectItem value="all">{isRTL ? 'كل الجهات' : 'All Universities'}</SelectItem>
                 {universities?.map((uni) => (
                   <SelectItem key={uni.id} value={uni.id}>
                     {isRTL ? uni.name_ar : uni.name}
@@ -245,7 +245,7 @@ export const StudentsByMajor = () => {
           </TabsTrigger>
           <TabsTrigger value="by-university" className="gap-2">
             <Building2 className="w-4 h-4" />
-            {isRTL ? 'حسب الجامعة' : 'By University'}
+            {isRTL ? 'حسب الجهة' : 'By University'}
           </TabsTrigger>
         </TabsList>
 

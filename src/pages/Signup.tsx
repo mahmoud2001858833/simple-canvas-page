@@ -762,7 +762,7 @@ const Signup = () => {
                   <div className="space-y-2">
                     <Label className="text-foreground/80 flex items-center gap-2">
                       <Building2 className="w-4 h-4 text-muted-foreground" />
-                      {language === 'ar' ? 'الجامعة (اختياري)' : 'University (Optional)'}
+                      {language === 'ar' ? 'الجهة (اختياري)' : 'University (Optional)'}
                     </Label>
                     <Select
                       value={selectedUniversity}
@@ -773,7 +773,7 @@ const Signup = () => {
                       disabled={loading || redirecting}
                     >
                       <SelectTrigger className="bg-background/50 border-border/50">
-                        <SelectValue placeholder={language === 'ar' ? 'اختر الجامعة' : 'Select University'} />
+                        <SelectValue placeholder={language === 'ar' ? 'اختر الجهة' : 'Select University'} />
                       </SelectTrigger>
                       <SelectContent>
                         {universities?.map((uni) => (

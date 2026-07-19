@@ -66,7 +66,7 @@ export const UniversitiesManagement = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-universities"] });
-      toast.success(isRTL ? "تم إضافة الجامعة بنجاح" : "University added successfully");
+      toast.success(isRTL ? "تم إضافة الجهة بنجاح" : "University added successfully");
       resetForm();
     },
     onError: () => {
@@ -81,7 +81,7 @@ export const UniversitiesManagement = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-universities"] });
-      toast.success(isRTL ? "تم تحديث الجامعة" : "University updated");
+      toast.success(isRTL ? "تم تحديث الجهة" : "University updated");
       resetForm();
     },
     onError: () => {
@@ -96,7 +96,7 @@ export const UniversitiesManagement = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-universities"] });
-      toast.success(isRTL ? "تم حذف الجامعة" : "University deleted");
+      toast.success(isRTL ? "تم حذف الجهة" : "University deleted");
     },
     onError: () => {
       toast.error(isRTL ? "حدث خطأ - قد تكون هناك كليات مرتبطة" : "Error - may have linked colleges");
@@ -155,10 +155,10 @@ export const UniversitiesManagement = () => {
         <div>
           <h2 className="text-2xl font-bold flex items-center gap-2">
             <Building2 className="h-6 w-6" />
-            {isRTL ? "إدارة الجامعات" : "Universities Management"}
+            {isRTL ? "إدارة الجهات" : "Universities Management"}
           </h2>
           <p className="text-muted-foreground">
-            {isRTL ? "إضافة وتعديل الجامعات" : "Add and edit universities"}
+            {isRTL ? "إضافة وتعديل الجهات" : "Add and edit universities"}
           </p>
         </div>
 
@@ -166,7 +166,7 @@ export const UniversitiesManagement = () => {
           <DialogTrigger asChild>
             <Button onClick={() => resetForm()}>
               <Plus className="h-4 w-4 mr-2" />
-              {isRTL ? "جامعة جديدة" : "New University"}
+              {isRTL ? "جهة جديدة" : "New University"}
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-md">
@@ -174,10 +174,10 @@ export const UniversitiesManagement = () => {
               <DialogTitle>
                 {editingUniversity
                   ? isRTL
-                    ? "تعديل الجامعة"
+                    ? "تعديل الجهة"
                     : "Edit University"
                   : isRTL
-                  ? "جامعة جديدة"
+                  ? "جهة جديدة"
                   : "New University"}
               </DialogTitle>
             </DialogHeader>
@@ -256,7 +256,7 @@ export const UniversitiesManagement = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{isRTL ? "الجامعة" : "University"}</TableHead>
+                  <TableHead>{isRTL ? "الجهة" : "University"}</TableHead>
                   <TableHead>{isRTL ? "الدولة" : "Country"}</TableHead>
                   <TableHead>{isRTL ? "الحالة" : "Status"}</TableHead>
                   <TableHead>{isRTL ? "الإجراءات" : "Actions"}</TableHead>
@@ -320,7 +320,7 @@ export const UniversitiesManagement = () => {
                 {universities.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                      {isRTL ? "لا توجد جامعات" : "No universities found"}
+                      {isRTL ? "لا توجد جهات" : "No universities found"}
                     </TableCell>
                   </TableRow>
                 )}

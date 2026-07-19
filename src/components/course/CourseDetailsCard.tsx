@@ -27,7 +27,7 @@ export const CourseDetailsCard = ({
   const details = [
     ...(course.majors?.colleges?.universities ? [{
       icon: Building2,
-      label: isRTL ? 'الجامعة' : 'University',
+      label: isRTL ? 'الجهة' : 'University',
       value: isRTL ? course.majors.colleges.universities.name_ar : course.majors.colleges.universities.name,
     }] : []),
     ...(course.majors?.colleges ? [{
