@@ -358,9 +358,7 @@ export const InstructorLessons = ({ courseId, courseTitle, chapterId, chapterTit
         <Button variant="ghost" size="icon" onClick={() => handleEdit(lesson)}>
           <Edit className="w-4 h-4" />
         </Button>
-        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => deleteMutation.mutate(lesson.id)}>
-          <Trash2 className="w-4 h-4" />
-        </Button>
+        {/* Delete restricted to admins per platform policy */}
       </div>
     </div>
   );
