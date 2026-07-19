@@ -125,9 +125,7 @@ export const ChapterManager = ({ courseId }: ChapterManagerProps) => {
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(chapter)}>
             <Edit className="w-3 h-3" />
           </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => deleteMutation.mutate(chapter.id)}>
-            <Trash2 className="w-3 h-3" />
-          </Button>
+          {/* Delete restricted to admins per platform policy */}
         </div>
       ))}
 
