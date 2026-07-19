@@ -722,7 +722,7 @@ const CourseDetails = () => {
 
                               {/* Chapter Files */}
                               {group.chapter && chapterFiles.filter((f: any) => f.chapter_id === group.chapter.id).map((file: any) => {
-                                const fileAccessible = enrollment?.status === 'active' || isAdminOrInstructor;
+                                const fileAccessible = enrollment?.status === "active" || hasStaffFreeAccess;
                                 return (
                                   <div key={`file-${file.id}`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/60">
                                     <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
@@ -750,7 +750,7 @@ const CourseDetails = () => {
 
                               {/* Quizzes */}
                               {group.chapter && quizzes.filter((q: any) => q.chapter_id === group.chapter.id).map((quiz: any) => {
-                                const quizAccessible = enrollment?.status === 'active' || isAdminOrInstructor;
+                                const quizAccessible = enrollment?.status === "active" || hasStaffFreeAccess;
                                 return (
                                   <div
                                     key={`quiz-${quiz.id}`}
@@ -801,7 +801,7 @@ const CourseDetails = () => {
             <CourseReviews courseId={id!} isRTL={isRTL} />
 
             {/* Course Forum */}
-            {(enrollment?.status === 'active' || isAdminOrInstructor) && (
+            {(enrollment?.status === "active" || hasStaffFreeAccess) && (
               <Card>
                 <CardContent className="pt-6">
                   <CourseDiscussions courseId={id!} isInstructor={isAdminOrInstructor} />
