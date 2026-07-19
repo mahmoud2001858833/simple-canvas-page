@@ -32,8 +32,8 @@ const signupSchema = z.object({
     .min(8, { message: 'كلمة المرور يجب أن تكون 8 أحرف على الأقل' })
     .max(72, { message: 'كلمة المرور طويلة جداً' }),
   phone: z.string()
-    .optional()
-    .refine((val) => !val || /^[0-9]{7,15}$/.test(val), {
+    .min(1, { message: 'رقم الهاتف مطلوب' })
+    .refine((val) => /^[0-9]{7,15}$/.test(val), {
       message: 'رقم الهاتف غير صحيح',
     }),
 });
