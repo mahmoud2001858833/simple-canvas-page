@@ -530,11 +530,15 @@ const CourseDetails = () => {
                     </div>
                   )}
 
-                  {enrollment?.status === "active" ? (
+                  {enrollment?.status === "active" || hasStaffFreeAccess ? (
                     <div className="space-y-4">
                       <div className="flex items-center gap-2 text-green-600">
                         <CheckCircle className="h-5 w-5" />
-                        <span className="font-medium">{isRTL ? "أنت مشترك في هذا الدورة" : "You're enrolled"}</span>
+                        <span className="font-medium">
+                          {hasStaffFreeAccess && !enrollment
+                            ? (isRTL ? (role === 'admin' ? 'وصول الأدمن الكامل' : 'وصول المعلم لدورتك') : 'Full access')
+                            : (isRTL ? "أنت مشترك في هذه الدورة" : "You're enrolled")}
+                        </span>
                       </div>
                       <div>
                         <div className="flex justify-between text-sm mb-2">
@@ -548,7 +552,7 @@ const CourseDetails = () => {
                           <Play className="h-4 w-4 mr-2" />{isRTL ? "متابعة التعلم" : "Continue Learning"}
                         </Link>
                       </Button>
-                      {course?.instructor_id && (
+                      {course?.instructor_id && enrollment && (
                         <Button variant="outline" className="w-full" onClick={() => setShowChat(true)}>
                           <MessageSquare className="h-4 w-4 me-2" />
                           {isRTL ? 'تواصل مع المعلم' : 'Contact Instructor'}
