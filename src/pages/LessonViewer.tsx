@@ -973,7 +973,7 @@ const LessonViewer = () => {
             )}
 
             {/* Lesson Attachments */}
-            <LessonAttachments lessonId={lessonId!} isRTL={isRTL} isEnrolled={!!enrollment && enrollment.status === 'active'} />
+            <LessonAttachments lessonId={lessonId!} isRTL={isRTL} isEnrolled={(!!enrollment && enrollment.status === "active") || hasStaffFreeAccess} />
 
             {/* AI Assistant */}
             {(course as any)?.ai_enabled && (
