@@ -53,6 +53,7 @@ const VideoEditor = lazyRetry(() => import("./pages/dashboard/VideoEditor"));
 const QuizPage = lazyRetry(() => import("./pages/QuizPage"));
 const CertificateVerify = lazyRetry(() => import("./pages/CertificateVerify"));
 const Tutorials = lazyRetry(() => import("./pages/Tutorials"));
+const Terms = lazyRetry(() => import("./pages/Terms"));
 
 // Lazy loaded global components
 const WelcomeModal = lazy(() => import("./components/onboarding/WelcomeModal").then(m => ({ default: m.WelcomeModal })));
