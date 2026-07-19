@@ -113,6 +113,9 @@ const CourseDetails = () => {
   const [showChat, setShowChat] = useState(false);
 
   const isAdminOrInstructor = role === 'admin' || role === 'instructor';
+  // Admin: free access to all courses. Instructor: free access to own courses only.
+  const hasStaffFreeAccess = role === 'admin'
+    || (role === 'instructor' && !!user && !!(course as any)?.instructor_id && (course as any).instructor_id === user.id);
 
   useEffect(() => {
     if (user && state.hasSeenWelcome && !state.completedSteps.includes("course-info")) {
