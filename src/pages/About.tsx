@@ -4,10 +4,13 @@ import Navbar from '@/components/landing/Navbar';
 import Footer from '@/components/landing/Footer';
 import { Target, Eye, Heart, Users, BookOpen, Award, Sparkles, Shield, GraduationCap, TrendingUp, CheckCircle } from 'lucide-react';
 import { Helmet } from 'react-helmet-async';
+import { usePlatformStats } from '@/hooks/usePlatformStats';
 
 const About = () => {
   const { language, dir } = useLanguage();
   const isArabic = language === 'ar';
+  const platformStats = usePlatformStats();
+  const fmt = (n: number) => new Intl.NumberFormat(isArabic ? 'ar-EG' : 'en-US').format(n);
 
   const content = {
     ar: {
