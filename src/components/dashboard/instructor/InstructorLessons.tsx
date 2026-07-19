@@ -498,8 +498,7 @@ export const InstructorLessons = ({ courseId, courseTitle, chapterId, chapterTit
               <Badge variant="outline" className="text-xs">
                 {quiz.quiz_type === 'pdf' ? 'PDF' : (language === 'ar' ? 'إلكتروني' : 'Interactive')}
               </Badge>
-              <Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteQuiz(quiz.id)}>
-                <Trash2 className="w-4 h-4" />
+              {/* Delete restricted to admins per platform policy */}
               </Button>
             </div>
           ))}
