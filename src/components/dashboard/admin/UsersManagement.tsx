@@ -183,23 +183,23 @@ export const UsersManagement = () => {
 
   const deleteUserMutation = useMutation({
     mutationFn: async (userId: string) => {
-      // Use the SECURITY DEFINER function to delete user and all related data
-      const { data, error } = await supabase.rpc('delete_user_cascade', {
-        target_user_id: userId
+      // Full delete: cascades public data AND removes auth.users so the user cannot log in again
+      const { data, error } = await supabase.functions.invoke('admin-delete-user', {
+        body: { target_user_id: userId },
       });
-      
       if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });
-      toast.success(language === 'ar' ? 'تم حذف المستخدم بنجاح' : 'User deleted successfully');
+      toast.success(language === 'ar' ? 'تم حذف المستخدم بالكامل' : 'User fully deleted');
       setDeleteDialogOpen(false);
       setUserToDelete(null);
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('Delete error:', error);
-      toast.error(language === 'ar' ? 'فشل حذف المستخدم' : 'Failed to delete user');
+      toast.error((language === 'ar' ? 'فشل حذف المستخدم: ' : 'Failed to delete user: ') + (error?.message || ''));
     },
   });
 

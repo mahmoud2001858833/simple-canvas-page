@@ -39,11 +39,10 @@ const Login = () => {
     return '/dashboard';
   };
 
-  // Redirect when auth state is ready after login
+  // Redirect when auth state is ready after login — WAIT for role to load
   useEffect(() => {
-    if (redirecting && user && authReady && !authLoading) {
-      const path = role ? getDashboardPath(role) : '/dashboard';
-      navigate(path, { replace: true });
+    if (redirecting && user && authReady && !authLoading && role) {
+      navigate(getDashboardPath(role), { replace: true });
     }
   }, [redirecting, user, role, authLoading, authReady, navigate]);
 
@@ -60,11 +59,10 @@ const Login = () => {
     }
   }, [language]);
 
-  // Redirect if already logged in
+  // Redirect if already logged in — WAIT for role to load
   useEffect(() => {
-    if (user && authReady && !loading && !redirecting) {
-      const path = role ? getDashboardPath(role) : '/dashboard';
-      navigate(path, { replace: true });
+    if (user && authReady && !loading && !redirecting && role) {
+      navigate(getDashboardPath(role), { replace: true });
     }
   }, [user, role, authReady, loading, redirecting, navigate]);
 

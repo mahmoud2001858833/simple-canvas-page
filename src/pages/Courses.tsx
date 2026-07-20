@@ -147,9 +147,12 @@ const Courses = () => {
     setCurrentPage(1);
   }, [searchQuery, selectedMajor, selectedUniversity, selectedCollege]);
 
+  // Instructors only see their own uploaded courses (free access as owner)
+  const isInstructorView = role === 'instructor' && !!user?.id;
+
   // Fetch courses with server-side pagination
   const { data: coursesData, isLoading } = useQuery({
-    queryKey: ["courses", searchQuery, selectedMajor, selectedUniversity, selectedCollege, currentPage],
+    queryKey: ["courses", searchQuery, selectedMajor, selectedUniversity, selectedCollege, currentPage, isInstructorView ? user?.id : 'public'],
     queryFn: async () => {
       let query = supabase
         .from("courses")
@@ -171,8 +174,13 @@ const Courses = () => {
             )
           )
         `, { count: 'exact' })
-        .eq("is_active", true)
         .order("created_at", { ascending: false });
+
+      if (isInstructorView) {
+        query = query.eq("instructor_id", user!.id);
+      } else {
+        query = query.eq("is_active", true);
+      }
 
       if (selectedMajor && selectedMajor !== "all") {
         query = query.eq("major_id", selectedMajor);
@@ -206,6 +214,11 @@ const Courses = () => {
         filteredData = filteredData.filter(
           (course) => (course.majors as any)?.colleges?.id === selectedCollege
         );
+      }
+
+      // For instructor view: mark all their courses as free-access (price shown as free)
+      if (isInstructorView) {
+        filteredData = filteredData.map((c: any) => ({ ...c, price: 0 }));
       }
 
       const totalCount = filteredData.length;
