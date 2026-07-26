@@ -126,10 +126,14 @@ export const InstructorMessages = () => {
   }, [messages]);
 
   const fetchCourseMessages = async () => {
+    if (!user) { setLoading(false); return; }
     try {
+      // Only fetch messages where the instructor is a party (sender or receiver).
+      // RLS also enforces this, but scoping the query keeps unrelated rows out.
       const { data: allMessages, error } = await supabase
         .from('course_messages')
         .select('*')
+        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
         .order('created_at', { ascending: false });
 
       if (error) throw error;

@@ -34,8 +34,10 @@ const AccountingLedger = lazy(() => import('@/components/dashboard/admin/Account
 const WorkflowDashboard = lazy(() => import('@/components/dashboard/admin/WorkflowDashboard').then(m => ({ default: m.WorkflowDashboard })));
 const VideoAnalytics = lazy(() => import('@/components/dashboard/admin/VideoAnalytics').then(m => ({ default: m.VideoAnalytics })));
 const InstructorSpecialties = lazy(() => import('@/components/dashboard/admin/InstructorSpecialties').then(m => ({ default: m.InstructorSpecialties })));
+const AbandonedPaymentsAnalytics = lazy(() => import('@/components/dashboard/admin/AbandonedPaymentsAnalytics').then(m => ({ default: m.AbandonedPaymentsAnalytics })));
+const PaymentMethodsManagement = lazy(() => import('@/components/dashboard/admin/PaymentMethodsManagement').then(m => ({ default: m.PaymentMethodsManagement })));
 
-type TabType = 'overview' | 'users' | 'user-insights' | 'instructor-detail' | 'student-detail' | 'courses' | 'course-approvals' | 'requests' | 'payments' | 'financial-dashboard' | 'accounting' | 'withdrawals' | 'coupons' | 'universities' | 'colleges' | 'majors' | 'students-by-major' | 'reports' | 'notifications' | 'logs' | 'general' | 'settings' | 'support' | 'instructor-settings' | 'capture-attempts' | 'workflow' | 'video-analytics' | 'instructor-specialties';
+type TabType = 'overview' | 'users' | 'user-insights' | 'instructor-detail' | 'student-detail' | 'courses' | 'course-approvals' | 'requests' | 'payments' | 'abandoned-payments' | 'payment-methods' | 'financial-dashboard' | 'accounting' | 'withdrawals' | 'coupons' | 'universities' | 'colleges' | 'majors' | 'students-by-major' | 'reports' | 'notifications' | 'logs' | 'general' | 'settings' | 'support' | 'instructor-settings' | 'capture-attempts' | 'workflow' | 'video-analytics' | 'instructor-specialties';
 
 // Fallback components for each section
 const LoadingFallback = ({ type }: { type: string }) => {
@@ -126,6 +128,18 @@ const AdminDashboard = () => {
         return (
           <Suspense fallback={<LoadingFallback type="payments" />}>
             <PaymentsManagement />
+          </Suspense>
+        );
+      case 'abandoned-payments':
+        return (
+          <Suspense fallback={<LoadingFallback type="payments" />}>
+            <AbandonedPaymentsAnalytics />
+          </Suspense>
+        );
+      case 'payment-methods':
+        return (
+          <Suspense fallback={<LoadingFallback type="payments" />}>
+            <PaymentMethodsManagement />
           </Suspense>
         );
       case 'financial-dashboard':

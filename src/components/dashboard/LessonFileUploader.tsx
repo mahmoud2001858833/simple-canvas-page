@@ -54,10 +54,42 @@ export const LessonFileUploader = ({ lessonId }: LessonFileUploaderProps) => {
     const fileList = e.target.files;
     if (!fileList || fileList.length === 0) return;
 
+    // Pre-checks: auth + role
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session?.user) {
+      toast.error(isRTL ? 'يجب تسجيل الدخول لرفع الملفات' : 'You must be signed in to upload files');
+      e.target.value = '';
+      return;
+    }
+    const uid = sessionData.session.user.id;
+    const { data: roles } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', uid);
+    const allowed = (roles || []).some((r: any) => r.role === 'admin' || r.role === 'instructor');
+    if (!allowed) {
+      toast.error(
+        isRTL
+          ? 'ليس لديك صلاحية رفع ملفات الدروس (يتطلب حساب معلم أو أدمن)'
+          : 'You do not have permission to upload lesson files (instructor or admin role required)',
+      );
+      e.target.value = '';
+      return;
+    }
+
     const setUploading = category === 'file' ? setUploadingFile : setUploadingQuestion;
     setUploading(true);
     try {
       for (const file of Array.from(fileList)) {
+        // Size sanity check (50MB)
+        if (file.size > 50 * 1024 * 1024) {
+          throw new Error(
+            isRTL
+              ? `الملف "${file.name}" أكبر من 50MB`
+              : `File "${file.name}" exceeds 50MB`,
+          );
+        }
+
         const originalName = file.name || 'file';
         const extension = originalName.includes('.') ? originalName.split('.').pop() : undefined;
         const baseName = originalName.replace(/\.[^/.]+$/, '');
@@ -73,8 +105,24 @@ export const LessonFileUploader = ({ lessonId }: LessonFileUploaderProps) => {
 
         const { error: uploadError } = await supabase.storage
           .from('lesson-files')
-          .upload(filePath, file);
-        if (uploadError) throw uploadError;
+          .upload(filePath, file, { contentType: file.type || undefined, upsert: false });
+        if (uploadError) {
+          const msg = uploadError.message || '';
+          if (/row-level security|permission|not allowed/i.test(msg)) {
+            throw new Error(
+              isRTL
+                ? 'رُفض الرفع من قواعد الأمان. تأكد من صلاحيتك (معلم/أدمن) ثم أعد تسجيل الدخول.'
+                : 'Upload denied by security rules. Ensure you have instructor/admin role and re-login.',
+            );
+          }
+          if (/exceeded|payload|size/i.test(msg)) {
+            throw new Error(isRTL ? 'حجم الملف كبير جداً' : 'File is too large');
+          }
+          if (/duplicate|already exists/i.test(msg)) {
+            throw new Error(isRTL ? 'اسم الملف موجود مسبقاً' : 'A file with this name already exists');
+          }
+          throw new Error(msg || (isRTL ? 'فشل الرفع' : 'Upload failed'));
+        }
 
         const { data: urlData } = supabase.storage
           .from('lesson-files')
@@ -91,14 +139,22 @@ export const LessonFileUploader = ({ lessonId }: LessonFileUploaderProps) => {
           sort_order: maxOrder + 1,
           file_category: category,
         } as any);
-        if (insertError) throw insertError;
+        if (insertError) {
+          // Roll back uploaded file
+          await supabase.storage.from('lesson-files').remove([filePath]).catch(() => {});
+          throw new Error(
+            isRTL
+              ? `فشل حفظ سجل المرفق: ${insertError.message}`
+              : `Failed to save attachment record: ${insertError.message}`,
+          );
+        }
       }
       queryClient.invalidateQueries({ queryKey: ['lesson-attachments', lessonId] });
       toast.success(isRTL ? 'تم رفع الملفات' : 'Files uploaded');
     } catch (err: any) {
       console.error('Upload error details:', err);
       const errorMsg = err?.message || err?.error_description || JSON.stringify(err);
-      toast.error(isRTL ? `خطأ في رفع الملف: ${errorMsg}` : `Upload error: ${errorMsg}`);
+      toast.error(errorMsg, { duration: 6000 });
     } finally {
       setUploading(false);
       e.target.value = '';

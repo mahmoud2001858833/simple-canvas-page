@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-type PaymentMethod = 'alinmapay' | 'bank_transfer';
+type PaymentMethod = 'alinmapay' | 'bank_transfer' | 'tabby' | 'paytabs';
 
 interface CouponResult {
   valid: boolean;
@@ -234,7 +234,11 @@ const Checkout = () => {
     setCouponCode('');
   };
 
-  const paymentMethods = [
+  const enabledMethodsForCourse: string[] =
+    (course as any)?.enabled_payment_methods ??
+    ['alinmapay', 'bank_transfer', 'tabby', 'paytabs'];
+
+  const allPaymentMethods = [
     {
       id: 'alinmapay' as PaymentMethod,
       title: isRTL ? 'الدفع الإلكتروني (إنماء باي)' : 'Online Payment (AlinmaPay)',
@@ -244,6 +248,20 @@ const Checkout = () => {
       badgeSecondary: isRTL ? 'فوري' : 'Instant',
     },
     {
+      id: 'paytabs' as PaymentMethod,
+      title: 'PayTabs',
+      description: isRTL ? 'بطاقات ائتمان دولية' : 'International cards',
+      icon: CreditCard,
+      badge: isRTL ? 'فوري' : 'Instant',
+    },
+    {
+      id: 'tabby' as PaymentMethod,
+      title: 'Tabby',
+      description: isRTL ? 'قسّم على 4 دفعات بدون فوائد' : 'Split into 4 payments, interest-free',
+      icon: CreditCard,
+      badge: isRTL ? 'تقسيط' : 'Installments',
+    },
+    {
       id: 'bank_transfer' as PaymentMethod,
       title: isRTL ? 'تحويل بنكي' : 'Bank Transfer',
       description: isRTL ? 'تحويل يدوي - يتطلب مراجعة' : 'Manual transfer - requires review',
@@ -251,6 +269,19 @@ const Checkout = () => {
       badge: isRTL ? '24 ساعة' : '24 hours',
     },
   ];
+
+  const paymentMethods = allPaymentMethods.filter((m) =>
+    // If course provided list, filter by it; when only a custom request (no course), show all
+    course ? enabledMethodsForCourse.includes(m.id) : true,
+  );
+
+  // Ensure selected method is valid for this course
+  useEffect(() => {
+    if (paymentMethods.length && !paymentMethods.some((m) => m.id === paymentMethod)) {
+      setPaymentMethod(paymentMethods[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paymentMethods.length]);
 
   const handlePayment = async () => {
     if (!user || !item) return;
@@ -326,6 +357,41 @@ const Checkout = () => {
         } else {
           toast.error(isRTL ? 'لم يتم استلام رابط الدفع' : 'No payment link received');
         }
+      } else if (paymentMethod === 'paytabs') {
+        const { data, error } = await supabase.functions.invoke('create-paytabs-payment', {
+          body: {
+            courseId: courseId || null,
+            requestId: requestId || null,
+            userId: user.id,
+            customerEmail: user.email,
+            installmentPercent: selectedInstallment,
+            isInstallment: selectedInstallment < 100,
+            couponId: appliedCoupon?.coupon_id,
+          },
+        });
+        if (error) {
+          toast.error(isRTL ? 'فشل بدء الدفع عبر PayTabs' : 'Failed to start PayTabs checkout');
+          return;
+        }
+        if (data?.redirect_url) window.location.href = data.redirect_url;
+        else toast.error(isRTL ? 'لم يتم استلام رابط الدفع' : 'No payment link received');
+      } else if (paymentMethod === 'tabby') {
+        const { data, error } = await supabase.functions.invoke('create-tabby-session', {
+          body: {
+            courseId: courseId || null,
+            requestId: requestId || null,
+            userId: user.id,
+            customerEmail: user.email,
+            customerName: (user as any).user_metadata?.full_name || '',
+          },
+        });
+        if (error) {
+          toast.error(isRTL ? 'فشل بدء الدفع عبر Tabby' : 'Failed to start Tabby checkout');
+          return;
+        }
+        const url = data?.redirect_url || data?.web_url;
+        if (url) window.location.href = url;
+        else toast.error(isRTL ? 'لم يتم استلام رابط الدفع' : 'No payment link received');
       } else if (paymentMethod === 'bank_transfer') {
         // Create pending payment for bank transfer
         const { data: paymentData, error: paymentError } = await supabase.from('payments').insert({

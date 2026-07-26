@@ -42,6 +42,7 @@ import {
   MessagesSquare,
   HelpCircle,
   Activity,
+  CreditCard,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -119,6 +120,8 @@ export const DashboardSidebar = ({ activeTab, onTabChange, isOpen, onToggle, use
     { id: 'requests', label: { ar: 'الطلبات', en: 'Requests' }, icon: FileText, onboardingId: null, showBadge: false, isAction: false },
     { id: 'support', label: { ar: 'محادثات الدعم', en: 'Support Chats' }, icon: Headphones, onboardingId: null, showBadge: false, isAction: false },
     { id: 'payments', label: { ar: 'المدفوعات', en: 'Payments' }, icon: DollarSign, onboardingId: null, showBadge: false, isAction: false },
+    { id: 'abandoned-payments', label: { ar: 'الدفع المهجور', en: 'Abandoned Payments' }, icon: ShieldAlert, onboardingId: null, showBadge: false, isAction: false },
+    { id: 'payment-methods', label: { ar: 'طرق الدفع للدورات', en: 'Payment Methods' }, icon: CreditCard, onboardingId: null, showBadge: false, isAction: false },
     { id: 'financial-dashboard', label: { ar: 'لوحة المصاريف', en: 'Financial Dashboard' }, icon: Wallet, onboardingId: null, showBadge: false, isAction: false },
     { id: 'accounting', label: { ar: 'دفتر الحسابات', en: 'Accounting Ledger' }, icon: FileText, onboardingId: null, showBadge: false, isAction: false },
     { id: 'withdrawals', label: { ar: 'طلبات السحب', en: 'Withdrawals' }, icon: Send, onboardingId: null, showBadge: false, isAction: false },
