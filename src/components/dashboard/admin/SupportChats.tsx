@@ -53,6 +53,7 @@ export const SupportChats = () => {
   const [selectedChat, setSelectedChat] = useState<SupportChat | null>(null);
   const [messages, setMessages] = useState<SupportMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
+  const [internalNote, setInternalNote] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -151,7 +152,8 @@ export const SupportChats = () => {
         sender_id: user.id,
         content: newMessage.trim(),
         is_read: true,
-      });
+        admin_internal: internalNote,
+      } as any);
 
       if (error) throw error;
 
@@ -459,10 +461,21 @@ export const SupportChats = () => {
 
               {/* Message Input */}
               {selectedChat.status === 'active' && (
-                <div className="p-4 border-t">
+                <div className="p-4 border-t space-y-2">
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={internalNote}
+                      onChange={(e) => setInternalNote(e.target.checked)}
+                      className="rounded"
+                    />
+                    {isRTL ? 'ملاحظة داخلية (لن يراها الطالب)' : 'Internal note (hidden from user)'}
+                  </label>
                   <div className="flex gap-2">
                     <Input
-                      placeholder={isRTL ? 'اكتب رسالتك...' : 'Type your message...'}
+                      placeholder={internalNote
+                        ? (isRTL ? 'ملاحظة داخلية...' : 'Internal note...')
+                        : (isRTL ? 'اكتب رسالتك...' : 'Type your message...')}
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
                       onKeyDown={(e) => {
@@ -472,13 +485,13 @@ export const SupportChats = () => {
                         }
                       }}
                       disabled={sending}
+                      className={internalNote ? 'border-amber-400 bg-amber-50 dark:bg-amber-950/20' : ''}
                     />
                     <Button onClick={sendMessage} disabled={sending || !newMessage.trim()}>
                       <Send className="h-4 w-4" />
                     </Button>
                   </div>
-                </div>
-              )}
+                </div>)}
             </>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">

@@ -17,6 +17,7 @@ interface Message {
   sender_type: string;
   created_at: string;
   is_read: boolean | null;
+  admin_internal?: boolean | null;
 }
 
 // Global state for opening chat from outside
@@ -99,10 +100,11 @@ export function DirectSupportChat() {
             .order("created_at", { ascending: true });
 
           if (messagesData) {
-            setMessages(messagesData);
+            const visible = messagesData.filter(m => !m.admin_internal);
+            setMessages(visible);
             
             // Mark admin messages as read
-            const unreadAdminMessages = messagesData.filter(m => m.sender_type === 'admin' && !m.is_read);
+            const unreadAdminMessages = visible.filter(m => m.sender_type === 'admin' && !m.is_read);
             if (unreadAdminMessages.length > 0) {
               await supabase
                 .from("support_messages")
@@ -137,6 +139,7 @@ export function DirectSupportChat() {
         },
         async (payload) => {
           const newMessage = payload.new as Message;
+          if (newMessage.admin_internal) return; // hide internal admin notes from student
           setMessages(prev => [...prev, newMessage]);
           
           // Mark as read if from admin and chat is open
