@@ -392,6 +392,7 @@ const Checkout = () => {
         const url = data?.redirect_url || data?.web_url;
         if (url) window.location.href = url;
         else toast.error(isRTL ? 'لم يتم استلام رابط الدفع' : 'No payment link received');
+      } else if (paymentMethod === 'bank_transfer') {
         // Create pending payment for bank transfer
         const { data: paymentData, error: paymentError } = await supabase.from('payments').insert({
           user_id: user.id,
