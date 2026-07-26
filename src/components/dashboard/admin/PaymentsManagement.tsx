@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Search, Plus, DollarSign, CheckCircle, XCircle, Clock, RefreshCw, Calendar, FileText, Eye } from 'lucide-react';
+import { Search, Plus, DollarSign, CheckCircle, XCircle, Clock, RefreshCw, Calendar, FileText, Eye, Bell } from 'lucide-react';
 
 import { PaymentsTableSkeleton } from '@/components/ui/skeletons';
 import { toast } from 'sonner';
