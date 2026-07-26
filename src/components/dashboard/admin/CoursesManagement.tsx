@@ -56,6 +56,7 @@ export const CoursesManagement = () => {
   const [search, setSearch] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<any>(null);
+  const [translating, setTranslating] = useState<'ar' | 'en' | null>(null);
   const [deletingCourseId, setDeletingCourseId] = useState<string | null>(null);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
