@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-type PaymentMethod = 'alinmapay' | 'bank_transfer';
+type PaymentMethod = 'alinmapay' | 'bank_transfer' | 'tabby' | 'paytabs';
 
 interface CouponResult {
   valid: boolean;
@@ -234,7 +234,11 @@ const Checkout = () => {
     setCouponCode('');
   };
 
-  const paymentMethods = [
+  const enabledMethodsForCourse: string[] =
+    (course as any)?.enabled_payment_methods ??
+    ['alinmapay', 'bank_transfer', 'tabby', 'paytabs'];
+
+  const allPaymentMethods = [
     {
       id: 'alinmapay' as PaymentMethod,
       title: isRTL ? 'الدفع الإلكتروني (إنماء باي)' : 'Online Payment (AlinmaPay)',
@@ -244,6 +248,20 @@ const Checkout = () => {
       badgeSecondary: isRTL ? 'فوري' : 'Instant',
     },
     {
+      id: 'paytabs' as PaymentMethod,
+      title: 'PayTabs',
+      description: isRTL ? 'بطاقات ائتمان دولية' : 'International cards',
+      icon: CreditCard,
+      badge: isRTL ? 'فوري' : 'Instant',
+    },
+    {
+      id: 'tabby' as PaymentMethod,
+      title: 'Tabby',
+      description: isRTL ? 'قسّم على 4 دفعات بدون فوائد' : 'Split into 4 payments, interest-free',
+      icon: CreditCard,
+      badge: isRTL ? 'تقسيط' : 'Installments',
+    },
+    {
       id: 'bank_transfer' as PaymentMethod,
       title: isRTL ? 'تحويل بنكي' : 'Bank Transfer',
       description: isRTL ? 'تحويل يدوي - يتطلب مراجعة' : 'Manual transfer - requires review',
@@ -251,6 +269,19 @@ const Checkout = () => {
       badge: isRTL ? '24 ساعة' : '24 hours',
     },
   ];
+
+  const paymentMethods = allPaymentMethods.filter((m) =>
+    // If course provided list, filter by it; when only a custom request (no course), show all
+    course ? enabledMethodsForCourse.includes(m.id) : true,
+  );
+
+  // Ensure selected method is valid for this course
+  useEffect(() => {
+    if (paymentMethods.length && !paymentMethods.some((m) => m.id === paymentMethod)) {
+      setPaymentMethod(paymentMethods[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [paymentMethods.length]);
 
   const handlePayment = async () => {
     if (!user || !item) return;
