@@ -544,6 +544,14 @@ export const PaymentsManagement = () => {
                             onClick={() => updateStatusMutation.mutate({ id: payment.id, status: 'failed' })}>
                             <XCircle className="w-4 h-4" />
                           </Button>
+                          {(Date.now() - new Date(payment.created_at).getTime()) > 24 * 60 * 60 * 1000 && payment.user_id && (
+                            <Button size="sm" variant="outline" className="text-warning border-warning"
+                              disabled={sendReminderMutation.isPending}
+                              onClick={() => sendReminderMutation.mutate(payment)}>
+                              <Bell className="w-4 h-4 me-1" />
+                              {language === 'ar' ? 'تذكير' : 'Remind'}
+                            </Button>
+                          )}
                         </>
                       )}
                       {payment.status === 'paid' && (
