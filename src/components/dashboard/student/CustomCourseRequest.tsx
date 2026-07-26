@@ -51,6 +51,12 @@ export const CustomCourseRequest = () => {
   
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [institution, setInstitution] = useState('');
+  const [specialty, setSpecialty] = useState('');
+  const [courseName, setCourseName] = useState('');
+  const [doctorName, setDoctorName] = useState('');
+  const [academicYear, setAcademicYear] = useState('');
+  const [section, setSection] = useState('');
   const [deliveryMethod, setDeliveryMethod] = useState<'recorded'>('recorded');
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -379,6 +385,14 @@ export const CustomCourseRequest = () => {
       return;
     }
 
+    const requiredMissing = !institution.trim() || !specialty.trim() || !courseName.trim() || !doctorName.trim() || !academicYear.trim() || !section.trim();
+    if (requiredMissing) {
+      toast.error(language === 'ar'
+        ? 'يرجى تعبئة جميع بيانات المقرر (المؤسسة، التخصص، اسم المقرر، الدكتور، السنة، الشعبة)'
+        : 'Please fill all course details (institution, specialty, course, doctor, year, section)');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -391,7 +405,13 @@ export const CustomCourseRequest = () => {
           description: description.trim(),
           delivery_method: deliveryMethod,
           status: 'pending',
-        })
+          institution: institution.trim(),
+          specialty: specialty.trim(),
+          course_name: courseName.trim(),
+          doctor_name: doctorName.trim(),
+          academic_year: academicYear.trim(),
+          section: section.trim(),
+        } as any)
         .select()
         .single();
 
@@ -412,6 +432,12 @@ export const CustomCourseRequest = () => {
       // Reset form
       setTitle('');
       setDescription('');
+      setInstitution('');
+      setSpecialty('');
+      setCourseName('');
+      setDoctorName('');
+      setAcademicYear('');
+      setSection('');
       setDeliveryMethod('recorded');
       setFiles([]);
     } catch (error) {
