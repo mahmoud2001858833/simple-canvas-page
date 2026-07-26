@@ -456,6 +456,7 @@ export const PaymentsManagement = () => {
             <SelectItem value="paid">{language === 'ar' ? 'مدفوع' : 'Paid'}</SelectItem>
             <SelectItem value="failed">{language === 'ar' ? 'فشل' : 'Failed'}</SelectItem>
             <SelectItem value="refunded">{language === 'ar' ? 'مسترد' : 'Refunded'}</SelectItem>
+            <SelectItem value="abandoned">{language === 'ar' ? 'مهجور (+24 ساعة)' : 'Abandoned (>24h)'}</SelectItem>
           </SelectContent>
         </Select>
         <div className="flex items-center gap-2">
