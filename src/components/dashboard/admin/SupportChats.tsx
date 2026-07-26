@@ -53,6 +53,7 @@ export const SupportChats = () => {
   const [selectedChat, setSelectedChat] = useState<SupportChat | null>(null);
   const [messages, setMessages] = useState<SupportMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
+  const [internalNote, setInternalNote] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
