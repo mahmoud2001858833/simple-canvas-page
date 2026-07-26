@@ -100,10 +100,11 @@ export function DirectSupportChat() {
             .order("created_at", { ascending: true });
 
           if (messagesData) {
-            setMessages(messagesData);
+            const visible = messagesData.filter(m => !m.admin_internal);
+            setMessages(visible);
             
             // Mark admin messages as read
-            const unreadAdminMessages = messagesData.filter(m => m.sender_type === 'admin' && !m.is_read);
+            const unreadAdminMessages = visible.filter(m => m.sender_type === 'admin' && !m.is_read);
             if (unreadAdminMessages.length > 0) {
               await supabase
                 .from("support_messages")
