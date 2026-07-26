@@ -17,6 +17,7 @@ interface Message {
   sender_type: string;
   created_at: string;
   is_read: boolean | null;
+  admin_internal?: boolean | null;
 }
 
 // Global state for opening chat from outside
