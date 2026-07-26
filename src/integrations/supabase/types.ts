@@ -726,6 +726,7 @@ export type Database = {
           description: string | null
           description_ar: string | null
           duration_hours: number | null
+          enabled_payment_methods: string[]
           id: string
           instructor_commission: number | null
           instructor_id: string | null
@@ -753,6 +754,7 @@ export type Database = {
           description?: string | null
           description_ar?: string | null
           duration_hours?: number | null
+          enabled_payment_methods?: string[]
           id?: string
           instructor_commission?: number | null
           instructor_id?: string | null
@@ -780,6 +782,7 @@ export type Database = {
           description?: string | null
           description_ar?: string | null
           duration_hours?: number | null
+          enabled_payment_methods?: string[]
           id?: string
           instructor_commission?: number | null
           instructor_id?: string | null
