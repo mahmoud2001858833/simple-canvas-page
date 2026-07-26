@@ -465,7 +465,24 @@ export const CoursesManagement = () => {
 
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>{language === 'ar' ? 'الوصف (إنجليزي)' : 'Description (English)'}</Label>
+                  <div className="flex items-center justify-between">
+                    <Label>{language === 'ar' ? 'الوصف (إنجليزي)' : 'Description (English)'}</Label>
+                    <Button
+                      type="button" size="sm" variant="outline" className="h-7 text-xs"
+                      disabled={!formData.description_ar || translating === 'en'}
+                      onClick={async () => {
+                        setTranslating('en');
+                        try {
+                          const { data, error } = await supabase.functions.invoke('translate-course-description', {
+                            body: { text: formData.description_ar, sourceLang: 'ar', targetLang: 'en' },
+                          });
+                          if (error) throw error;
+                          if (data?.translated) setFormData({ ...formData, description: data.translated });
+                        } catch { toast.error(language === 'ar' ? 'فشل الترجمة' : 'Translation failed'); }
+                        finally { setTranslating(null); }
+                      }}
+                    >{translating === 'en' ? '...' : (language === 'ar' ? 'ترجم من العربية' : 'Translate from Arabic')}</Button>
+                  </div>
                   <Textarea
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -473,7 +490,24 @@ export const CoursesManagement = () => {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>{language === 'ar' ? 'الوصف (عربي)' : 'Description (Arabic)'}</Label>
+                  <div className="flex items-center justify-between">
+                    <Label>{language === 'ar' ? 'الوصف (عربي)' : 'Description (Arabic)'}</Label>
+                    <Button
+                      type="button" size="sm" variant="outline" className="h-7 text-xs"
+                      disabled={!formData.description || translating === 'ar'}
+                      onClick={async () => {
+                        setTranslating('ar');
+                        try {
+                          const { data, error } = await supabase.functions.invoke('translate-course-description', {
+                            body: { text: formData.description, sourceLang: 'en', targetLang: 'ar' },
+                          });
+                          if (error) throw error;
+                          if (data?.translated) setFormData({ ...formData, description_ar: data.translated });
+                        } catch { toast.error(language === 'ar' ? 'فشل الترجمة' : 'Translation failed'); }
+                        finally { setTranslating(null); }
+                      }}
+                    >{translating === 'ar' ? '...' : (language === 'ar' ? 'ترجم من الإنجليزية' : 'Translate from English')}</Button>
+                  </div>
                   <Textarea
                     value={formData.description_ar}
                     onChange={(e) => setFormData({ ...formData, description_ar: e.target.value })}
