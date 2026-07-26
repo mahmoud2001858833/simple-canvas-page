@@ -105,13 +105,13 @@ const Checkout = () => {
     enabled: !!courseId && !!user,
   });
 
-  // Fetch chapters count for display
+  // Fetch lessons count for display (installments are based on lessons, not chapters)
   const { data: chaptersCount = 0 } = useQuery({
-    queryKey: ['checkout-chapters-count', courseId],
+    queryKey: ['checkout-lessons-count', courseId],
     queryFn: async () => {
       if (!courseId) return 0;
       const { count, error } = await supabase
-        .from('chapters')
+        .from('lessons')
         .select('*', { count: 'exact', head: true })
         .eq('course_id', courseId);
       if (error) return 0;
@@ -485,8 +485,8 @@ const Checkout = () => {
                       <Progress value={currentPaidPercent} className="h-2 mb-2" />
                       <p className="text-xs text-muted-foreground">
                         {isRTL 
-                          ? `${Math.ceil((currentPaidPercent / 100) * totalChapters)} من ${totalChapters} فصل متاح حالياً`
-                          : `${Math.ceil((currentPaidPercent / 100) * totalChapters)} of ${totalChapters} chapters currently accessible`
+                          ? `${Math.ceil((currentPaidPercent / 100) * totalChapters)} من ${totalChapters} درس متاح حالياً`
+                          : `${Math.ceil((currentPaidPercent / 100) * totalChapters)} of ${totalChapters} lessons currently accessible`
                         }
                       </p>
                     </div>
@@ -525,8 +525,8 @@ const Checkout = () => {
                             </Label>
                             <p className="text-sm text-muted-foreground mt-1">
                               {isRTL
-                                ? `يفتح ${optAccessibleChapters} من ${totalChapters} فصل`
-                                : `Unlocks ${optAccessibleChapters} of ${totalChapters} chapters`}
+                                ? `يفتح ${optAccessibleChapters} من ${totalChapters} درس`
+                                : `Unlocks ${optAccessibleChapters} of ${totalChapters} lessons`}
                             </p>
                           </div>
                           <div className="text-end">
@@ -715,8 +715,8 @@ const Checkout = () => {
                     </div>
                     <p className="text-sm text-muted-foreground">
                       {isRTL 
-                        ? `${accessibleChapters} من ${totalChapters} فصل (${newPaidPercentage}% من المحتوى)`
-                        : `${accessibleChapters} of ${totalChapters} chapters (${newPaidPercentage}% of content)`
+                        ? `${accessibleChapters} من ${totalChapters} درس (${newPaidPercentage}% من المحتوى)`
+                        : `${accessibleChapters} of ${totalChapters} lessons (${newPaidPercentage}% of content)`
                       }
                     </p>
                     {newPaidPercentage < 100 && (

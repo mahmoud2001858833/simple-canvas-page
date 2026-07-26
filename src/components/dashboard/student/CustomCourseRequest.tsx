@@ -51,6 +51,12 @@ export const CustomCourseRequest = () => {
   
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [institution, setInstitution] = useState('');
+  const [specialty, setSpecialty] = useState('');
+  const [courseName, setCourseName] = useState('');
+  const [doctorName, setDoctorName] = useState('');
+  const [academicYear, setAcademicYear] = useState('');
+  const [section, setSection] = useState('');
   const [deliveryMethod, setDeliveryMethod] = useState<'recorded'>('recorded');
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -379,6 +385,14 @@ export const CustomCourseRequest = () => {
       return;
     }
 
+    const requiredMissing = !institution.trim() || !specialty.trim() || !courseName.trim() || !doctorName.trim() || !academicYear.trim() || !section.trim();
+    if (requiredMissing) {
+      toast.error(language === 'ar'
+        ? 'يرجى تعبئة جميع بيانات المقرر (المؤسسة، التخصص، اسم المقرر، الدكتور، السنة، الشعبة)'
+        : 'Please fill all course details (institution, specialty, course, doctor, year, section)');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -391,7 +405,13 @@ export const CustomCourseRequest = () => {
           description: description.trim(),
           delivery_method: deliveryMethod,
           status: 'pending',
-        })
+          institution: institution.trim(),
+          specialty: specialty.trim(),
+          course_name: courseName.trim(),
+          doctor_name: doctorName.trim(),
+          academic_year: academicYear.trim(),
+          section: section.trim(),
+        } as any)
         .select()
         .single();
 
@@ -412,6 +432,12 @@ export const CustomCourseRequest = () => {
       // Reset form
       setTitle('');
       setDescription('');
+      setInstitution('');
+      setSpecialty('');
+      setCourseName('');
+      setDoctorName('');
+      setAcademicYear('');
+      setSection('');
       setDeliveryMethod('recorded');
       setFiles([]);
     } catch (error) {
@@ -786,6 +812,49 @@ export const CustomCourseRequest = () => {
             />
           </CardContent>
         </Card>
+
+        {/* Structured course details (required) */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Building2 className="w-5 h-5 text-primary" />
+              {language === 'ar' ? 'بيانات المقرر (إلزامية)' : 'Course Details (Required)'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>{language === 'ar' ? 'اسم المؤسسة التعليمية' : 'Institution'} *</Label>
+              <Input value={institution} onChange={(e) => setInstitution(e.target.value)} required
+                placeholder={language === 'ar' ? 'مثال: جامعة الملك سعود' : 'e.g. King Saud University'} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>{language === 'ar' ? 'اسم التخصص' : 'Specialty'} *</Label>
+              <Input value={specialty} onChange={(e) => setSpecialty(e.target.value)} required
+                placeholder={language === 'ar' ? 'مثال: هندسة برمجيات' : 'e.g. Software Engineering'} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>{language === 'ar' ? 'اسم المقرر' : 'Course Name'} *</Label>
+              <Input value={courseName} onChange={(e) => setCourseName(e.target.value)} required
+                placeholder={language === 'ar' ? 'مثال: تحليل خوارزميات' : 'e.g. Algorithms Analysis'} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>{language === 'ar' ? 'اسم الدكتور' : 'Doctor Name'} *</Label>
+              <Input value={doctorName} onChange={(e) => setDoctorName(e.target.value)} required
+                placeholder={language === 'ar' ? 'مثال: د. أحمد' : 'e.g. Dr. Ahmed'} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>{language === 'ar' ? 'السنة الدراسية' : 'Academic Year'} *</Label>
+              <Input value={academicYear} onChange={(e) => setAcademicYear(e.target.value)} required
+                placeholder={language === 'ar' ? 'مثال: السنة الثانية' : 'e.g. 2nd Year'} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>{language === 'ar' ? 'الشعبة' : 'Section'} *</Label>
+              <Input value={section} onChange={(e) => setSection(e.target.value)} required
+                placeholder={language === 'ar' ? 'مثال: شعبة 1' : 'e.g. Section 1'} />
+            </div>
+          </CardContent>
+        </Card>
+
 
         {/* Description */}
         <Card>
