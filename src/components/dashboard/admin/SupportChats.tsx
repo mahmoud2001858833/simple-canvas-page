@@ -152,7 +152,8 @@ export const SupportChats = () => {
         sender_id: user.id,
         content: newMessage.trim(),
         is_read: true,
-      });
+        admin_internal: internalNote,
+      } as any);
 
       if (error) throw error;
 
