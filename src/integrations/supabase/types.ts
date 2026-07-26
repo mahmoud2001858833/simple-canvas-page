@@ -811,57 +811,75 @@ export type Database = {
       }
       custom_course_requests: {
         Row: {
+          academic_year: string | null
           assigned_instructor_id: string | null
           assigned_production_id: string | null
           assigned_secretary_id: string | null
+          course_name: string | null
           created_at: string | null
           deadline: string | null
           deadline_warning_sent: boolean | null
           delivery_method: Database["public"]["Enums"]["delivery_method"]
           description: string | null
+          doctor_name: string | null
           estimated_price: number | null
           final_price: number | null
           id: string
+          institution: string | null
           last_status_update: string | null
           notes: string | null
+          section: string | null
+          specialty: string | null
           status: Database["public"]["Enums"]["task_status"] | null
           title: string
           updated_at: string | null
           user_id: string
         }
         Insert: {
+          academic_year?: string | null
           assigned_instructor_id?: string | null
           assigned_production_id?: string | null
           assigned_secretary_id?: string | null
+          course_name?: string | null
           created_at?: string | null
           deadline?: string | null
           deadline_warning_sent?: boolean | null
           delivery_method: Database["public"]["Enums"]["delivery_method"]
           description?: string | null
+          doctor_name?: string | null
           estimated_price?: number | null
           final_price?: number | null
           id?: string
+          institution?: string | null
           last_status_update?: string | null
           notes?: string | null
+          section?: string | null
+          specialty?: string | null
           status?: Database["public"]["Enums"]["task_status"] | null
           title: string
           updated_at?: string | null
           user_id: string
         }
         Update: {
+          academic_year?: string | null
           assigned_instructor_id?: string | null
           assigned_production_id?: string | null
           assigned_secretary_id?: string | null
+          course_name?: string | null
           created_at?: string | null
           deadline?: string | null
           deadline_warning_sent?: boolean | null
           delivery_method?: Database["public"]["Enums"]["delivery_method"]
           description?: string | null
+          doctor_name?: string | null
           estimated_price?: number | null
           final_price?: number | null
           id?: string
+          institution?: string | null
           last_status_update?: string | null
           notes?: string | null
+          section?: string | null
+          specialty?: string | null
           status?: Database["public"]["Enums"]["task_status"] | null
           title?: string
           updated_at?: string | null
@@ -2216,6 +2234,7 @@ export type Database = {
       }
       support_messages: {
         Row: {
+          admin_internal: boolean
           chat_id: string
           content: string
           created_at: string | null
@@ -2225,6 +2244,7 @@ export type Database = {
           sender_type: string
         }
         Insert: {
+          admin_internal?: boolean
           chat_id: string
           content: string
           created_at?: string | null
@@ -2234,6 +2254,7 @@ export type Database = {
           sender_type: string
         }
         Update: {
+          admin_internal?: boolean
           chat_id?: string
           content?: string
           created_at?: string | null
