@@ -139,6 +139,7 @@ export function DirectSupportChat() {
         },
         async (payload) => {
           const newMessage = payload.new as Message;
+          if (newMessage.admin_internal) return; // hide internal admin notes from student
           setMessages(prev => [...prev, newMessage]);
           
           // Mark as read if from admin and chat is open
