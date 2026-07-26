@@ -357,7 +357,41 @@ const Checkout = () => {
         } else {
           toast.error(isRTL ? 'لم يتم استلام رابط الدفع' : 'No payment link received');
         }
-      } else if (paymentMethod === 'bank_transfer') {
+      } else if (paymentMethod === 'paytabs') {
+        const { data, error } = await supabase.functions.invoke('create-paytabs-payment', {
+          body: {
+            courseId: courseId || null,
+            requestId: requestId || null,
+            userId: user.id,
+            customerEmail: user.email,
+            installmentPercent: selectedInstallment,
+            isInstallment: selectedInstallment < 100,
+            couponId: appliedCoupon?.coupon_id,
+          },
+        });
+        if (error) {
+          toast.error(isRTL ? 'فشل بدء الدفع عبر PayTabs' : 'Failed to start PayTabs checkout');
+          return;
+        }
+        if (data?.redirect_url) window.location.href = data.redirect_url;
+        else toast.error(isRTL ? 'لم يتم استلام رابط الدفع' : 'No payment link received');
+      } else if (paymentMethod === 'tabby') {
+        const { data, error } = await supabase.functions.invoke('create-tabby-session', {
+          body: {
+            courseId: courseId || null,
+            requestId: requestId || null,
+            userId: user.id,
+            customerEmail: user.email,
+            customerName: (user as any).user_metadata?.full_name || '',
+          },
+        });
+        if (error) {
+          toast.error(isRTL ? 'فشل بدء الدفع عبر Tabby' : 'Failed to start Tabby checkout');
+          return;
+        }
+        const url = data?.redirect_url || data?.web_url;
+        if (url) window.location.href = url;
+        else toast.error(isRTL ? 'لم يتم استلام رابط الدفع' : 'No payment link received');
         // Create pending payment for bank transfer
         const { data: paymentData, error: paymentError } = await supabase.from('payments').insert({
           user_id: user.id,
