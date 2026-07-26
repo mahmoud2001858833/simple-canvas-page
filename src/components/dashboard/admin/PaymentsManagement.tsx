@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Search, Plus, DollarSign, CheckCircle, XCircle, Clock, RefreshCw, Calendar, FileText, Eye } from 'lucide-react';
+import { Search, Plus, DollarSign, CheckCircle, XCircle, Clock, RefreshCw, Calendar, FileText, Eye, Bell } from 'lucide-react';
 
 import { PaymentsTableSkeleton } from '@/components/ui/skeletons';
 import { toast } from 'sonner';
@@ -54,7 +54,10 @@ export const PaymentsManagement = () => {
         .select(`*, course:courses(title, title_ar, instructor_id, instructor_commission)`)
         .order('created_at', { ascending: false });
 
-      if (statusFilter !== 'all') {
+      if (statusFilter === 'abandoned') {
+        const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        query = query.eq('status', 'pending' as any).lte('created_at', cutoff);
+      } else if (statusFilter !== 'all') {
         query = query.eq('status', statusFilter as any);
       }
       if (dateFrom) {
@@ -83,6 +86,35 @@ export const PaymentsManagement = () => {
 
       return paymentsWithUsers;
     },
+  });
+
+  const sendReminderMutation = useMutation({
+    mutationFn: async (payment: any) => {
+      if (!payment.user_id) throw new Error('No user');
+      await supabase.from('notifications').insert({
+        user_id: payment.user_id,
+        title: 'Complete Your Payment',
+        title_ar: 'أكمل عملية الدفع',
+        message: `You have a pending payment of ${Number(payment.amount).toLocaleString()} SAR. Complete it to access your course.`,
+        message_ar: `لديك دفعة معلقة بقيمة ${Number(payment.amount).toLocaleString()} ر.س. أكمل الدفع للوصول إلى الدورة.`,
+        type: 'warning',
+        link: '/dashboard',
+      });
+      if (payment.user?.email) {
+        await supabase.functions.invoke('send-notification-email', {
+          body: {
+            type: 'payment_reminder',
+            to_email: payment.user.email,
+            to_name: payment.user.full_name || '',
+            amount: Number(payment.amount),
+            course_title: payment.course?.title,
+            course_title_ar: payment.course?.title_ar,
+          },
+        }).catch(console.error);
+      }
+    },
+    onSuccess: () => toast.success(language === 'ar' ? 'تم إرسال التذكير' : 'Reminder sent'),
+    onError: () => toast.error(language === 'ar' ? 'فشل إرسال التذكير' : 'Failed to send reminder'),
   });
 
   const updateStatusMutation = useMutation({
@@ -424,6 +456,7 @@ export const PaymentsManagement = () => {
             <SelectItem value="paid">{language === 'ar' ? 'مدفوع' : 'Paid'}</SelectItem>
             <SelectItem value="failed">{language === 'ar' ? 'فشل' : 'Failed'}</SelectItem>
             <SelectItem value="refunded">{language === 'ar' ? 'مسترد' : 'Refunded'}</SelectItem>
+            <SelectItem value="abandoned">{language === 'ar' ? 'مهجور (+24 ساعة)' : 'Abandoned (>24h)'}</SelectItem>
           </SelectContent>
         </Select>
         <div className="flex items-center gap-2">
@@ -511,6 +544,14 @@ export const PaymentsManagement = () => {
                             onClick={() => updateStatusMutation.mutate({ id: payment.id, status: 'failed' })}>
                             <XCircle className="w-4 h-4" />
                           </Button>
+                          {(Date.now() - new Date(payment.created_at).getTime()) > 24 * 60 * 60 * 1000 && payment.user_id && (
+                            <Button size="sm" variant="outline" className="text-warning border-warning"
+                              disabled={sendReminderMutation.isPending}
+                              onClick={() => sendReminderMutation.mutate(payment)}>
+                              <Bell className="w-4 h-4 me-1" />
+                              {language === 'ar' ? 'تذكير' : 'Remind'}
+                            </Button>
+                          )}
                         </>
                       )}
                       {payment.status === 'paid' && (
