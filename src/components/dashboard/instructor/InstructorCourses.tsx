@@ -63,6 +63,7 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<{ id: string; title: string } | null>(null);
+  const [translating, setTranslating] = useState<'ar' | 'en' | null>(null);
   const [formData, setFormData] = useState({
     title: '',
     title_ar: '',
@@ -515,14 +516,48 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
                   </div>
                 </div>
                 <div>
-                  <Label>{t.courseDesc}</Label>
+                  <div className="flex items-center justify-between">
+                    <Label>{t.courseDesc}</Label>
+                    <Button
+                      type="button" size="sm" variant="outline" className="h-7 text-xs"
+                      disabled={!formData.description_ar || translating === 'en'}
+                      onClick={async () => {
+                        setTranslating('en');
+                        try {
+                          const { data, error } = await supabase.functions.invoke('translate-course-description', {
+                            body: { text: formData.description_ar, sourceLang: 'ar', targetLang: 'en' },
+                          });
+                          if (error) throw error;
+                          if (data?.translated) setFormData({ ...formData, description: data.translated });
+                        } catch { toast.error(language === 'ar' ? 'فشل الترجمة' : 'Translation failed'); }
+                        finally { setTranslating(null); }
+                      }}
+                    >{translating === 'en' ? '...' : (language === 'ar' ? 'ترجم من العربية' : 'Translate from Arabic')}</Button>
+                  </div>
                   <Textarea
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   />
                 </div>
                 <div>
-                  <Label>{t.courseDescAr}</Label>
+                  <div className="flex items-center justify-between">
+                    <Label>{t.courseDescAr}</Label>
+                    <Button
+                      type="button" size="sm" variant="outline" className="h-7 text-xs"
+                      disabled={!formData.description || translating === 'ar'}
+                      onClick={async () => {
+                        setTranslating('ar');
+                        try {
+                          const { data, error } = await supabase.functions.invoke('translate-course-description', {
+                            body: { text: formData.description, sourceLang: 'en', targetLang: 'ar' },
+                          });
+                          if (error) throw error;
+                          if (data?.translated) setFormData({ ...formData, description_ar: data.translated });
+                        } catch { toast.error(language === 'ar' ? 'فشل الترجمة' : 'Translation failed'); }
+                        finally { setTranslating(null); }
+                      }}
+                    >{translating === 'ar' ? '...' : (language === 'ar' ? 'ترجم من الإنجليزية' : 'Translate from English')}</Button>
+                  </div>
                   <Textarea
                     value={formData.description_ar}
                     onChange={(e) => setFormData({ ...formData, description_ar: e.target.value })}
