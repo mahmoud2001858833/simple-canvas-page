@@ -178,8 +178,10 @@ const Courses = () => {
 
       if (isInstructorView) {
         query = query.eq("instructor_id", user!.id);
-      } else {
+      } else if (role === 'admin') {
         query = query.eq("is_active", true);
+      } else {
+        query = query.eq("is_active", true).eq("is_approved", true);
       }
 
       if (selectedMajor && selectedMajor !== "all") {

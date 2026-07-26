@@ -19,6 +19,7 @@ const CoursesSection = () => {
         .from('courses')
         .select('id, title, title_ar, price, original_price, thumbnail_url, duration_hours')
         .eq('is_active', true)
+        .eq('is_approved', true)
         .order('created_at', { ascending: false })
         .limit(6);
       if (error) throw error;
