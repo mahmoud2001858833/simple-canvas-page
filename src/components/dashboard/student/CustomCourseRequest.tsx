@@ -813,6 +813,49 @@ export const CustomCourseRequest = () => {
           </CardContent>
         </Card>
 
+        {/* Structured course details (required) */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Building2 className="w-5 h-5 text-primary" />
+              {language === 'ar' ? 'بيانات المقرر (إلزامية)' : 'Course Details (Required)'}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>{language === 'ar' ? 'اسم المؤسسة التعليمية' : 'Institution'} *</Label>
+              <Input value={institution} onChange={(e) => setInstitution(e.target.value)} required
+                placeholder={language === 'ar' ? 'مثال: جامعة الملك سعود' : 'e.g. King Saud University'} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>{language === 'ar' ? 'اسم التخصص' : 'Specialty'} *</Label>
+              <Input value={specialty} onChange={(e) => setSpecialty(e.target.value)} required
+                placeholder={language === 'ar' ? 'مثال: هندسة برمجيات' : 'e.g. Software Engineering'} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>{language === 'ar' ? 'اسم المقرر' : 'Course Name'} *</Label>
+              <Input value={courseName} onChange={(e) => setCourseName(e.target.value)} required
+                placeholder={language === 'ar' ? 'مثال: تحليل خوارزميات' : 'e.g. Algorithms Analysis'} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>{language === 'ar' ? 'اسم الدكتور' : 'Doctor Name'} *</Label>
+              <Input value={doctorName} onChange={(e) => setDoctorName(e.target.value)} required
+                placeholder={language === 'ar' ? 'مثال: د. أحمد' : 'e.g. Dr. Ahmed'} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>{language === 'ar' ? 'السنة الدراسية' : 'Academic Year'} *</Label>
+              <Input value={academicYear} onChange={(e) => setAcademicYear(e.target.value)} required
+                placeholder={language === 'ar' ? 'مثال: السنة الثانية' : 'e.g. 2nd Year'} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>{language === 'ar' ? 'الشعبة' : 'Section'} *</Label>
+              <Input value={section} onChange={(e) => setSection(e.target.value)} required
+                placeholder={language === 'ar' ? 'مثال: شعبة 1' : 'e.g. Section 1'} />
+            </div>
+          </CardContent>
+        </Card>
+
+
         {/* Description */}
         <Card>
           <CardHeader>
