@@ -20,8 +20,6 @@ import { toast } from 'sonner';
 
 const ALL_METHODS = [
   { key: 'alinmapay', labelAr: 'الإنماء (أونلاين)', labelEn: 'Alinma (Online)' },
-  { key: 'paytabs', labelAr: 'PayTabs', labelEn: 'PayTabs' },
-  { key: 'tabby', labelAr: 'Tabby (تقسيط)', labelEn: 'Tabby (Installments)' },
   { key: 'bank_transfer', labelAr: 'تحويل بنكي / يدوي', labelEn: 'Bank Transfer / Manual' },
 ];
 
