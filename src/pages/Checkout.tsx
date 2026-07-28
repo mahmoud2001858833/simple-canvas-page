@@ -236,7 +236,7 @@ const Checkout = () => {
 
   const enabledMethodsForCourse: string[] =
     (course as any)?.enabled_payment_methods ??
-    ['alinmapay', 'bank_transfer', 'tabby', 'paytabs'];
+    ['alinmapay', 'bank_transfer'];
 
   const allPaymentMethods = [
     {
@@ -246,20 +246,6 @@ const Checkout = () => {
       icon: CreditCard,
       badge: isRTL ? 'موصى به' : 'Recommended',
       badgeSecondary: isRTL ? 'فوري' : 'Instant',
-    },
-    {
-      id: 'paytabs' as PaymentMethod,
-      title: 'PayTabs',
-      description: isRTL ? 'بطاقات ائتمان دولية' : 'International cards',
-      icon: CreditCard,
-      badge: isRTL ? 'فوري' : 'Instant',
-    },
-    {
-      id: 'tabby' as PaymentMethod,
-      title: 'Tabby',
-      description: isRTL ? 'قسّم على 4 دفعات بدون فوائد' : 'Split into 4 payments, interest-free',
-      icon: CreditCard,
-      badge: isRTL ? 'تقسيط' : 'Installments',
     },
     {
       id: 'bank_transfer' as PaymentMethod,
