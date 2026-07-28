@@ -216,9 +216,11 @@ const Courses = () => {
         );
       }
 
-      // For instructor view: mark all their courses as free-access (price shown as free)
+      // For instructor view: mark only their own courses as free
       if (isInstructorView) {
-        filteredData = filteredData.map((c: any) => ({ ...c, price: 0 }));
+        filteredData = filteredData.map((c: any) =>
+          c.instructor_id === user!.id ? { ...c, price: 0, original_price: 0 } : c
+        );
       }
 
       const totalCount = filteredData.length;
