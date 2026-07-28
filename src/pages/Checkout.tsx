@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-type PaymentMethod = 'alinmapay' | 'bank_transfer' | 'tabby' | 'paytabs';
+type PaymentMethod = 'alinmapay' | 'bank_transfer';
 
 interface CouponResult {
   valid: boolean;
