@@ -737,6 +737,8 @@ export type Database = {
           learning_outcomes: string[]
           learning_outcomes_ar: string[]
           major_id: string | null
+          monthly_installment_enabled: boolean
+          monthly_installment_months: number
           original_price: number | null
           price: number | null
           price_includes_tax: boolean
@@ -769,6 +771,8 @@ export type Database = {
           learning_outcomes?: string[]
           learning_outcomes_ar?: string[]
           major_id?: string | null
+          monthly_installment_enabled?: boolean
+          monthly_installment_months?: number
           original_price?: number | null
           price?: number | null
           price_includes_tax?: boolean
@@ -801,6 +805,8 @@ export type Database = {
           learning_outcomes?: string[]
           learning_outcomes_ar?: string[]
           major_id?: string | null
+          monthly_installment_enabled?: boolean
+          monthly_installment_months?: number
           original_price?: number | null
           price?: number | null
           price_includes_tax?: boolean
@@ -1392,6 +1398,62 @@ export type Database = {
           sender_id?: string
         }
         Relationships: []
+      }
+      monthly_installments: {
+        Row: {
+          course_id: string
+          created_at: string
+          current_period_end: string | null
+          current_period_start: string | null
+          id: string
+          last_payment_id: string | null
+          monthly_amount: number
+          months_paid: number
+          status: string
+          total_amount: number
+          total_months: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          last_payment_id?: string | null
+          monthly_amount?: number
+          months_paid?: number
+          status?: string
+          total_amount?: number
+          total_months?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          last_payment_id?: string | null
+          monthly_amount?: number
+          months_paid?: number
+          status?: string
+          total_amount?: number
+          total_months?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_installments_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notifications: {
         Row: {
