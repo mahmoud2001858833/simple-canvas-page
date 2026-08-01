@@ -30,6 +30,7 @@ interface EarningsSummary {
   pending: number;
   paid: number;
   thisMonth: number;
+  refunded: number;
 }
 
 interface MonthlyData {
