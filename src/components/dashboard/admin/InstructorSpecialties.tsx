@@ -195,6 +195,9 @@ export const InstructorSpecialties = () => {
               <TableRow>
                 <TableHead>{language === 'ar' ? 'المعلم' : 'Instructor'}</TableHead>
                 <TableHead>{language === 'ar' ? 'التخصص' : 'Specialty'}</TableHead>
+                <TableHead className="hidden lg:table-cell">{language === 'ar' ? 'الدرجة العلمية' : 'Degree'}</TableHead>
+                <TableHead className="hidden lg:table-cell">{language === 'ar' ? 'الخبرة' : 'Experience'}</TableHead>
+                <TableHead className="hidden md:table-cell">{language === 'ar' ? 'الجوال' : 'Phone'}</TableHead>
                 <TableHead>{language === 'ar' ? 'الدورات' : 'Courses'}</TableHead>
                 <TableHead>{language === 'ar' ? 'الطلاب' : 'Students'}</TableHead>
                 <TableHead>{language === 'ar' ? 'الأرباح' : 'Earnings'}</TableHead>
@@ -203,9 +206,9 @@ export const InstructorSpecialties = () => {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">{language === 'ar' ? 'جاري التحميل...' : 'Loading...'}</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">{language === 'ar' ? 'جاري التحميل...' : 'Loading...'}</TableCell></TableRow>
               ) : !filtered?.length ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">{language === 'ar' ? 'لا توجد نتائج' : 'No results'}</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">{language === 'ar' ? 'لا توجد نتائج' : 'No results'}</TableCell></TableRow>
               ) : filtered.map(instructor => (
                 <TableRow key={instructor.id}>
                   <TableCell>
@@ -221,6 +224,9 @@ export const InstructorSpecialties = () => {
                       <span className="text-xs text-muted-foreground">{language === 'ar' ? 'غير محدد' : 'Not set'}</span>
                     )}
                   </TableCell>
+                  <TableCell className="hidden lg:table-cell text-sm">{instructor.academic_degree || '—'}</TableCell>
+                  <TableCell className="hidden lg:table-cell text-sm">{instructor.teaching_experience_years || '—'}</TableCell>
+                  <TableCell className="hidden md:table-cell text-sm" dir="ltr">{instructor.phone || '—'}</TableCell>
                   <TableCell>
                     <span className="font-medium">{instructor.courseCount}</span>
                   </TableCell>
@@ -231,17 +237,23 @@ export const InstructorSpecialties = () => {
                     <span className="font-medium">{instructor.totalEarnings.toFixed(0)} {language === 'ar' ? 'ر.س' : 'SAR'}</span>
                   </TableCell>
                   <TableCell>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        setEditingInstructor(instructor);
-                        setNewSpecialty(instructor.specialty || '');
-                      }}
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button size="sm" variant="ghost" onClick={() => setViewingInstructor(instructor)}>
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setEditingInstructor(instructor);
+                          setNewSpecialty(instructor.specialty || '');
+                        }}
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </TableCell>
+
                 </TableRow>
               ))}
             </TableBody>
