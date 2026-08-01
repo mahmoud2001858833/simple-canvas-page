@@ -132,13 +132,15 @@ export const InstructorEarnings = ({ limit }: InstructorEarningsProps) => {
         is_installment: !!(e.payments?.installment_plan as any)?.is_continuation,
       }));
 
-      // Calculate summary
+      // Calculate summary (refunded earnings are excluded from all totals)
       const now = new Date();
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const total = earningsData.reduce((sum, e) => sum + e.amount, 0);
-      const pending = earningsData.filter(e => e.status === 'pending').reduce((sum, e) => sum + e.amount, 0);
-      const paid = earningsData.filter(e => e.status === 'paid').reduce((sum, e) => sum + e.amount, 0);
-      const thisMonth = earningsData
+      const active = earningsData.filter(e => e.status !== 'refunded');
+      const total = active.reduce((sum, e) => sum + e.amount, 0);
+      const pending = active.filter(e => e.status === 'pending').reduce((sum, e) => sum + e.amount, 0);
+      const paid = active.filter(e => e.status === 'paid').reduce((sum, e) => sum + e.amount, 0);
+      const refunded = earningsData.filter(e => e.status === 'refunded').reduce((sum, e) => sum + e.amount, 0);
+      const thisMonth = active
         .filter(e => new Date(e.created_at) >= startOfMonth)
         .reduce((sum, e) => sum + e.amount, 0);
 
