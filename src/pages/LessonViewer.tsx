@@ -204,6 +204,9 @@ const LessonViewer = () => {
   });
 
   // Chapter-based installment access logic
+  // Monthly installment: access expires at the end of each paid month
+  const enrollmentExpired = !!(enrollment as any)?.expires_at
+    && new Date((enrollment as any).expires_at).getTime() < Date.now();
   const paidPercentage = (enrollment as any)?.paid_percentage ?? 100;
   const chaptersWithContent = chapters.filter(ch => lessons.some(l => (l as any).chapter_id === ch.id));
   const totalChaptersCount = chaptersWithContent.length || 1;
@@ -220,6 +223,7 @@ const LessonViewer = () => {
     if (currentLesson?.is_preview) return true;
     if (hasStaffFreeAccess) return true;
     if (!enrollment || enrollment.status !== 'active') return false;
+    if (enrollmentExpired) return false;
     if (paidPercentage >= 100) return true;
     const chapterId = (currentLesson as any)?.chapter_id;
     if (!chapterId) return true; // lessons without chapter are accessible
@@ -473,6 +477,7 @@ const LessonViewer = () => {
     if (lesson.is_preview) return true;
     if (hasStaffFreeAccess) return true;
     if (!enrollment || enrollment.status !== 'active') return false;
+    if (enrollmentExpired) return false;
     if (paidPercentage >= 100) return true;
     const chapterId = (lesson as any).chapter_id;
     if (!chapterId) return true;

@@ -91,7 +91,7 @@ serve(async (req) => {
     const body = await req.json().catch(() => null);
     if (!body) return json({ error: "Invalid request body" }, 400);
 
-    const { amount, courseId, requestId, userId, customerEmail, couponCode, installmentPercent } =
+    const { amount, courseId, requestId, userId, customerEmail, couponCode, installmentPercent, planType } =
       body as Record<string, unknown>;
     const uid = String(userId || "").trim();
     const cid = typeof courseId === "string" && courseId.trim() ? courseId.trim() : null;
@@ -99,6 +99,7 @@ serve(async (req) => {
     const email = String(customerEmail || "").trim();
     const coupon = typeof couponCode === "string" && couponCode.trim() ? couponCode.trim() : null;
     const targetPercent = Number(installmentPercent) > 0 ? Math.min(100, Number(installmentPercent)) : 100;
+    const isMonthlyPlan = String(planType || "") === "monthly";
 
     if (!amount || !uid) {
       return json({ error: "Missing required fields: amount and userId" }, 400);
@@ -129,10 +130,12 @@ serve(async (req) => {
     let itemTitle = "Payment";
     let currentPaidPercent = 0;
 
+    let monthlyPlanMeta: Record<string, unknown> | null = null;
+
     if (cid) {
       const { data: course } = await supabase
         .from("courses")
-        .select("id, title, price, is_active")
+        .select("id, title, price, is_active, monthly_installment_enabled, monthly_installment_months")
         .eq("id", cid)
         .single();
 
@@ -148,17 +151,49 @@ serve(async (req) => {
         .maybeSingle();
 
       currentPaidPercent = Number(existing?.paid_percentage ?? 0);
-
-      // Fully paid enrollment cannot pay again
-      if (existing && currentPaidPercent >= 100) {
-        return json({ error: "Already enrolled in this course" }, 400);
-      }
-      if (targetPercent <= currentPaidPercent) {
-        return json({ error: "Invalid installment selection" }, 400);
-      }
-
-      actualAmount = Math.ceil(Number(course.price) * ((targetPercent - currentPaidPercent) / 100));
       itemTitle = course.title;
+
+      if (isMonthlyPlan) {
+        if (!course.monthly_installment_enabled) {
+          return json({ error: "Monthly installments not enabled for this course" }, 400);
+        }
+        const totalMonths = Math.max(2, Number(course.monthly_installment_months || 3));
+
+        const { data: plan } = await supabase
+          .from("monthly_installments")
+          .select("months_paid, status")
+          .eq("user_id", uid)
+          .eq("course_id", cid)
+          .maybeSingle();
+
+        const monthsPaid = Number(plan?.months_paid ?? 0);
+        if (plan?.status === "completed" || monthsPaid >= totalMonths) {
+          return json({ error: "Already enrolled in this course" }, 400);
+        }
+        // Block starting a monthly plan on top of a partially paid chapter-based enrollment
+        if (monthsPaid === 0 && currentPaidPercent > 0) {
+          return json({ error: "Invalid installment selection" }, 400);
+        }
+
+        actualAmount = Math.ceil(Number(course.price) / totalMonths);
+        monthlyPlanMeta = {
+          type: "monthly",
+          total_months: totalMonths,
+          month_number: monthsPaid + 1,
+          total_amount: Number(course.price),
+          new_paid_percentage: 100,
+        };
+      } else {
+        // Fully paid enrollment cannot pay again
+        if (existing && currentPaidPercent >= 100) {
+          return json({ error: "Already enrolled in this course" }, 400);
+        }
+        if (targetPercent <= currentPaidPercent) {
+          return json({ error: "Invalid installment selection" }, 400);
+        }
+
+        actualAmount = Math.ceil(Number(course.price) * ((targetPercent - currentPaidPercent) / 100));
+      }
     } else if (rid) {
       const { data: request } = await supabase
         .from("custom_course_requests")
@@ -222,14 +257,18 @@ serve(async (req) => {
         notes: [
           `AlinmaPay - ${itemTitle}`,
           coupon ? `Coupon: ${coupon} (-${discountAmount} SAR)` : null,
-          cid ? `Installment: ${targetPercent}% (paid before: ${currentPaidPercent}%)` : null,
+          cid
+            ? (monthlyPlanMeta
+              ? `Monthly installment: month ${monthlyPlanMeta.month_number} of ${monthlyPlanMeta.total_months}`
+              : `Installment: ${targetPercent}% (paid before: ${currentPaidPercent}%)`)
+            : null,
         ].filter(Boolean).join(" | "),
         installment_plan: cid
-          ? {
+          ? (monthlyPlanMeta ?? {
             installment_percent: targetPercent,
             new_paid_percentage: targetPercent,
             is_continuation: currentPaidPercent > 0,
-          }
+          })
           : null,
       })
       .select()
