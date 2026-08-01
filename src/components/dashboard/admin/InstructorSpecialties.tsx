@@ -261,6 +261,77 @@ export const InstructorSpecialties = () => {
         </CardContent>
       </Card>
 
+      {/* Full details dialog */}
+      <Dialog open={!!viewingInstructor} onOpenChange={() => setViewingInstructor(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ar' ? 'ملف المعلم الكامل' : 'Full Instructor Profile'}
+            </DialogTitle>
+          </DialogHeader>
+          {viewingInstructor && (
+            <ScrollArea className="max-h-[70vh] pe-3">
+              <div className="grid md:grid-cols-2 gap-4">
+                <Section title={language === 'ar' ? 'البيانات الشخصية' : 'Personal Info'} icon={User}>
+                  <InfoRow label={language === 'ar' ? 'الاسم' : 'Name'} value={viewingInstructor.full_name} />
+                  <InfoRow label={language === 'ar' ? 'الاسم بالعربية' : 'Arabic Name'} value={viewingInstructor.full_name_ar} />
+                  <InfoRow label={language === 'ar' ? 'البريد' : 'Email'} value={viewingInstructor.email} />
+                  <InfoRow label={language === 'ar' ? 'الجوال' : 'Phone'} value={viewingInstructor.phone} />
+                  <InfoRow label={language === 'ar' ? 'الجنس' : 'Gender'} value={viewingInstructor.gender} />
+                  <InfoRow label={language === 'ar' ? 'تاريخ الميلاد' : 'Date of Birth'} value={viewingInstructor.date_of_birth} />
+                </Section>
+
+                <Section title={language === 'ar' ? 'الإقامة والجنسية' : 'Residence & Nationality'} icon={Globe}>
+                  <InfoRow label={language === 'ar' ? 'بلد الإقامة' : 'Country of Residence'} value={viewingInstructor.residence_country} />
+                  <InfoRow label={language === 'ar' ? 'الجنسية' : 'Nationality'} value={viewingInstructor.nationality} />
+                  <InfoRow label={language === 'ar' ? 'لغة الواجهة' : 'Preferred Language'} value={viewingInstructor.preferred_language} />
+                  <InfoRow label={language === 'ar' ? 'كيف عرف عن المنصة' : 'Referral Source'} value={viewingInstructor.referral_source} />
+                </Section>
+
+                <Section title={language === 'ar' ? 'البيانات الأكاديمية' : 'Academic Info'} icon={GraduationCap}>
+                  <InfoRow label={language === 'ar' ? 'التخصص' : 'Specialty'} value={viewingInstructor.specialty} />
+                  <InfoRow label={language === 'ar' ? 'الدرجة العلمية' : 'Academic Degree'} value={viewingInstructor.academic_degree} />
+                  <InfoRow label={language === 'ar' ? 'السنة الأكاديمية' : 'Academic Year'} value={viewingInstructor.academic_year} />
+                  <InfoRow label={language === 'ar' ? 'الحالة التعليمية' : 'Education Status'} value={viewingInstructor.education_status} />
+                  <InfoRow label={language === 'ar' ? 'سنة التدريس' : 'Teaching Year'} value={viewingInstructor.teaching_year} />
+                </Section>
+
+                <Section title={language === 'ar' ? 'الخبرة المهنية' : 'Professional Experience'} icon={Briefcase}>
+                  <InfoRow label={language === 'ar' ? 'سنوات الخبرة' : 'Years of Experience'} value={viewingInstructor.teaching_experience_years} />
+                  <InfoRow label={language === 'ar' ? 'تفاصيل الخبرة' : 'Experience Details'} value={viewingInstructor.teaching_experience_details} />
+                  <InfoRow label={language === 'ar' ? 'الجاهزية للبدء' : 'Availability to Start'} value={viewingInstructor.availability_to_start} />
+                  <InfoRow label={language === 'ar' ? 'عدد الطلاب المتوقع' : 'Expected Students'} value={viewingInstructor.expected_students_count} />
+                </Section>
+
+                <Section title={language === 'ar' ? 'الخدمات البحثية' : 'Research Services'} icon={FlaskConical}>
+                  <InfoRow label={language === 'ar' ? 'يقدم خدمات بحثية' : 'Offers Research Services'} value={viewingInstructor.offers_research_services} />
+                  <InfoRow label={language === 'ar' ? 'المشاركة في الأبحاث' : 'Research Participation'} value={viewingInstructor.research_participation} />
+                  <InfoRow label={language === 'ar' ? 'وافق على السياسات' : 'Accepted Policies'} value={viewingInstructor.has_accepted_policies} />
+                </Section>
+
+                <Section title={language === 'ar' ? 'الإنتاجية' : 'Productivity'} icon={BookOpen}>
+                  <InfoRow label={language === 'ar' ? 'عدد الدورات' : 'Courses'} value={viewingInstructor.courseCount} />
+                  <InfoRow label={language === 'ar' ? 'عدد الطلاب' : 'Students'} value={viewingInstructor.studentCount} />
+                  <InfoRow
+                    label={language === 'ar' ? 'إجمالي الأرباح' : 'Total Earnings'}
+                    value={`${viewingInstructor.totalEarnings.toFixed(0)} ${language === 'ar' ? 'ر.س' : 'SAR'}`}
+                  />
+                  <InfoRow
+                    label={language === 'ar' ? 'تاريخ التسجيل' : 'Registered At'}
+                    value={viewingInstructor.created_at ? new Date(viewingInstructor.created_at).toLocaleDateString(language === 'ar' ? 'ar' : 'en') : '—'}
+                  />
+                </Section>
+              </div>
+            </ScrollArea>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewingInstructor(null)}>
+              {language === 'ar' ? 'إغلاق' : 'Close'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Edit Dialog */}
       <Dialog open={!!editingInstructor} onOpenChange={() => setEditingInstructor(null)}>
         <DialogContent>
