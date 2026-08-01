@@ -9,14 +9,35 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Search, Edit2, BookOpen, Users, DollarSign, GraduationCap } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Search, Edit2, BookOpen, Users, DollarSign, GraduationCap, Eye, User, Briefcase, Phone, Mail, Calendar, Globe, FlaskConical } from 'lucide-react';
 import { toast } from 'sonner';
+
+const InfoRow = ({ label, value }: { label: string; value?: any }) => (
+  <div className="flex items-start justify-between gap-4 py-2 border-b border-border/50 last:border-0">
+    <span className="text-xs text-muted-foreground shrink-0">{label}</span>
+    <span className="text-sm font-medium text-end break-words">
+      {value === true ? '✓' : value === false ? '✕' : value !== null && value !== undefined && value !== '' ? String(value) : '—'}
+    </span>
+  </div>
+);
+
+const Section = ({ title, icon: Icon, children }: { title: string; icon: any; children: React.ReactNode }) => (
+  <div className="rounded-xl border border-border p-4 space-y-1">
+    <div className="flex items-center gap-2 mb-2">
+      <Icon className="w-4 h-4 text-primary" />
+      <h4 className="text-sm font-semibold">{title}</h4>
+    </div>
+    {children}
+  </div>
+);
 
 export const InstructorSpecialties = () => {
   const { dir } = useLanguage();
   const language = dir === 'rtl' ? 'ar' : 'en';
   const [search, setSearch] = useState('');
   const [editingInstructor, setEditingInstructor] = useState<any>(null);
+  const [viewingInstructor, setViewingInstructor] = useState<any>(null);
   const [newSpecialty, setNewSpecialty] = useState('');
 
   // Fetch instructors with role = instructor
