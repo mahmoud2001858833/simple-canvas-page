@@ -350,6 +350,9 @@ const CourseDetails = () => {
   const totalDuration = lessons.reduce((acc, lesson) => acc + (lesson.duration_minutes || 0), 0);
 
   // Chapter-based installment access logic
+  // Monthly installment: access expires at the end of each paid month
+  const enrollmentExpired = !!(enrollment as any)?.expires_at
+    && new Date((enrollment as any).expires_at).getTime() < Date.now();
   const paidPercentage = (enrollment as any)?.paid_percentage ?? 100;
   const chaptersWithContent = chapters.filter(ch => lessons.some(l => (l as any).chapter_id === ch.id));
   const totalChaptersCount = chaptersWithContent.length || 1;
@@ -366,6 +369,7 @@ const CourseDetails = () => {
   const isChapterAccessible = (chapterId: string | null) => {
     if (hasStaffFreeAccess) return true;
     if (!enrollment || enrollment.status !== 'active') return false;
+    if (enrollmentExpired) return false;
     if (paidPercentage >= 100) return true;
     if (!chapterId) return true; // lessons without chapters are always accessible
     return accessibleChapterIds.has(chapterId);
@@ -375,6 +379,7 @@ const CourseDetails = () => {
     if (lesson.is_preview) return true;
     if (hasStaffFreeAccess) return true;
     if (!enrollment || enrollment.status !== 'active') return false;
+    if (enrollmentExpired) return false;
     if (paidPercentage >= 100) return true;
     return isChapterAccessible(lesson.chapter_id);
   };
