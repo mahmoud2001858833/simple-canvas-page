@@ -91,11 +91,14 @@ serve(async (req) => {
     const body = await req.json().catch(() => null);
     if (!body) return json({ error: "Invalid request body" }, 400);
 
-    const { amount, courseId, requestId, userId, customerEmail } = body as Record<string, unknown>;
+    const { amount, courseId, requestId, userId, customerEmail, couponCode, installmentPercent } =
+      body as Record<string, unknown>;
     const uid = String(userId || "").trim();
     const cid = typeof courseId === "string" && courseId.trim() ? courseId.trim() : null;
     const rid = typeof requestId === "string" && requestId.trim() ? requestId.trim() : null;
     const email = String(customerEmail || "").trim();
+    const coupon = typeof couponCode === "string" && couponCode.trim() ? couponCode.trim() : null;
+    const targetPercent = Number(installmentPercent) > 0 ? Math.min(100, Number(installmentPercent)) : 100;
 
     if (!amount || !uid) {
       return json({ error: "Missing required fields: amount and userId" }, 400);
@@ -121,9 +124,10 @@ serve(async (req) => {
       .single();
     if (!profile) return json({ error: "User not found" }, 404);
 
-    // Resolve amount & title
-    let actualAmount: number | string = amount as number | string;
+    // Resolve amount & title (server-side authoritative pricing)
+    let actualAmount = 0;
     let itemTitle = "Payment";
+    let currentPaidPercent = 0;
 
     if (cid) {
       const { data: course } = await supabase
@@ -138,13 +142,22 @@ serve(async (req) => {
 
       const { data: existing } = await supabase
         .from("enrollments")
-        .select("id")
+        .select("id, paid_percentage")
         .eq("user_id", uid)
         .eq("course_id", cid)
         .maybeSingle();
-      if (existing) return json({ error: "Already enrolled in this course" }, 400);
 
-      actualAmount = course.price;
+      currentPaidPercent = Number(existing?.paid_percentage ?? 0);
+
+      // Fully paid enrollment cannot pay again
+      if (existing && currentPaidPercent >= 100) {
+        return json({ error: "Already enrolled in this course" }, 400);
+      }
+      if (targetPercent <= currentPaidPercent) {
+        return json({ error: "Invalid installment selection" }, 400);
+      }
+
+      actualAmount = Math.ceil(Number(course.price) * ((targetPercent - currentPaidPercent) / 100));
       itemTitle = course.title;
     } else if (rid) {
       const { data: request } = await supabase
@@ -156,8 +169,32 @@ serve(async (req) => {
       if (!request) return json({ error: "Request not found" }, 404);
       const rp = request.final_price ?? request.estimated_price;
       if (rp == null) return json({ error: "Request price is invalid" }, 400);
-      actualAmount = rp;
+      actualAmount = Number(rp);
       itemTitle = request.title;
+    }
+
+    // Apply coupon server-side so the gateway charges the discounted amount
+    let couponId: string | null = null;
+    let discountAmount = 0;
+    if (coupon) {
+      const { data: couponResult } = await supabase.rpc("validate_coupon", {
+        p_code: coupon,
+        p_user_id: uid,
+        p_course_id: cid,
+        p_order_amount: actualAmount,
+      });
+      const cr = couponResult as Record<string, unknown> | null;
+      if (cr?.valid) {
+        couponId = String(cr.coupon_id);
+        discountAmount = Number(cr.discount_amount || 0);
+        actualAmount = Math.max(0, actualAmount - discountAmount);
+      } else {
+        return json({ error: "Invalid coupon", details: String(cr?.error_ar || cr?.error || "") }, 400);
+      }
+    }
+
+    if (!(actualAmount > 0)) {
+      return json({ error: "Invalid payment amount" }, 400);
     }
 
     // Generate unique orderId & signature
@@ -182,7 +219,18 @@ serve(async (req) => {
         payment_method: "online",
         status: "pending",
         transaction_id: orderId,
-        notes: `AlinmaPay - ${itemTitle}`,
+        notes: [
+          `AlinmaPay - ${itemTitle}`,
+          coupon ? `Coupon: ${coupon} (-${discountAmount} SAR)` : null,
+          cid ? `Installment: ${targetPercent}% (paid before: ${currentPaidPercent}%)` : null,
+        ].filter(Boolean).join(" | "),
+        installment_plan: cid
+          ? {
+            installment_percent: targetPercent,
+            new_paid_percentage: targetPercent,
+            is_continuation: currentPaidPercent > 0,
+          }
+          : null,
       })
       .select()
       .single();
@@ -190,6 +238,20 @@ serve(async (req) => {
     if (payErr || !payment) {
       console.error("Payment record error:", payErr);
       return json({ error: "Failed to create payment record" }, 500);
+    }
+
+    // Reserve coupon usage for this payment
+    if (couponId) {
+      const { data: used } = await supabase.rpc("use_coupon", {
+        p_coupon_id: couponId,
+        p_user_id: uid,
+        p_payment_id: payment.id,
+        p_discount_amount: discountAmount,
+      });
+      if (used === false) {
+        await supabase.from("payments").update({ status: "failed", notes: "Coupon no longer valid" }).eq("id", payment.id);
+        return json({ error: "Coupon no longer valid" }, 400);
+      }
     }
 
     // Build EXACT Postman payload
