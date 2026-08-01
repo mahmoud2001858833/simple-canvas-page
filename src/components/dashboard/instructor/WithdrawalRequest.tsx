@@ -255,6 +255,62 @@ export const WithdrawalRequest = () => {
         </Dialog>
       </div>
 
+      {/* How to withdraw guide */}
+      <Card className="border-primary/20 bg-primary/5">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <HelpCircle className="w-4 h-4 text-primary" />
+            {language === 'ar' ? 'كيف أسحب أرباحي؟ (خطوة بخطوة)' : 'How to withdraw your earnings (step by step)'}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <ol className="space-y-3">
+            {(language === 'ar'
+              ? [
+                  'تأكد من وجود رصيد متاح: يتكوّن الرصيد من أرباح الدورات المُباعة بعد خصم عمولة المنصة.',
+                  'اضغط على زر «طلب سحب جديد» في أعلى الصفحة.',
+                  'أدخل المبلغ المطلوب (لا يمكن أن يتجاوز الرصيد المتاح).',
+                  'أدخل بيانات الحساب البنكي: اسم البنك، رقم الآيبان (يبدأ بـ SA)، واسم صاحب الحساب مطابقاً لهويتك.',
+                  'أرسل الطلب — ستظهر حالته «قيد المراجعة» في جدول الطلبات بالأسفل.',
+                  'بعد موافقة الإدارة تتحول الحالة إلى «تمت الموافقة»، ثم «تم التحويل» عند إيداع المبلغ في حسابك.',
+                ]
+              : [
+                  'Make sure you have an available balance: earnings from sold courses after the platform commission.',
+                  'Click the “New Withdrawal” button at the top of this page.',
+                  'Enter the amount you want (it cannot exceed your available balance).',
+                  'Enter your bank details: bank name, IBAN (starts with SA) and account holder name matching your ID.',
+                  'Submit — the request appears below with the status “Under Review”.',
+                  'Once admin approves it becomes “Approved”, then “Paid” when the transfer is completed.',
+                ]
+            ).map((step, i) => (
+              <li key={i} className="flex gap-3 text-sm">
+                <span className="w-6 h-6 flex-shrink-0 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold">
+                  {i + 1}
+                </span>
+                <span className="text-muted-foreground leading-relaxed">{step}</span>
+              </li>
+            ))}
+          </ol>
+          <div className="text-xs text-muted-foreground border-t pt-3 space-y-1">
+            <p>
+              {language === 'ar'
+                ? '• مدة المعالجة عادة من 3 إلى 7 أيام عمل بعد الموافقة.'
+                : '• Processing usually takes 3–7 business days after approval.'}
+            </p>
+            <p>
+              {language === 'ar'
+                ? '• الطلبات قيد المراجعة تُخصم مؤقتاً من الرصيد المتاح حتى يتم البت فيها.'
+                : '• Pending requests are temporarily held from your available balance.'}
+            </p>
+            <p>
+              {language === 'ar'
+                ? '• في حال رفض الطلب سيظهر سبب الرفض، ويمكنك تقديم طلب جديد بعد التصحيح.'
+                : '• If rejected, the reason is shown and you can submit a corrected request.'}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
