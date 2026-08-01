@@ -536,8 +536,61 @@ const Checkout = () => {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
+                  {/* Monthly installment plan switcher */}
+                  {canUseMonthly && (
+                    <div className="mb-6 space-y-3">
+                      {!isMonthlyActive && (
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant={planMode === 'chapters' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => { setPlanMode('chapters'); if (appliedCoupon) removeCoupon(); }}
+                          >
+                            {isRTL ? 'دفع حسب المحتوى' : 'Pay by content'}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={planMode === 'monthly' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => { setPlanMode('monthly'); if (appliedCoupon) removeCoupon(); }}
+                          >
+                            {isRTL ? `تقسيط على ${totalMonths} أشهر` : `${totalMonths}-month plan`}
+                          </Button>
+                        </div>
+                      )}
+
+                      {isMonthly && (
+                        <div className="p-4 rounded-lg border-2 border-primary bg-primary/5">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="font-semibold">
+                              {isRTL
+                                ? `الدفعة الشهرية ${nextMonthNumber} من ${totalMonths}`
+                                : `Monthly payment ${nextMonthNumber} of ${totalMonths}`}
+                            </span>
+                            <span className="text-lg font-bold text-primary">
+                              {monthlyAmount.toLocaleString()} {isRTL ? 'ر.س' : 'SAR'}
+                            </span>
+                          </div>
+                          <Progress value={(monthsPaid / totalMonths) * 100} className="h-2 mb-2" />
+                          <p className="text-xs text-muted-foreground">
+                            {isRTL
+                              ? `يفتح كامل محتوى الدورة لمدة شهر واحد. عند انتهاء الشهر يتوقف الوصول حتى دفع الشهر التالي، وبعد دفع ${totalMonths} أشهر يصبح الوصول دائماً.`
+                              : `Unlocks the full course for one month. Access pauses at month end until the next payment; after ${totalMonths} months access becomes permanent.`}
+                          </p>
+                          {(monthlyPlan as any)?.current_period_end && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {isRTL ? 'انتهى/ينتهي الوصول الحالي في: ' : 'Current access ends: '}
+                              {new Date((monthlyPlan as any).current_period_end).toLocaleDateString(isRTL ? 'ar-SA' : 'en-US')}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Current progress bar for existing enrollment */}
-                  {isExistingEnrollment && (
+                  {!isMonthly && isExistingEnrollment && (
                     <div className="mb-6 p-4 rounded-lg bg-muted/50 border">
                       <div className="flex justify-between text-sm mb-2">
                         <span className="text-muted-foreground">{isRTL ? 'المدفوع' : 'Paid'}</span>
@@ -553,6 +606,7 @@ const Checkout = () => {
                     </div>
                   )}
 
+                  {!isMonthly && (
                   <RadioGroup
                     value={String(selectedInstallment)}
                     onValueChange={(v) => {
@@ -602,6 +656,7 @@ const Checkout = () => {
                       );
                     })}
                   </RadioGroup>
+                  )}
                 </CardContent>
               </Card>
             )}
