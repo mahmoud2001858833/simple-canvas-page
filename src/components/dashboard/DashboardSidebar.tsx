@@ -149,6 +149,27 @@ export const DashboardSidebar = ({ activeTab, onTabChange, isOpen, onToggle, use
   const tabs = getTabs();
   const language = dir === 'rtl' ? 'ar' : 'en';
 
+  const groupDefs = getGroups(userRole);
+  const overviewTab = tabs.find((t) => t.id === 'overview');
+  const visibleGroups = groupDefs
+    .map((g) => ({ ...g, tabs: g.items.map((id) => tabs.find((t) => t.id === id)).filter(Boolean) as any[] }))
+    .filter((g) => g.tabs.length > 0);
+  const groupedIds = new Set(visibleGroups.flatMap((g) => g.tabs.map((t: any) => t.id)));
+  const ungroupedTabs = tabs.filter((t) => t.id !== 'overview' && !groupedIds.has(t.id));
+
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const active = visibleGroups.find((g) => g.tabs.some((t: any) => t.id === activeTab));
+    if (active) {
+      setOpenGroups((prev) => (prev[active.id] ? prev : { ...prev, [active.id]: true }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  const toggleGroup = (id: string) =>
+    setOpenGroups((prev) => ({ ...prev, [id]: !prev[id] }));
+
   const handleLogout = async () => {
     await signOut();
     toast.success(language === 'ar' ? 'تم تسجيل الخروج بنجاح' : 'Logged out successfully');
@@ -165,6 +186,43 @@ export const DashboardSidebar = ({ activeTab, onTabChange, isOpen, onToggle, use
       onToggle();
     }
   };
+
+  const renderTab = (tab: any) => (
+    <div key={tab.id} className="flex items-center gap-1">
+      <button
+        onClick={() => handleTabClick(tab)}
+        data-onboarding={tab.onboardingId || undefined}
+        className={cn(
+          'flex-1 min-w-0 flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 relative group',
+          tab.isAction
+            ? 'text-sky/90 hover:bg-sky/10 border border-sky/20 hover:border-sky/40'
+            : activeTab === tab.id
+              ? 'bg-gradient-to-r from-primary/90 to-primary/70 text-white shadow-lg shadow-primary/20'
+              : 'text-white/70 hover:bg-white/8 hover:text-white'
+        )}
+      >
+        <tab.icon
+          className={cn(
+            'w-5 h-5 flex-shrink-0 transition-transform duration-200',
+            activeTab !== tab.id && !tab.isAction && 'group-hover:scale-110'
+          )}
+        />
+        {isOpen && <span className="text-sm font-medium truncate">{tab.label[language]}</span>}
+        {tab.showBadge && unreadMessages > 0 && (
+          <Badge
+            className={cn(
+              'h-5 min-w-5 px-1 flex items-center justify-center text-xs bg-accent text-accent-foreground',
+              isOpen ? 'ms-auto' : 'absolute -top-1 -end-1'
+            )}
+          >
+            {unreadMessages}
+          </Badge>
+        )}
+      </button>
+      {isOpen && ITEM_HELP[tab.id] && <HelpBubble text={ITEM_HELP[tab.id][language]} />}
+    </div>
+  );
+
 
   return (
     <>
