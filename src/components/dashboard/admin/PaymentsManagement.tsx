@@ -448,6 +448,49 @@ export const PaymentsManagement = () => {
                   onChange={(e) => setNewPayment({ ...newPayment, user_email: e.target.value })} placeholder="user@example.com" />
               </div>
               <div className="space-y-2">
+                <Label>{language === 'ar' ? 'الدورة' : 'Course'}</Label>
+                <Select
+                  value={newPayment.course_id}
+                  onValueChange={(v) => {
+                    const c = coursesList?.find((x: any) => x.id === v);
+                    setNewPayment({
+                      ...newPayment,
+                      course_id: v,
+                      amount: newPayment.amount || String(c?.price ?? ''),
+                    });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={language === 'ar' ? 'اختر الدورة' : 'Select course'} />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-64">
+                    {coursesList?.map((c: any) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {language === 'ar' ? c.title_ar || c.title : c.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {selectedManualCourse && (
+                <div className="rounded-lg border p-3 text-sm space-y-1 bg-muted/40">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">{language === 'ar' ? 'المعلم' : 'Instructor'}</span>
+                    <span className="font-medium">{selectedManualCourse.instructor_name || '-'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">{language === 'ar' ? 'نسبة المعلم' : 'Instructor share'}</span>
+                    <span className="font-medium">{selectedManualCourse.instructor_commission ?? 70}%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">{language === 'ar' ? 'نصيب المعلم من هذه الدفعة' : 'Instructor earning'}</span>
+                    <span className="font-medium">
+                      {Math.round(((parseFloat(newPayment.amount) || 0) * (selectedManualCourse.instructor_commission ?? 70)) / 100).toLocaleString()} {language === 'ar' ? 'ر.س' : 'SAR'}
+                    </span>
+                  </div>
+                </div>
+              )}
+              <div className="space-y-2">
                 <Label>{language === 'ar' ? 'المبلغ (ر.س)' : 'Amount (SAR)'}</Label>
                 <Input type="number" value={newPayment.amount}
                   onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })} />
@@ -457,9 +500,14 @@ export const PaymentsManagement = () => {
                 <Textarea value={newPayment.notes}
                   onChange={(e) => setNewPayment({ ...newPayment, notes: e.target.value })} />
               </div>
+              <p className="text-xs text-muted-foreground">
+                {language === 'ar'
+                  ? 'ستُسجَّل الدفعة في السجل المالي مع وسم "يدوي"، ويتم تفعيل تسجيل الطالب واحتساب أرباح المعلم تلقائياً.'
+                  : 'The payment is recorded in the financial ledger flagged as Manual, enrolls the student and books instructor earnings.'}
+              </p>
               <Button className="btn-gold w-full"
                 onClick={() => addManualPaymentMutation.mutate(newPayment)}
-                disabled={!newPayment.user_email || !newPayment.amount}>
+                disabled={!newPayment.user_email || !newPayment.amount || !newPayment.course_id || addManualPaymentMutation.isPending}>
                 {language === 'ar' ? 'إضافة' : 'Add'}
               </Button>
             </div>
