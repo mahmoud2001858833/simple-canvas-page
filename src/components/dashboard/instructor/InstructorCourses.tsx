@@ -388,7 +388,12 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
       study_year: (course as any).study_year || '',
       subject_name: (course as any).subject_name || '',
       subject_code: (course as any).subject_code || '',
+      learning_outcomes: (course as any).learning_outcomes || '',
+      learning_outcomes_ar: (course as any).learning_outcomes_ar || '',
+      price_includes_tax: (course as any).price_includes_tax ?? false,
+      expected_students: (course as any).expected_students || 0,
     });
+
     
     // Resolve university and college from major_id
     if ((course as any).major_id) {
