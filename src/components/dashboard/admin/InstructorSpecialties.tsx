@@ -9,14 +9,35 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Search, Edit2, BookOpen, Users, DollarSign, GraduationCap } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Search, Edit2, BookOpen, Users, DollarSign, GraduationCap, Eye, User, Briefcase, Phone, Mail, Calendar, Globe, FlaskConical } from 'lucide-react';
 import { toast } from 'sonner';
+
+const InfoRow = ({ label, value }: { label: string; value?: any }) => (
+  <div className="flex items-start justify-between gap-4 py-2 border-b border-border/50 last:border-0">
+    <span className="text-xs text-muted-foreground shrink-0">{label}</span>
+    <span className="text-sm font-medium text-end break-words">
+      {value === true ? '✓' : value === false ? '✕' : value !== null && value !== undefined && value !== '' ? String(value) : '—'}
+    </span>
+  </div>
+);
+
+const Section = ({ title, icon: Icon, children }: { title: string; icon: any; children: React.ReactNode }) => (
+  <div className="rounded-xl border border-border p-4 space-y-1">
+    <div className="flex items-center gap-2 mb-2">
+      <Icon className="w-4 h-4 text-primary" />
+      <h4 className="text-sm font-semibold">{title}</h4>
+    </div>
+    {children}
+  </div>
+);
 
 export const InstructorSpecialties = () => {
   const { dir } = useLanguage();
   const language = dir === 'rtl' ? 'ar' : 'en';
   const [search, setSearch] = useState('');
   const [editingInstructor, setEditingInstructor] = useState<any>(null);
+  const [viewingInstructor, setViewingInstructor] = useState<any>(null);
   const [newSpecialty, setNewSpecialty] = useState('');
 
   // Fetch instructors with role = instructor
@@ -42,7 +63,7 @@ export const InstructorSpecialties = () => {
       const [profilesRes, coursesRes, enrollmentsRes, earningsRes] = await Promise.all([
         supabase
           .from('profiles')
-          .select('id, full_name, full_name_ar, email, specialty')
+          .select('*')
           .in('id', instructorIds),
         supabase
           .from('courses')
@@ -174,6 +195,9 @@ export const InstructorSpecialties = () => {
               <TableRow>
                 <TableHead>{language === 'ar' ? 'المعلم' : 'Instructor'}</TableHead>
                 <TableHead>{language === 'ar' ? 'التخصص' : 'Specialty'}</TableHead>
+                <TableHead className="hidden lg:table-cell">{language === 'ar' ? 'الدرجة العلمية' : 'Degree'}</TableHead>
+                <TableHead className="hidden lg:table-cell">{language === 'ar' ? 'الخبرة' : 'Experience'}</TableHead>
+                <TableHead className="hidden md:table-cell">{language === 'ar' ? 'الجوال' : 'Phone'}</TableHead>
                 <TableHead>{language === 'ar' ? 'الدورات' : 'Courses'}</TableHead>
                 <TableHead>{language === 'ar' ? 'الطلاب' : 'Students'}</TableHead>
                 <TableHead>{language === 'ar' ? 'الأرباح' : 'Earnings'}</TableHead>
@@ -182,9 +206,9 @@ export const InstructorSpecialties = () => {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">{language === 'ar' ? 'جاري التحميل...' : 'Loading...'}</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">{language === 'ar' ? 'جاري التحميل...' : 'Loading...'}</TableCell></TableRow>
               ) : !filtered?.length ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">{language === 'ar' ? 'لا توجد نتائج' : 'No results'}</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">{language === 'ar' ? 'لا توجد نتائج' : 'No results'}</TableCell></TableRow>
               ) : filtered.map(instructor => (
                 <TableRow key={instructor.id}>
                   <TableCell>
@@ -200,6 +224,9 @@ export const InstructorSpecialties = () => {
                       <span className="text-xs text-muted-foreground">{language === 'ar' ? 'غير محدد' : 'Not set'}</span>
                     )}
                   </TableCell>
+                  <TableCell className="hidden lg:table-cell text-sm">{instructor.academic_degree || '—'}</TableCell>
+                  <TableCell className="hidden lg:table-cell text-sm">{instructor.teaching_experience_years || '—'}</TableCell>
+                  <TableCell className="hidden md:table-cell text-sm" dir="ltr">{instructor.phone || '—'}</TableCell>
                   <TableCell>
                     <span className="font-medium">{instructor.courseCount}</span>
                   </TableCell>
@@ -210,23 +237,100 @@ export const InstructorSpecialties = () => {
                     <span className="font-medium">{instructor.totalEarnings.toFixed(0)} {language === 'ar' ? 'ر.س' : 'SAR'}</span>
                   </TableCell>
                   <TableCell>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        setEditingInstructor(instructor);
-                        setNewSpecialty(instructor.specialty || '');
-                      }}
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button size="sm" variant="ghost" onClick={() => setViewingInstructor(instructor)}>
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setEditingInstructor(instructor);
+                          setNewSpecialty(instructor.specialty || '');
+                        }}
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </TableCell>
+
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </CardContent>
       </Card>
+
+      {/* Full details dialog */}
+      <Dialog open={!!viewingInstructor} onOpenChange={() => setViewingInstructor(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ar' ? 'ملف المعلم الكامل' : 'Full Instructor Profile'}
+            </DialogTitle>
+          </DialogHeader>
+          {viewingInstructor && (
+            <ScrollArea className="max-h-[70vh] pe-3">
+              <div className="grid md:grid-cols-2 gap-4">
+                <Section title={language === 'ar' ? 'البيانات الشخصية' : 'Personal Info'} icon={User}>
+                  <InfoRow label={language === 'ar' ? 'الاسم' : 'Name'} value={viewingInstructor.full_name} />
+                  <InfoRow label={language === 'ar' ? 'الاسم بالعربية' : 'Arabic Name'} value={viewingInstructor.full_name_ar} />
+                  <InfoRow label={language === 'ar' ? 'البريد' : 'Email'} value={viewingInstructor.email} />
+                  <InfoRow label={language === 'ar' ? 'الجوال' : 'Phone'} value={viewingInstructor.phone} />
+                  <InfoRow label={language === 'ar' ? 'الجنس' : 'Gender'} value={viewingInstructor.gender} />
+                  <InfoRow label={language === 'ar' ? 'تاريخ الميلاد' : 'Date of Birth'} value={viewingInstructor.date_of_birth} />
+                </Section>
+
+                <Section title={language === 'ar' ? 'الإقامة والجنسية' : 'Residence & Nationality'} icon={Globe}>
+                  <InfoRow label={language === 'ar' ? 'بلد الإقامة' : 'Country of Residence'} value={viewingInstructor.residence_country} />
+                  <InfoRow label={language === 'ar' ? 'الجنسية' : 'Nationality'} value={viewingInstructor.nationality} />
+                  <InfoRow label={language === 'ar' ? 'لغة الواجهة' : 'Preferred Language'} value={viewingInstructor.preferred_language} />
+                  <InfoRow label={language === 'ar' ? 'كيف عرف عن المنصة' : 'Referral Source'} value={viewingInstructor.referral_source} />
+                </Section>
+
+                <Section title={language === 'ar' ? 'البيانات الأكاديمية' : 'Academic Info'} icon={GraduationCap}>
+                  <InfoRow label={language === 'ar' ? 'التخصص' : 'Specialty'} value={viewingInstructor.specialty} />
+                  <InfoRow label={language === 'ar' ? 'الدرجة العلمية' : 'Academic Degree'} value={viewingInstructor.academic_degree} />
+                  <InfoRow label={language === 'ar' ? 'السنة الأكاديمية' : 'Academic Year'} value={viewingInstructor.academic_year} />
+                  <InfoRow label={language === 'ar' ? 'الحالة التعليمية' : 'Education Status'} value={viewingInstructor.education_status} />
+                  <InfoRow label={language === 'ar' ? 'سنة التدريس' : 'Teaching Year'} value={viewingInstructor.teaching_year} />
+                </Section>
+
+                <Section title={language === 'ar' ? 'الخبرة المهنية' : 'Professional Experience'} icon={Briefcase}>
+                  <InfoRow label={language === 'ar' ? 'سنوات الخبرة' : 'Years of Experience'} value={viewingInstructor.teaching_experience_years} />
+                  <InfoRow label={language === 'ar' ? 'تفاصيل الخبرة' : 'Experience Details'} value={viewingInstructor.teaching_experience_details} />
+                  <InfoRow label={language === 'ar' ? 'الجاهزية للبدء' : 'Availability to Start'} value={viewingInstructor.availability_to_start} />
+                  <InfoRow label={language === 'ar' ? 'عدد الطلاب المتوقع' : 'Expected Students'} value={viewingInstructor.expected_students_count} />
+                </Section>
+
+                <Section title={language === 'ar' ? 'الخدمات البحثية' : 'Research Services'} icon={FlaskConical}>
+                  <InfoRow label={language === 'ar' ? 'يقدم خدمات بحثية' : 'Offers Research Services'} value={viewingInstructor.offers_research_services} />
+                  <InfoRow label={language === 'ar' ? 'المشاركة في الأبحاث' : 'Research Participation'} value={viewingInstructor.research_participation} />
+                  <InfoRow label={language === 'ar' ? 'وافق على السياسات' : 'Accepted Policies'} value={viewingInstructor.has_accepted_policies} />
+                </Section>
+
+                <Section title={language === 'ar' ? 'الإنتاجية' : 'Productivity'} icon={BookOpen}>
+                  <InfoRow label={language === 'ar' ? 'عدد الدورات' : 'Courses'} value={viewingInstructor.courseCount} />
+                  <InfoRow label={language === 'ar' ? 'عدد الطلاب' : 'Students'} value={viewingInstructor.studentCount} />
+                  <InfoRow
+                    label={language === 'ar' ? 'إجمالي الأرباح' : 'Total Earnings'}
+                    value={`${viewingInstructor.totalEarnings.toFixed(0)} ${language === 'ar' ? 'ر.س' : 'SAR'}`}
+                  />
+                  <InfoRow
+                    label={language === 'ar' ? 'تاريخ التسجيل' : 'Registered At'}
+                    value={viewingInstructor.created_at ? new Date(viewingInstructor.created_at).toLocaleDateString(language === 'ar' ? 'ar' : 'en') : '—'}
+                  />
+                </Section>
+              </div>
+            </ScrollArea>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setViewingInstructor(null)}>
+              {language === 'ar' ? 'إغلاق' : 'Close'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Dialog */}
       <Dialog open={!!editingInstructor} onOpenChange={() => setEditingInstructor(null)}>
