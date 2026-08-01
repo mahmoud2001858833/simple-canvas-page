@@ -270,42 +270,20 @@ export const PaymentsManagement = () => {
 
   const refundMutation = useMutation({
     mutationFn: async (paymentId: string) => {
-      const payment = payments?.find((p: any) => p.id === paymentId);
-      if (!payment) throw new Error('Payment not found');
-
-      // Update payment status to refunded
+      // The database trigger reverses instructor earnings, enrollment access,
+      // coupon usage and referral commission, and notifies both parties.
       const { error } = await supabase
         .from('payments')
         .update({ status: 'refunded' })
         .eq('id', paymentId);
       if (error) throw error;
-
-      // Remove enrollment if exists
-      if (payment.course_id && payment.user_id) {
-        await supabase
-          .from('enrollments')
-          .delete()
-          .eq('user_id', payment.user_id)
-          .eq('course_id', payment.course_id);
-      }
-
-      // Notify student
-      if (payment.user_id) {
-        await supabase.from('notifications').insert({
-          user_id: payment.user_id,
-          title: 'Payment Refunded',
-          title_ar: 'تم استرداد المبلغ',
-          message: `Your payment of ${Number(payment.amount).toLocaleString()} SAR has been refunded.`,
-          message_ar: `تم استرداد مبلغ ${Number(payment.amount).toLocaleString()} ر.س.`,
-          type: 'info',
-        });
-      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-payments'] });
-      toast.success(language === 'ar' ? 'تم الاسترداد بنجاح' : 'Refund processed');
+      toast.success(language === 'ar' ? 'تم الاسترداد وعكس الأرباح والوصول' : 'Refund processed and earnings reversed');
       setRefundPaymentId(null);
     },
+    onError: (e: any) => toast.error(e.message),
   });
 
   const addManualPaymentMutation = useMutation({
