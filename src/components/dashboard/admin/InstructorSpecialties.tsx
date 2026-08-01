@@ -42,7 +42,7 @@ export const InstructorSpecialties = () => {
       const [profilesRes, coursesRes, enrollmentsRes, earningsRes] = await Promise.all([
         supabase
           .from('profiles')
-          .select('id, full_name, full_name_ar, email, specialty')
+          .select('*')
           .in('id', instructorIds),
         supabase
           .from('courses')
