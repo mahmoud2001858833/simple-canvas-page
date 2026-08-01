@@ -48,7 +48,7 @@ export const InstructorEarnings = ({ limit }: InstructorEarningsProps) => {
   const language = dir === 'rtl' ? 'ar' : 'en';
   
   const [earnings, setEarnings] = useState<Earning[]>([]);
-  const [summary, setSummary] = useState<EarningsSummary>({ total: 0, pending: 0, paid: 0, thisMonth: 0 });
+  const [summary, setSummary] = useState<EarningsSummary>({ total: 0, pending: 0, paid: 0, thisMonth: 0, refunded: 0 });
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
   const [loading, setLoading] = useState(true);
 
