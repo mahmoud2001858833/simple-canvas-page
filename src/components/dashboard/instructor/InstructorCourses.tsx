@@ -79,6 +79,10 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
     study_year: '',
     subject_name: '',
     subject_code: '',
+    learning_outcomes: '',
+    learning_outcomes_ar: '',
+    price_includes_tax: false,
+    expected_students: 0,
   });
   const [selectedUniversityId, setSelectedUniversityId] = useState<string>('');
   const [selectedCollegeId, setSelectedCollegeId] = useState<string>('');
@@ -270,6 +274,10 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
             study_year: formData.study_year || null,
             subject_name: formData.subject_name || null,
             subject_code: formData.subject_code || null,
+            learning_outcomes: formData.learning_outcomes || null,
+            learning_outcomes_ar: formData.learning_outcomes_ar || null,
+            price_includes_tax: formData.price_includes_tax,
+            expected_students: formData.expected_students || null,
           } as any)
           .eq('id', editingCourse.id);
 
@@ -302,6 +310,10 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
             study_year: formData.study_year || null,
             subject_name: formData.subject_name || null,
             subject_code: formData.subject_code || null,
+            learning_outcomes: formData.learning_outcomes || null,
+            learning_outcomes_ar: formData.learning_outcomes_ar || null,
+            price_includes_tax: formData.price_includes_tax,
+            expected_students: formData.expected_students || null,
             slug: slug,
           } as any)
           .select()
@@ -350,6 +362,10 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
       study_year: '',
       subject_name: '',
       subject_code: '',
+      learning_outcomes: '',
+      learning_outcomes_ar: '',
+      price_includes_tax: false,
+      expected_students: 0,
     });
     setSelectedUniversityId('');
     setSelectedCollegeId('');
@@ -372,7 +388,12 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
       study_year: (course as any).study_year || '',
       subject_name: (course as any).subject_name || '',
       subject_code: (course as any).subject_code || '',
+      learning_outcomes: (course as any).learning_outcomes || '',
+      learning_outcomes_ar: (course as any).learning_outcomes_ar || '',
+      price_includes_tax: (course as any).price_includes_tax ?? false,
+      expected_students: (course as any).expected_students || 0,
     });
+
     
     // Resolve university and college from major_id
     if ((course as any).major_id) {
@@ -602,6 +623,89 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
                     />
                   </div>
                 </div>
+
+                {/* Pricing details */}
+                <div className="rounded-xl border border-border p-4 space-y-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <Label>{language === 'ar' ? 'السعر شامل ضريبة القيمة المضافة (15%)' : 'Price includes VAT (15%)'}</Label>
+                      <p className="text-xs text-muted-foreground">
+                        {language === 'ar'
+                          ? 'فعّل الخيار إذا كان السعر المدخل شاملاً للضريبة.'
+                          : 'Enable if the entered price already includes VAT.'}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={formData.price_includes_tax}
+                      onCheckedChange={(v) => setFormData({ ...formData, price_includes_tax: v })}
+                    />
+                  </div>
+
+                  <div>
+                    <Label>{language === 'ar' ? 'عدد الطلاب المتوقع' : 'Expected students'}</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={formData.expected_students}
+                      onChange={(e) => setFormData({ ...formData, expected_students: Number(e.target.value) })}
+                    />
+                  </div>
+
+                  {/* Earnings calculator */}
+                  {(() => {
+                    const gross = Number(formData.price) || 0;
+                    const net = formData.price_includes_tax ? gross / 1.15 : gross;
+                    const vat = formData.price_includes_tax ? gross - net : gross * 0.15;
+                    const commissionRate = 0.7;
+                    const perStudent = net * commissionRate;
+                    const total = perStudent * (Number(formData.expected_students) || 0);
+                    const fmt = (n: number) => `${n.toFixed(2)} ${language === 'ar' ? 'ر.س' : 'SAR'}`;
+                    return (
+                      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+                        <div className="rounded-lg bg-muted/50 p-3">
+                          <div className="text-muted-foreground text-xs mb-1">{language === 'ar' ? 'السعر قبل الضريبة' : 'Price before VAT'}</div>
+                          <div className="font-semibold">{fmt(net)}</div>
+                        </div>
+                        <div className="rounded-lg bg-muted/50 p-3">
+                          <div className="text-muted-foreground text-xs mb-1">{language === 'ar' ? 'ضريبة القيمة المضافة' : 'VAT'}</div>
+                          <div className="font-semibold">{fmt(vat)}</div>
+                        </div>
+                        <div className="rounded-lg bg-muted/50 p-3">
+                          <div className="text-muted-foreground text-xs mb-1">{language === 'ar' ? 'أرباحك لكل طالب (70%)' : 'Your earnings per student (70%)'}</div>
+                          <div className="font-semibold text-secondary">{fmt(perStudent)}</div>
+                        </div>
+                        <div className="rounded-lg bg-muted/50 p-3">
+                          <div className="text-muted-foreground text-xs mb-1">{language === 'ar' ? 'الأرباح المتوقعة' : 'Expected earnings'}</div>
+                          <div className="font-semibold text-secondary">{fmt(total)}</div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Learning outcomes */}
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div>
+                    <Label>{language === 'ar' ? 'مخرجات التعلم (عربي)' : 'Learning outcomes (Arabic)'}</Label>
+                    <Textarea
+                      rows={4}
+                      value={formData.learning_outcomes_ar}
+                      onChange={(e) => setFormData({ ...formData, learning_outcomes_ar: e.target.value })}
+                      placeholder={language === 'ar' ? 'اكتب كل مخرج في سطر منفصل' : 'One outcome per line'}
+                    />
+                  </div>
+                  <div>
+                    <Label>{language === 'ar' ? 'مخرجات التعلم (إنجليزي)' : 'Learning outcomes (English)'}</Label>
+                    <Textarea
+                      rows={4}
+                      value={formData.learning_outcomes}
+                      onChange={(e) => setFormData({ ...formData, learning_outcomes: e.target.value })}
+                      placeholder={language === 'ar' ? 'كل مخرج في سطر منفصل' : 'One outcome per line'}
+                    />
+                  </div>
+                </div>
+
+
                 
                 {/* University, College, Major, Study Year */}
                 <div className="grid md:grid-cols-2 gap-4">

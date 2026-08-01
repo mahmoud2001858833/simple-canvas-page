@@ -727,15 +727,19 @@ export type Database = {
           description_ar: string | null
           duration_hours: number | null
           enabled_payment_methods: string[]
+          expected_students: number | null
           id: string
           instructor_commission: number | null
           instructor_id: string | null
           is_active: boolean | null
           is_approved: boolean | null
           is_featured: boolean | null
+          learning_outcomes: string[]
+          learning_outcomes_ar: string[]
           major_id: string | null
           original_price: number | null
           price: number | null
+          price_includes_tax: boolean
           rejection_reason: string | null
           slug: string | null
           study_year: string | null
@@ -755,15 +759,19 @@ export type Database = {
           description_ar?: string | null
           duration_hours?: number | null
           enabled_payment_methods?: string[]
+          expected_students?: number | null
           id?: string
           instructor_commission?: number | null
           instructor_id?: string | null
           is_active?: boolean | null
           is_approved?: boolean | null
           is_featured?: boolean | null
+          learning_outcomes?: string[]
+          learning_outcomes_ar?: string[]
           major_id?: string | null
           original_price?: number | null
           price?: number | null
+          price_includes_tax?: boolean
           rejection_reason?: string | null
           slug?: string | null
           study_year?: string | null
@@ -783,15 +791,19 @@ export type Database = {
           description_ar?: string | null
           duration_hours?: number | null
           enabled_payment_methods?: string[]
+          expected_students?: number | null
           id?: string
           instructor_commission?: number | null
           instructor_id?: string | null
           is_active?: boolean | null
           is_approved?: boolean | null
           is_featured?: boolean | null
+          learning_outcomes?: string[]
+          learning_outcomes_ar?: string[]
           major_id?: string | null
           original_price?: number | null
           price?: number | null
+          price_includes_tax?: boolean
           rejection_reason?: string | null
           slug?: string | null
           study_year?: string | null
@@ -1518,22 +1530,33 @@ export type Database = {
           academic_degree: string | null
           academic_year: string | null
           allow_multiple_devices: boolean | null
+          availability_to_start: string | null
           avatar_url: string | null
           banned_at: string | null
           banned_reason: string | null
           created_at: string | null
+          date_of_birth: string | null
+          education_status: string | null
           email: string | null
+          expected_students_count: number | null
           full_name: string | null
           full_name_ar: string | null
+          gender: string | null
           has_accepted_policies: boolean | null
           id: string
           is_banned: boolean | null
           major_id: string | null
+          nationality: string | null
+          offers_research_services: boolean | null
           phone: string | null
           preferred_language: string | null
+          referral_source: string | null
           research_participation: boolean | null
+          residence_country: string | null
           specialty: string | null
           study_year: string | null
+          teaching_experience_details: string | null
+          teaching_experience_years: string | null
           teaching_year: string | null
           university_id: string | null
           updated_at: string | null
@@ -1542,22 +1565,33 @@ export type Database = {
           academic_degree?: string | null
           academic_year?: string | null
           allow_multiple_devices?: boolean | null
+          availability_to_start?: string | null
           avatar_url?: string | null
           banned_at?: string | null
           banned_reason?: string | null
           created_at?: string | null
+          date_of_birth?: string | null
+          education_status?: string | null
           email?: string | null
+          expected_students_count?: number | null
           full_name?: string | null
           full_name_ar?: string | null
+          gender?: string | null
           has_accepted_policies?: boolean | null
           id: string
           is_banned?: boolean | null
           major_id?: string | null
+          nationality?: string | null
+          offers_research_services?: boolean | null
           phone?: string | null
           preferred_language?: string | null
+          referral_source?: string | null
           research_participation?: boolean | null
+          residence_country?: string | null
           specialty?: string | null
           study_year?: string | null
+          teaching_experience_details?: string | null
+          teaching_experience_years?: string | null
           teaching_year?: string | null
           university_id?: string | null
           updated_at?: string | null
@@ -1566,22 +1600,33 @@ export type Database = {
           academic_degree?: string | null
           academic_year?: string | null
           allow_multiple_devices?: boolean | null
+          availability_to_start?: string | null
           avatar_url?: string | null
           banned_at?: string | null
           banned_reason?: string | null
           created_at?: string | null
+          date_of_birth?: string | null
+          education_status?: string | null
           email?: string | null
+          expected_students_count?: number | null
           full_name?: string | null
           full_name_ar?: string | null
+          gender?: string | null
           has_accepted_policies?: boolean | null
           id?: string
           is_banned?: boolean | null
           major_id?: string | null
+          nationality?: string | null
+          offers_research_services?: boolean | null
           phone?: string | null
           preferred_language?: string | null
+          referral_source?: string | null
           research_participation?: boolean | null
+          residence_country?: string | null
           specialty?: string | null
           study_year?: string | null
+          teaching_experience_details?: string | null
+          teaching_experience_years?: string | null
           teaching_year?: string | null
           university_id?: string | null
           updated_at?: string | null
