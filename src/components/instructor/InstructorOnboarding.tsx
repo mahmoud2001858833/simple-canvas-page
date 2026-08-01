@@ -142,9 +142,7 @@ export const InstructorOnboarding = ({ onComplete }: InstructorOnboardingProps) 
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
-            {step === 'profile' ? (
-          <InstructorProfileWizard onCompleted={() => setStep('policies')} />
-        ) : step === 'video' ? (
+            {step === 'video' ? (
               <>
                 <Play className="w-5 h-5 text-primary" />
                 {isRTL ? 'مرحباً بك كمعلم!' : 'Welcome, Instructor!'}
@@ -163,7 +161,10 @@ export const InstructorOnboarding = ({ onComplete }: InstructorOnboardingProps) 
           </DialogTitle>
         </DialogHeader>
 
-        {step === 'video' ? (
+        {step === 'profile' ? (
+          <InstructorProfileWizard onCompleted={() => setStep('policies')} />
+        ) : step === 'video' ? (
+
           <div className="space-y-4">
             <p className="text-muted-foreground">
               {isRTL 
