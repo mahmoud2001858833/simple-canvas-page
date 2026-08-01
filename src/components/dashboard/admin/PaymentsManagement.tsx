@@ -42,9 +42,38 @@ export const PaymentsManagement = () => {
   const [newPayment, setNewPayment] = useState({
     user_email: '',
     amount: '',
+    course_id: '',
     payment_method: 'manual' as const,
     notes: '',
   });
+
+  // Courses list for manual payment (course + instructor must be identified)
+  const { data: coursesList } = useQuery({
+    queryKey: ['admin-courses-for-manual-payment'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('courses')
+        .select('id, title, title_ar, price, instructor_id, instructor_commission')
+        .order('title', { ascending: true });
+      if (error) throw error;
+
+      const instructorIds = [...new Set((data || []).map((c: any) => c.instructor_id).filter(Boolean))];
+      let map: Record<string, string> = {};
+      if (instructorIds.length) {
+        const { data: profs } = await supabase
+          .from('profiles')
+          .select('id, full_name, email')
+          .in('id', instructorIds as string[]);
+        map = (profs || []).reduce((acc: Record<string, string>, p: any) => {
+          acc[p.id] = p.full_name || p.email || '';
+          return acc;
+        }, {});
+      }
+      return (data || []).map((c: any) => ({ ...c, instructor_name: map[c.instructor_id] || '' }));
+    },
+  });
+
+  const selectedManualCourse = coursesList?.find((c: any) => c.id === newPayment.course_id);
 
   const { data: payments, isLoading } = useQuery({
     queryKey: ['admin-payments', search, statusFilter, dateFrom, dateTo],
