@@ -6,6 +6,7 @@ import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { StatsGridSkeleton, UsersTableSkeleton, CoursesTableSkeleton, PaymentsTableSkeleton, ListSkeleton } from '@/components/ui/skeletons';
 
 // Lazy load all admin components for faster initial load
+const AdminHub = lazy(() => import('@/components/dashboard/admin/AdminHub').then(m => ({ default: m.AdminHub })));
 const AdminStats = lazy(() => import('@/components/dashboard/admin/AdminStats').then(m => ({ default: m.AdminStats })));
 const UsersManagement = lazy(() => import('@/components/dashboard/admin/UsersManagement').then(m => ({ default: m.UsersManagement })));
 const CoursesManagement = lazy(() => import('@/components/dashboard/admin/CoursesManagement').then(m => ({ default: m.CoursesManagement })));
@@ -67,7 +68,7 @@ const AdminDashboard = () => {
       case 'overview':
         return (
           <Suspense fallback={<LoadingFallback type="overview" />}>
-            <AdminStats />
+            <AdminHub onNavigate={(t) => setActiveTab(t as TabType)} />
           </Suspense>
         );
       case 'users':
