@@ -37,6 +37,7 @@ interface Course {
   rejection_reason: string | null;
   created_at: string;
   instructor_id: string | null;
+  instructor_commission?: number | null;
   instructor?: {
     full_name: string | null;
     email: string | null;
@@ -47,6 +48,8 @@ export const CourseApprovals = () => {
   const { language } = useLanguage();
   const queryClient = useQueryClient();
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
+  const [commissionRate, setCommissionRate] = useState('70');
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
