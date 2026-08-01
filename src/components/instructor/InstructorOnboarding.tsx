@@ -9,6 +9,7 @@ import { Play, FileText, CheckCircle, Loader2, SkipForward } from 'lucide-react'
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
+import { InstructorProfileWizard } from '@/components/instructor/InstructorProfileWizard';
 
 interface InstructorOnboardingProps {
   onComplete: () => void;
@@ -19,7 +20,7 @@ export const InstructorOnboarding = ({ onComplete }: InstructorOnboardingProps) 
   const { user, refreshProfile } = useAuth();
   const isRTL = language === 'ar';
   
-  const [step, setStep] = useState<'video' | 'policies'>('video');
+  const [step, setStep] = useState<'video' | 'profile' | 'policies'>('video');
   const [hasWatchedVideo, setHasWatchedVideo] = useState(false);
   const [hasAcceptedPolicies, setHasAcceptedPolicies] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -58,7 +59,7 @@ export const InstructorOnboarding = ({ onComplete }: InstructorOnboardingProps) 
   // Skip video step if no video is set
   useEffect(() => {
     if (!isLoading && !introVideoUrl) {
-      setStep('policies');
+      setStep('profile');
       setHasWatchedVideo(true);
     }
   }, [isLoading, introVideoUrl]);
@@ -69,7 +70,7 @@ export const InstructorOnboarding = ({ onComplete }: InstructorOnboardingProps) 
 
   const handleContinueToPolicy = () => {
     if (hasWatchedVideo) {
-      setStep('policies');
+      setStep('profile');
     }
   };
 
@@ -141,10 +142,17 @@ export const InstructorOnboarding = ({ onComplete }: InstructorOnboardingProps) 
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
-            {step === 'video' ? (
+            {step === 'profile' ? (
+          <InstructorProfileWizard onCompleted={() => setStep('policies')} />
+        ) : step === 'video' ? (
               <>
                 <Play className="w-5 h-5 text-primary" />
                 {isRTL ? 'مرحباً بك كمعلم!' : 'Welcome, Instructor!'}
+              </>
+            ) : step === 'profile' ? (
+              <>
+                <FileText className="w-5 h-5 text-primary" />
+                {isRTL ? 'استكمال بيانات المعلم' : 'Complete your instructor profile'}
               </>
             ) : (
               <>
