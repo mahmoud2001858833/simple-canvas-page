@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { InstructorEarningsSkeleton } from '@/components/ui/skeletons';
-import { DollarSign, TrendingUp, Clock, CheckCircle, BookOpen, Users } from 'lucide-react';
+import { DollarSign, TrendingUp, Clock, CheckCircle, BookOpen, Users, RotateCcw } from 'lucide-react';
 import { format } from 'date-fns';
 import { ar, enUS } from 'date-fns/locale';
 import { motion } from 'framer-motion';
