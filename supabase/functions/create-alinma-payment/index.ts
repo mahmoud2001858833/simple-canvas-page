@@ -257,14 +257,18 @@ serve(async (req) => {
         notes: [
           `AlinmaPay - ${itemTitle}`,
           coupon ? `Coupon: ${coupon} (-${discountAmount} SAR)` : null,
-          cid ? `Installment: ${targetPercent}% (paid before: ${currentPaidPercent}%)` : null,
+          cid
+            ? (monthlyPlanMeta
+              ? `Monthly installment: month ${monthlyPlanMeta.month_number} of ${monthlyPlanMeta.total_months}`
+              : `Installment: ${targetPercent}% (paid before: ${currentPaidPercent}%)`)
+            : null,
         ].filter(Boolean).join(" | "),
         installment_plan: cid
-          ? {
+          ? (monthlyPlanMeta ?? {
             installment_percent: targetPercent,
             new_paid_percentage: targetPercent,
             is_continuation: currentPaidPercent > 0,
-          }
+          })
           : null,
       })
       .select()
