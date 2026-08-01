@@ -278,7 +278,7 @@ export const InstructorEarnings = ({ limit }: InstructorEarningsProps) => {
                         </Badge>
                       )}
                       <Badge
-                        variant={earning.status === 'paid' ? 'default' : 'secondary'}
+                        variant={earning.status === 'refunded' ? 'destructive' : earning.status === 'paid' ? 'default' : 'secondary'}
                         className={earning.status === 'paid' ? 'bg-green-100 text-green-800' : ''}
                       >
                         {t.status[earning.status as keyof typeof t.status] || earning.status}
