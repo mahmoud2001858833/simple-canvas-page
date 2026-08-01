@@ -243,38 +243,52 @@ export const DashboardSidebar = ({ activeTab, onTabChange, isOpen, onToggle, use
 
         {/* Navigation */}
         <nav className="p-3 space-y-1 pb-32 overflow-y-auto max-h-[calc(100vh-10rem)] sidebar-scrollbar relative">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => handleTabClick(tab)}
-              data-onboarding={tab.onboardingId || undefined}
-              className={cn(
-                'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 relative group',
-                tab.isAction 
-                  ? 'text-sky/90 hover:bg-sky/10 border border-sky/20 hover:border-sky/40'
-                  : activeTab === tab.id
-                    ? 'bg-gradient-to-r from-primary/90 to-primary/70 text-white shadow-lg shadow-primary/20'
-                    : 'text-white/70 hover:bg-white/8 hover:text-white'
-              )}
-            >
-              <tab.icon className={cn(
-                "w-5 h-5 flex-shrink-0 transition-transform duration-200",
-                activeTab !== tab.id && !tab.isAction && "group-hover:scale-110"
-              )} />
-              {isOpen && <span className="text-sm font-medium truncate">{tab.label[language]}</span>}
-              {tab.showBadge && unreadMessages > 0 && (
-                <Badge 
-                  className={cn(
-                    "h-5 min-w-5 px-1 flex items-center justify-center text-xs bg-accent text-accent-foreground",
-                    isOpen ? "ms-auto" : "absolute -top-1 -end-1"
-                  )}
-                >
-                  {unreadMessages}
-                </Badge>
-              )}
-            </button>
-          ))}
+          {isOpen ? (
+            <>
+              {overviewTab && renderTab(overviewTab)}
+              {visibleGroups.map((group) => {
+                const expanded = !!openGroups[group.id];
+                const hasActive = group.tabs.some((t: any) => t.id === activeTab);
+                return (
+                  <div key={group.id} className="pt-1">
+                    <div
+                      className={cn(
+                        'w-full flex items-center gap-2 px-3 py-2 rounded-xl transition-colors',
+                        hasActive ? 'text-white' : 'text-white/60 hover:text-white/90'
+                      )}
+                    >
+                      <button
+                        onClick={() => toggleGroup(group.id)}
+                        className="flex-1 flex items-center gap-2 text-start"
+                      >
+                        <ChevronDown
+                          className={cn(
+                            'w-4 h-4 flex-shrink-0 transition-transform duration-200',
+                            expanded ? 'rotate-0' : dir === 'rtl' ? 'rotate-90' : '-rotate-90'
+                          )}
+                        />
+                        <span className="text-xs font-semibold uppercase tracking-wide truncate">
+                          {group.label[language]}
+                        </span>
+                      </button>
+                      <HelpBubble text={group.help[language]} />
+                    </div>
+
+                    {expanded && (
+                      <div className="space-y-1 ps-2">
+                        {group.tabs.map((tab: any) => renderTab(tab))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+              {ungroupedTabs.map((tab) => renderTab(tab))}
+            </>
+          ) : (
+            tabs.map((tab) => renderTab(tab))
+          )}
         </nav>
+
 
         {/* Bottom Actions */}
         <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-white/10 space-y-1" style={{ background: 'linear-gradient(0deg, hsl(215, 55%, 10%) 0%, hsl(215, 55%, 12%) 100%)' }}>
