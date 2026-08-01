@@ -64,6 +64,7 @@ const Checkout = () => {
   const [couponLoading, setCouponLoading] = useState(false);
   const [appliedCoupon, setAppliedCoupon] = useState<CouponResult | null>(null);
   const [selectedInstallment, setSelectedInstallment] = useState<number>(100);
+  const [planMode, setPlanMode] = useState<'chapters' | 'monthly'>('chapters');
 
   // Redirect if not logged in
   useEffect(() => {
@@ -100,6 +101,23 @@ const Checkout = () => {
         .eq('user_id', user.id)
         .maybeSingle();
       if (error) throw error;
+      return data;
+    },
+    enabled: !!courseId && !!user,
+  });
+
+  // Fetch existing monthly installment plan
+  const { data: monthlyPlan } = useQuery({
+    queryKey: ['checkout-monthly-plan', courseId, user?.id],
+    queryFn: async () => {
+      if (!user || !courseId) return null;
+      const { data, error } = await supabase
+        .from('monthly_installments')
+        .select('*')
+        .eq('course_id', courseId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (error) return null;
       return data;
     },
     enabled: !!courseId && !!user,
@@ -160,6 +178,12 @@ const Checkout = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isExistingEnrollment, currentPaidPercent]);
 
+  useEffect(() => {
+    if (monthlyPlan && Number((monthlyPlan as any).months_paid || 0) > 0 && (monthlyPlan as any).status !== 'completed') {
+      setPlanMode('monthly');
+    }
+  }, [monthlyPlan]);
+
   // Redirect free courses to direct enrollment
   useEffect(() => {
     if (course && (course.price === 0 || course.price === null) && user && !isExistingEnrollment) {
@@ -193,7 +217,18 @@ const Checkout = () => {
   const selectedOption = allInstallmentOptions.find(opt => opt.percent === selectedInstallment);
   const installmentAmount = Math.ceil(totalPrice * ((selectedInstallment - currentPaidPercent) / 100));
 
-  const priceBeforeCoupon = installmentAmount;
+  // ----- Monthly installment plan -----
+  const monthlyEnabled = !!(course as any)?.monthly_installment_enabled;
+  const totalMonths = Math.max(2, Number((course as any)?.monthly_installment_months || 3));
+  const monthsPaid = Number((monthlyPlan as any)?.months_paid || 0);
+  const monthlyAmount = Math.ceil(totalPrice / totalMonths);
+  const isMonthlyActive = !!monthlyPlan && monthsPaid > 0 && (monthlyPlan as any).status !== 'completed';
+  const monthlyCompleted = (monthlyPlan as any)?.status === 'completed';
+  const canUseMonthly = monthlyEnabled && totalPrice > 0 && !monthlyCompleted && (isMonthlyActive || currentPaidPercent === 0);
+  const isMonthly = canUseMonthly && (isMonthlyActive || planMode === 'monthly');
+  const nextMonthNumber = Math.min(monthsPaid + 1, totalMonths);
+
+  const priceBeforeCoupon = isMonthly ? monthlyAmount : installmentAmount;
   const finalPrice = appliedCoupon?.valid
     ? Math.max(0, priceBeforeCoupon - (appliedCoupon.discount_amount || 0))
     : priceBeforeCoupon;
@@ -323,7 +358,8 @@ const Checkout = () => {
             userId: user.id,
             amount: finalPrice,
             couponCode: appliedCoupon?.valid ? couponCode.trim() : null,
-            installmentPercent: courseId ? selectedInstallment : 100,
+            installmentPercent: courseId ? (isMonthly ? 100 : selectedInstallment) : 100,
+            planType: isMonthly ? 'monthly' : 'chapters',
             customerEmail: user.email,
           },
         });
@@ -356,10 +392,16 @@ const Checkout = () => {
           status: 'pending',
           notes: [
             appliedCoupon?.valid ? `Coupon: ${couponCode} (-${appliedCoupon.discount_amount} SAR)` : null,
-            `Installment: ${selectedInstallment}% of total`,
+            isMonthly ? `Monthly installment: month ${nextMonthNumber} of ${totalMonths}` : `Installment: ${selectedInstallment}% of total`,
             isExistingEnrollment ? `Existing paid: ${currentPaidPercent}%, new total: ${newPaidPercentage}%` : null,
           ].filter(Boolean).join(' | '),
-          installment_plan: {
+          installment_plan: isMonthly ? {
+            type: 'monthly',
+            total_months: totalMonths,
+            month_number: nextMonthNumber,
+            total_amount: totalPrice,
+            new_paid_percentage: 100,
+          } : {
             installment_percent: selectedInstallment,
             new_paid_percentage: newPaidPercentage,
             is_continuation: isExistingEnrollment,
