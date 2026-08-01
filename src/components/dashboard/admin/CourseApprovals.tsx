@@ -346,7 +346,11 @@ export const CourseApprovals = () => {
                         <div className="flex gap-2">
                           <Button
                             size="sm"
-                            onClick={() => handleApprove(course)}
+                            onClick={() => {
+                              setSelectedCourse(course);
+                              setCommissionRate(String(course.instructor_commission ?? 70));
+                              setApproveDialogOpen(true);
+                            }}
                             disabled={actionLoading}
                             className="bg-emerald-600 hover:bg-emerald-700"
                           >
