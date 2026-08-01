@@ -90,6 +90,11 @@ export const CourseApprovals = () => {
   });
 
   const handleApprove = async (course: Course) => {
+    const commission = Number(commissionRate);
+    if (!Number.isFinite(commission) || commission < 0 || commission > 100) {
+      toast.error(language === 'ar' ? 'أدخل نسبة معلم صحيحة بين 0 و 100' : 'Enter a valid commission between 0 and 100');
+      return;
+    }
     setActionLoading(true);
     try {
       const { error } = await supabase
@@ -98,6 +103,7 @@ export const CourseApprovals = () => {
           approval_status: 'approved',
           is_approved: true,
           is_active: true,
+          instructor_commission: commission,
         })
         .eq('id', course.id);
 
