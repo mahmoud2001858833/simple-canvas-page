@@ -141,7 +141,9 @@ export const CourseApprovals = () => {
         }
       }
 
-      toast.success(language === 'ar' ? 'تمت الموافقة على الدورة' : 'Course approved successfully');
+      toast.success(language === 'ar' ? 'تمت الموافقة على الدورة وتحديد نسبة المعلم' : 'Course approved with instructor share set');
+      setApproveDialogOpen(false);
+      setSelectedCourse(null);
       queryClient.invalidateQueries({ queryKey: ['pending-courses'] });
     } catch (error) {
       console.error('Error approving course:', error);
