@@ -178,6 +178,9 @@ export const InstructorEarnings = ({ limit }: InstructorEarningsProps) => {
     { title: t.paidEarnings, value: summary.paid, icon: CheckCircle, gradient: 'from-green-500 to-green-600' },
     { title: t.pendingEarnings, value: summary.pending, icon: Clock, gradient: 'from-orange-500 to-orange-600' },
     { title: t.thisMonth, value: summary.thisMonth, icon: TrendingUp, gradient: 'from-blue-500 to-blue-600' },
+    ...(summary.refunded > 0
+      ? [{ title: t.refundedEarnings, value: summary.refunded, icon: RotateCcw, gradient: 'from-destructive to-destructive/80' }]
+      : []),
   ];
 
   return (
