@@ -145,7 +145,7 @@ export const InstructorEarnings = ({ limit }: InstructorEarningsProps) => {
         .filter(e => new Date(e.created_at) >= startOfMonth)
         .reduce((sum, e) => sum + e.amount, 0);
 
-      setSummary({ total, pending, paid, thisMonth });
+      setSummary({ total, pending, paid, thisMonth, refunded });
 
       // Monthly chart data (last 6 months)
       const monthly: Record<string, number> = {};
