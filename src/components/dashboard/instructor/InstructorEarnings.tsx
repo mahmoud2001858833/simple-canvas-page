@@ -154,7 +154,7 @@ export const InstructorEarnings = ({ limit }: InstructorEarningsProps) => {
         const key = format(d, 'yyyy-MM');
         monthly[key] = 0;
       }
-      earningsData.forEach(e => {
+      active.forEach(e => {
         const key = format(new Date(e.created_at), 'yyyy-MM');
         if (monthly[key] !== undefined) monthly[key] += e.amount;
       });
