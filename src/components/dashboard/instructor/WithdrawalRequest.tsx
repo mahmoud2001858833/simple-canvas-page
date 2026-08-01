@@ -100,7 +100,7 @@ export const WithdrawalRequest = () => {
 
       if (error) throw error;
 
-      const total = data?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
+      const total = data?.filter(e => e.status !== 'refunded').reduce((sum, e) => sum + Number(e.amount), 0) || 0;
       const pending = data?.filter(e => e.status === 'pending').reduce((sum, e) => sum + Number(e.amount), 0) || 0;
 
       // Fetch paid withdrawals

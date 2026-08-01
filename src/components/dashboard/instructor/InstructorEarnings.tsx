@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { InstructorEarningsSkeleton } from '@/components/ui/skeletons';
-import { DollarSign, TrendingUp, Clock, CheckCircle, BookOpen, Users } from 'lucide-react';
+import { DollarSign, TrendingUp, Clock, CheckCircle, BookOpen, Users, RotateCcw } from 'lucide-react';
 import { format } from 'date-fns';
 import { ar, enUS } from 'date-fns/locale';
 import { motion } from 'framer-motion';
@@ -30,6 +30,7 @@ interface EarningsSummary {
   pending: number;
   paid: number;
   thisMonth: number;
+  refunded: number;
 }
 
 interface MonthlyData {
@@ -47,7 +48,7 @@ export const InstructorEarnings = ({ limit }: InstructorEarningsProps) => {
   const language = dir === 'rtl' ? 'ar' : 'en';
   
   const [earnings, setEarnings] = useState<Earning[]>([]);
-  const [summary, setSummary] = useState<EarningsSummary>({ total: 0, pending: 0, paid: 0, thisMonth: 0 });
+  const [summary, setSummary] = useState<EarningsSummary>({ total: 0, pending: 0, paid: 0, thisMonth: 0, refunded: 0 });
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -59,7 +60,8 @@ export const InstructorEarnings = ({ limit }: InstructorEarningsProps) => {
       paidEarnings: 'تم التحويل',
       thisMonth: 'هذا الشهر',
       noEarnings: 'لا توجد أرباح بعد',
-      status: { pending: 'قيد الانتظار', paid: 'تم التحويل' },
+      refundedEarnings: 'مستردة (مخصومة)',
+      status: { pending: 'قيد الانتظار', paid: 'تم التحويل', refunded: 'مستردة' },
       commission: 'العمولة',
       recentTransactions: 'آخر المعاملات',
       monthlyChart: 'الأرباح الشهرية',
@@ -74,7 +76,8 @@ export const InstructorEarnings = ({ limit }: InstructorEarningsProps) => {
       paidEarnings: 'Paid',
       thisMonth: 'This Month',
       noEarnings: 'No earnings yet',
-      status: { pending: 'Pending', paid: 'Paid' },
+      refundedEarnings: 'Refunded (deducted)',
+      status: { pending: 'Pending', paid: 'Paid', refunded: 'Refunded' },
       commission: 'Commission',
       recentTransactions: 'Recent Transactions',
       monthlyChart: 'Monthly Earnings',
@@ -132,17 +135,19 @@ export const InstructorEarnings = ({ limit }: InstructorEarningsProps) => {
         is_installment: !!(e.payments?.installment_plan as any)?.is_continuation,
       }));
 
-      // Calculate summary
+      // Calculate summary (refunded earnings are excluded from all totals)
       const now = new Date();
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const total = earningsData.reduce((sum, e) => sum + e.amount, 0);
-      const pending = earningsData.filter(e => e.status === 'pending').reduce((sum, e) => sum + e.amount, 0);
-      const paid = earningsData.filter(e => e.status === 'paid').reduce((sum, e) => sum + e.amount, 0);
-      const thisMonth = earningsData
+      const active = earningsData.filter(e => e.status !== 'refunded');
+      const total = active.reduce((sum, e) => sum + e.amount, 0);
+      const pending = active.filter(e => e.status === 'pending').reduce((sum, e) => sum + e.amount, 0);
+      const paid = active.filter(e => e.status === 'paid').reduce((sum, e) => sum + e.amount, 0);
+      const refunded = earningsData.filter(e => e.status === 'refunded').reduce((sum, e) => sum + e.amount, 0);
+      const thisMonth = active
         .filter(e => new Date(e.created_at) >= startOfMonth)
         .reduce((sum, e) => sum + e.amount, 0);
 
-      setSummary({ total, pending, paid, thisMonth });
+      setSummary({ total, pending, paid, thisMonth, refunded });
 
       // Monthly chart data (last 6 months)
       const monthly: Record<string, number> = {};
@@ -151,7 +156,7 @@ export const InstructorEarnings = ({ limit }: InstructorEarningsProps) => {
         const key = format(d, 'yyyy-MM');
         monthly[key] = 0;
       }
-      earningsData.forEach(e => {
+      active.forEach(e => {
         const key = format(new Date(e.created_at), 'yyyy-MM');
         if (monthly[key] !== undefined) monthly[key] += e.amount;
       });
@@ -175,6 +180,9 @@ export const InstructorEarnings = ({ limit }: InstructorEarningsProps) => {
     { title: t.paidEarnings, value: summary.paid, icon: CheckCircle, gradient: 'from-green-500 to-green-600' },
     { title: t.pendingEarnings, value: summary.pending, icon: Clock, gradient: 'from-orange-500 to-orange-600' },
     { title: t.thisMonth, value: summary.thisMonth, icon: TrendingUp, gradient: 'from-blue-500 to-blue-600' },
+    ...(summary.refunded > 0
+      ? [{ title: t.refundedEarnings, value: summary.refunded, icon: RotateCcw, gradient: 'from-destructive to-destructive/80' }]
+      : []),
   ];
 
   return (
@@ -270,7 +278,7 @@ export const InstructorEarnings = ({ limit }: InstructorEarningsProps) => {
                         </Badge>
                       )}
                       <Badge
-                        variant={earning.status === 'paid' ? 'default' : 'secondary'}
+                        variant={earning.status === 'refunded' ? 'destructive' : earning.status === 'paid' ? 'default' : 'secondary'}
                         className={earning.status === 'paid' ? 'bg-green-100 text-green-800' : ''}
                       >
                         {t.status[earning.status as keyof typeof t.status] || earning.status}

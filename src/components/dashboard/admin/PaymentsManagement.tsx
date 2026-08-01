@@ -42,9 +42,38 @@ export const PaymentsManagement = () => {
   const [newPayment, setNewPayment] = useState({
     user_email: '',
     amount: '',
+    course_id: '',
     payment_method: 'manual' as const,
     notes: '',
   });
+
+  // Courses list for manual payment (course + instructor must be identified)
+  const { data: coursesList } = useQuery({
+    queryKey: ['admin-courses-for-manual-payment'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('courses')
+        .select('id, title, title_ar, price, instructor_id, instructor_commission')
+        .order('title', { ascending: true });
+      if (error) throw error;
+
+      const instructorIds = [...new Set((data || []).map((c: any) => c.instructor_id).filter(Boolean))];
+      let map: Record<string, string> = {};
+      if (instructorIds.length) {
+        const { data: profs } = await supabase
+          .from('profiles')
+          .select('id, full_name, email')
+          .in('id', instructorIds as string[]);
+        map = (profs || []).reduce((acc: Record<string, string>, p: any) => {
+          acc[p.id] = p.full_name || p.email || '';
+          return acc;
+        }, {});
+      }
+      return (data || []).map((c: any) => ({ ...c, instructor_name: map[c.instructor_id] || '' }));
+    },
+  });
+
+  const selectedManualCourse = coursesList?.find((c: any) => c.id === newPayment.course_id);
 
   const { data: payments, isLoading } = useQuery({
     queryKey: ['admin-payments', search, statusFilter, dateFrom, dateTo],
@@ -241,42 +270,20 @@ export const PaymentsManagement = () => {
 
   const refundMutation = useMutation({
     mutationFn: async (paymentId: string) => {
-      const payment = payments?.find((p: any) => p.id === paymentId);
-      if (!payment) throw new Error('Payment not found');
-
-      // Update payment status to refunded
+      // The database trigger reverses instructor earnings, enrollment access,
+      // coupon usage and referral commission, and notifies both parties.
       const { error } = await supabase
         .from('payments')
         .update({ status: 'refunded' })
         .eq('id', paymentId);
       if (error) throw error;
-
-      // Remove enrollment if exists
-      if (payment.course_id && payment.user_id) {
-        await supabase
-          .from('enrollments')
-          .delete()
-          .eq('user_id', payment.user_id)
-          .eq('course_id', payment.course_id);
-      }
-
-      // Notify student
-      if (payment.user_id) {
-        await supabase.from('notifications').insert({
-          user_id: payment.user_id,
-          title: 'Payment Refunded',
-          title_ar: 'تم استرداد المبلغ',
-          message: `Your payment of ${Number(payment.amount).toLocaleString()} SAR has been refunded.`,
-          message_ar: `تم استرداد مبلغ ${Number(payment.amount).toLocaleString()} ر.س.`,
-          type: 'info',
-        });
-      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-payments'] });
-      toast.success(language === 'ar' ? 'تم الاسترداد بنجاح' : 'Refund processed');
+      toast.success(language === 'ar' ? 'تم الاسترداد وعكس الأرباح والوصول' : 'Refund processed and earnings reversed');
       setRefundPaymentId(null);
     },
+    onError: (e: any) => toast.error(e.message),
   });
 
   const addManualPaymentMutation = useMutation({
@@ -291,22 +298,69 @@ export const PaymentsManagement = () => {
         throw new Error(language === 'ar' ? 'لم يتم العثور على المستخدم' : 'User not found');
       }
 
-      const { error } = await supabase.from('payments').insert([{
+      const course = coursesList?.find((c: any) => c.id === data.course_id);
+      if (!course) {
+        throw new Error(language === 'ar' ? 'يجب اختيار الدورة' : 'Course is required');
+      }
+
+      const amount = parseFloat(data.amount);
+
+      const { data: paymentRow, error } = await supabase.from('payments').insert([{
         user_id: user.id,
-        amount: parseFloat(data.amount),
+        course_id: course.id,
+        amount,
         payment_method: 'manual',
         status: 'paid',
         paid_at: new Date().toISOString(),
-        notes: data.notes,
-      }]);
+        notes: [
+          language === 'ar' ? 'دفعة يدوية بواسطة الإدارة' : 'Manual payment by admin',
+          `Course: ${course.title}`,
+          course.instructor_name ? `Instructor: ${course.instructor_name}` : null,
+          data.notes || null,
+        ].filter(Boolean).join(' | '),
+      }]).select().single();
 
       if (error) throw error;
+
+      // Enroll the student
+      const { data: existing } = await supabase
+        .from('enrollments')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('course_id', course.id)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase.from('enrollments')
+          .update({ status: 'active', paid_percentage: 100 })
+          .eq('id', existing.id);
+      } else {
+        await supabase.from('enrollments').insert({
+          user_id: user.id,
+          course_id: course.id,
+          status: 'active',
+          paid_percentage: 100,
+        });
+      }
+
+      // Record instructor earnings so the manual payment shows in the financial ledger
+      if (course.instructor_id) {
+        const commission = course.instructor_commission ?? 70;
+        await supabase.from('instructor_earnings').insert({
+          instructor_id: course.instructor_id,
+          payment_id: paymentRow.id,
+          course_id: course.id,
+          amount: (amount * commission) / 100,
+          commission_rate: commission,
+          status: 'pending',
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-payments'] });
       toast.success(language === 'ar' ? 'تمت إضافة الدفعة بنجاح' : 'Payment added successfully');
       setIsAddDialogOpen(false);
-      setNewPayment({ user_email: '', amount: '', payment_method: 'manual', notes: '' });
+      setNewPayment({ user_email: '', amount: '', course_id: '', payment_method: 'manual', notes: '' });
     },
     onError: (error: any) => toast.error(error.message),
   });
@@ -372,6 +426,49 @@ export const PaymentsManagement = () => {
                   onChange={(e) => setNewPayment({ ...newPayment, user_email: e.target.value })} placeholder="user@example.com" />
               </div>
               <div className="space-y-2">
+                <Label>{language === 'ar' ? 'الدورة' : 'Course'}</Label>
+                <Select
+                  value={newPayment.course_id}
+                  onValueChange={(v) => {
+                    const c = coursesList?.find((x: any) => x.id === v);
+                    setNewPayment({
+                      ...newPayment,
+                      course_id: v,
+                      amount: newPayment.amount || String(c?.price ?? ''),
+                    });
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={language === 'ar' ? 'اختر الدورة' : 'Select course'} />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-64">
+                    {coursesList?.map((c: any) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {language === 'ar' ? c.title_ar || c.title : c.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {selectedManualCourse && (
+                <div className="rounded-lg border p-3 text-sm space-y-1 bg-muted/40">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">{language === 'ar' ? 'المعلم' : 'Instructor'}</span>
+                    <span className="font-medium">{selectedManualCourse.instructor_name || '-'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">{language === 'ar' ? 'نسبة المعلم' : 'Instructor share'}</span>
+                    <span className="font-medium">{selectedManualCourse.instructor_commission ?? 70}%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">{language === 'ar' ? 'نصيب المعلم من هذه الدفعة' : 'Instructor earning'}</span>
+                    <span className="font-medium">
+                      {Math.round(((parseFloat(newPayment.amount) || 0) * (selectedManualCourse.instructor_commission ?? 70)) / 100).toLocaleString()} {language === 'ar' ? 'ر.س' : 'SAR'}
+                    </span>
+                  </div>
+                </div>
+              )}
+              <div className="space-y-2">
                 <Label>{language === 'ar' ? 'المبلغ (ر.س)' : 'Amount (SAR)'}</Label>
                 <Input type="number" value={newPayment.amount}
                   onChange={(e) => setNewPayment({ ...newPayment, amount: e.target.value })} />
@@ -381,9 +478,14 @@ export const PaymentsManagement = () => {
                 <Textarea value={newPayment.notes}
                   onChange={(e) => setNewPayment({ ...newPayment, notes: e.target.value })} />
               </div>
+              <p className="text-xs text-muted-foreground">
+                {language === 'ar'
+                  ? 'ستُسجَّل الدفعة في السجل المالي مع وسم "يدوي"، ويتم تفعيل تسجيل الطالب واحتساب أرباح المعلم تلقائياً.'
+                  : 'The payment is recorded in the financial ledger flagged as Manual, enrolls the student and books instructor earnings.'}
+              </p>
               <Button className="btn-gold w-full"
                 onClick={() => addManualPaymentMutation.mutate(newPayment)}
-                disabled={!newPayment.user_email || !newPayment.amount}>
+                disabled={!newPayment.user_email || !newPayment.amount || !newPayment.course_id || addManualPaymentMutation.isPending}>
                 {language === 'ar' ? 'إضافة' : 'Add'}
               </Button>
             </div>

@@ -37,6 +37,7 @@ interface Course {
   rejection_reason: string | null;
   created_at: string;
   instructor_id: string | null;
+  instructor_commission?: number | null;
   instructor?: {
     full_name: string | null;
     email: string | null;
@@ -47,6 +48,8 @@ export const CourseApprovals = () => {
   const { language } = useLanguage();
   const queryClient = useQueryClient();
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
+  const [commissionRate, setCommissionRate] = useState('70');
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
@@ -87,6 +90,11 @@ export const CourseApprovals = () => {
   });
 
   const handleApprove = async (course: Course) => {
+    const commission = Number(commissionRate);
+    if (!Number.isFinite(commission) || commission < 0 || commission > 100) {
+      toast.error(language === 'ar' ? 'أدخل نسبة معلم صحيحة بين 0 و 100' : 'Enter a valid commission between 0 and 100');
+      return;
+    }
     setActionLoading(true);
     try {
       const { error } = await supabase
@@ -95,6 +103,7 @@ export const CourseApprovals = () => {
           approval_status: 'approved',
           is_approved: true,
           is_active: true,
+          instructor_commission: commission,
         })
         .eq('id', course.id);
 
@@ -132,7 +141,9 @@ export const CourseApprovals = () => {
         }
       }
 
-      toast.success(language === 'ar' ? 'تمت الموافقة على الدورة' : 'Course approved successfully');
+      toast.success(language === 'ar' ? 'تمت الموافقة على الدورة وتحديد نسبة المعلم' : 'Course approved with instructor share set');
+      setApproveDialogOpen(false);
+      setSelectedCourse(null);
       queryClient.invalidateQueries({ queryKey: ['pending-courses'] });
     } catch (error) {
       console.error('Error approving course:', error);
@@ -335,7 +346,11 @@ export const CourseApprovals = () => {
                         <div className="flex gap-2">
                           <Button
                             size="sm"
-                            onClick={() => handleApprove(course)}
+                            onClick={() => {
+                              setSelectedCourse(course);
+                              setCommissionRate(String(course.instructor_commission ?? 70));
+                              setApproveDialogOpen(true);
+                            }}
                             disabled={actionLoading}
                             className="bg-emerald-600 hover:bg-emerald-700"
                           >
@@ -374,6 +389,59 @@ export const CourseApprovals = () => {
           </div>
         )}
       </CardContent>
+
+      {/* Approve Dialog — instructor share must be set BEFORE approval */}
+      <Dialog open={approveDialogOpen} onOpenChange={setApproveDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {language === 'ar' ? 'تحديد نسبة المعلم قبل الموافقة' : 'Set instructor share before approval'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <p className="text-sm text-muted-foreground">
+              {language === 'ar'
+                ? 'لا يمكن اعتماد الدورة قبل تحديد نسبة المعلم من كل عملية بيع. تُستخدم هذه النسبة في احتساب الأرباح تلقائياً.'
+                : 'A course cannot be approved before defining the instructor share of each sale. It drives all earnings calculations.'}
+            </p>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                {language === 'ar' ? 'نسبة المعلم (%)' : 'Instructor share (%)'}
+              </label>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                value={commissionRate}
+                onChange={(e) => setCommissionRate(e.target.value)}
+              />
+              {selectedCourse?.price ? (
+                <p className="text-xs text-muted-foreground">
+                  {language === 'ar' ? 'نصيب المعلم لكل عملية بيع:' : 'Instructor per sale:'}{' '}
+                  {Math.round((Number(selectedCourse.price) * Number(commissionRate || 0)) / 100).toLocaleString()}{' '}
+                  {language === 'ar' ? 'ر.س' : 'SAR'} —{' '}
+                  {language === 'ar' ? 'نصيب المنصة:' : 'Platform:'}{' '}
+                  {Math.round((Number(selectedCourse.price) * (100 - Number(commissionRate || 0))) / 100).toLocaleString()}{' '}
+                  {language === 'ar' ? 'ر.س' : 'SAR'}
+                </p>
+              ) : null}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setApproveDialogOpen(false)}>
+                {language === 'ar' ? 'إلغاء' : 'Cancel'}
+              </Button>
+              <Button
+                className="bg-emerald-600 hover:bg-emerald-700"
+                disabled={actionLoading || !commissionRate}
+                onClick={() => selectedCourse && handleApprove(selectedCourse)}
+              >
+                {actionLoading && <Loader2 className="w-4 h-4 me-1 animate-spin" />}
+                {language === 'ar' ? 'اعتماد الدورة' : 'Approve course'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Reject Dialog */}
       <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>

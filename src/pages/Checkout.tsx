@@ -322,6 +322,8 @@ const Checkout = () => {
             requestId: requestId || null,
             userId: user.id,
             amount: finalPrice,
+            couponCode: appliedCoupon?.valid ? couponCode.trim() : null,
+            installmentPercent: courseId ? selectedInstallment : 100,
             customerEmail: user.email,
           },
         });
