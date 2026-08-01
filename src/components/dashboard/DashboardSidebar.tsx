@@ -43,12 +43,34 @@ import {
   HelpCircle,
   Activity,
   CreditCard,
+  ChevronDown,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { toast } from 'sonner';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { getGroups, ITEM_HELP } from '@/lib/dashboardHelp';
 import logoImg from '@/assets/logo.png';
+
+const HelpBubble = ({ text }: { text: string }) => (
+  <Popover>
+    <PopoverTrigger asChild>
+      <button
+        type="button"
+        aria-label="help"
+        onClick={(e) => e.stopPropagation()}
+        className="flex-shrink-0 p-1 rounded-full text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+      >
+        <HelpCircle className="w-3.5 h-3.5" />
+      </button>
+    </PopoverTrigger>
+    <PopoverContent side="top" align="center" className="w-64 text-sm leading-relaxed z-[60]">
+      {text}
+    </PopoverContent>
+  </Popover>
+);
+
 
 interface SidebarProps {
   activeTab: string;
