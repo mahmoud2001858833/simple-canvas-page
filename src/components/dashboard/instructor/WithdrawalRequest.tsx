@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog';
-import { DollarSign, Send, Clock, CheckCircle, XCircle, Wallet, Building2 } from 'lucide-react';
+import { DollarSign, Send, Clock, CheckCircle, XCircle, Wallet, Building2, HelpCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ar, enUS } from 'date-fns/locale';
