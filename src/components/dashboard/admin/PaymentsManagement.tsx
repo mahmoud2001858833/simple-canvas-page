@@ -320,22 +320,69 @@ export const PaymentsManagement = () => {
         throw new Error(language === 'ar' ? 'لم يتم العثور على المستخدم' : 'User not found');
       }
 
-      const { error } = await supabase.from('payments').insert([{
+      const course = coursesList?.find((c: any) => c.id === data.course_id);
+      if (!course) {
+        throw new Error(language === 'ar' ? 'يجب اختيار الدورة' : 'Course is required');
+      }
+
+      const amount = parseFloat(data.amount);
+
+      const { data: paymentRow, error } = await supabase.from('payments').insert([{
         user_id: user.id,
-        amount: parseFloat(data.amount),
+        course_id: course.id,
+        amount,
         payment_method: 'manual',
         status: 'paid',
         paid_at: new Date().toISOString(),
-        notes: data.notes,
-      }]);
+        notes: [
+          language === 'ar' ? 'دفعة يدوية بواسطة الإدارة' : 'Manual payment by admin',
+          `Course: ${course.title}`,
+          course.instructor_name ? `Instructor: ${course.instructor_name}` : null,
+          data.notes || null,
+        ].filter(Boolean).join(' | '),
+      }]).select().single();
 
       if (error) throw error;
+
+      // Enroll the student
+      const { data: existing } = await supabase
+        .from('enrollments')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('course_id', course.id)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase.from('enrollments')
+          .update({ status: 'active', paid_percentage: 100 })
+          .eq('id', existing.id);
+      } else {
+        await supabase.from('enrollments').insert({
+          user_id: user.id,
+          course_id: course.id,
+          status: 'active',
+          paid_percentage: 100,
+        });
+      }
+
+      // Record instructor earnings so the manual payment shows in the financial ledger
+      if (course.instructor_id) {
+        const commission = course.instructor_commission ?? 70;
+        await supabase.from('instructor_earnings').insert({
+          instructor_id: course.instructor_id,
+          payment_id: paymentRow.id,
+          course_id: course.id,
+          amount: (amount * commission) / 100,
+          commission_rate: commission,
+          status: 'pending',
+        });
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-payments'] });
       toast.success(language === 'ar' ? 'تمت إضافة الدفعة بنجاح' : 'Payment added successfully');
       setIsAddDialogOpen(false);
-      setNewPayment({ user_email: '', amount: '', payment_method: 'manual', notes: '' });
+      setNewPayment({ user_email: '', amount: '', course_id: '', payment_method: 'manual', notes: '' });
     },
     onError: (error: any) => toast.error(error.message),
   });
