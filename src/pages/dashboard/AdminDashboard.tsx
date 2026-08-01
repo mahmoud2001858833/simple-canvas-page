@@ -143,6 +143,12 @@ const AdminDashboard = () => {
             <PaymentMethodsManagement />
           </Suspense>
         );
+      case 'monthly-installments':
+        return (
+          <Suspense fallback={<LoadingFallback type="payments" />}>
+            <MonthlyInstallmentsManagement />
+          </Suspense>
+        );
       case 'financial-dashboard':
         return (
           <Suspense fallback={<LoadingFallback type="payments" />}>
