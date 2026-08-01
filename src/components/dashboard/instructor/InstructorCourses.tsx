@@ -79,6 +79,10 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
     study_year: '',
     subject_name: '',
     subject_code: '',
+    learning_outcomes: '',
+    learning_outcomes_ar: '',
+    price_includes_tax: false,
+    expected_students: 0,
   });
   const [selectedUniversityId, setSelectedUniversityId] = useState<string>('');
   const [selectedCollegeId, setSelectedCollegeId] = useState<string>('');
@@ -270,6 +274,10 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
             study_year: formData.study_year || null,
             subject_name: formData.subject_name || null,
             subject_code: formData.subject_code || null,
+            learning_outcomes: formData.learning_outcomes || null,
+            learning_outcomes_ar: formData.learning_outcomes_ar || null,
+            price_includes_tax: formData.price_includes_tax,
+            expected_students: formData.expected_students || null,
           } as any)
           .eq('id', editingCourse.id);
 
@@ -302,6 +310,10 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
             study_year: formData.study_year || null,
             subject_name: formData.subject_name || null,
             subject_code: formData.subject_code || null,
+            learning_outcomes: formData.learning_outcomes || null,
+            learning_outcomes_ar: formData.learning_outcomes_ar || null,
+            price_includes_tax: formData.price_includes_tax,
+            expected_students: formData.expected_students || null,
             slug: slug,
           } as any)
           .select()
@@ -350,6 +362,10 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
       study_year: '',
       subject_name: '',
       subject_code: '',
+      learning_outcomes: '',
+      learning_outcomes_ar: '',
+      price_includes_tax: false,
+      expected_students: 0,
     });
     setSelectedUniversityId('');
     setSelectedCollegeId('');
