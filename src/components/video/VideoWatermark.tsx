@@ -35,9 +35,12 @@ export const VideoWatermark = ({ enabled }: VideoWatermarkProps) => {
 
   if (!enabled || !user) return null;
 
-  const userIdentifier = profile?.email || user.email || user.id.slice(0, 8);
+  const phone = profile?.phone?.trim();
+  const userIdentifier = phone || profile?.email || user.email || user.id.slice(0, 8);
+  const secondaryIdentifier = phone ? (profile?.email || user.email || '') : '';
   const timestamp = new Date().toISOString().slice(0, 16);
   const platformName = 'جسوركم';
+
 
   return (
     <div className="absolute inset-0 pointer-events-none overflow-hidden z-[9999]">
