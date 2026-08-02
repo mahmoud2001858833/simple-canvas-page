@@ -16,7 +16,7 @@ import { z } from 'zod';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 
 // Validation schema
-const signupSchema = z.object({
+const buildSignupSchema = (fieldsRequired: boolean) => z.object({
   fullName: z.string()
     .trim()
     .min(1, { message: 'الاسم الكامل مطلوب' })
@@ -31,12 +31,15 @@ const signupSchema = z.object({
     .min(1, { message: 'كلمة المرور مطلوبة' })
     .min(8, { message: 'كلمة المرور يجب أن تكون 8 أحرف على الأقل' })
     .max(72, { message: 'كلمة المرور طويلة جداً' }),
-  phone: z.string()
-    .min(1, { message: 'رقم الهاتف مطلوب' })
-    .refine((val) => /^[0-9]{7,15}$/.test(val), {
-      message: 'رقم الهاتف غير صحيح',
-    }),
+  phone: fieldsRequired
+    ? z.string()
+        .min(1, { message: 'رقم الهاتف مطلوب' })
+        .refine((val) => /^[0-9]{7,15}$/.test(val), { message: 'رقم الهاتف غير صحيح' })
+    : z.string()
+        .optional()
+        .refine((val) => !val || /^[0-9]{7,15}$/.test(val), { message: 'رقم الهاتف غير صحيح' }),
 });
+
 
 // قائمة البلدان مع أكواد الهاتف
 const COUNTRIES = [
