@@ -72,6 +72,8 @@ const Signup = () => {
   const { t, dir, language } = useLanguage();
   const { signUp, user, role, loading: authLoading, authReady } = useAuth();
   const navigate = useNavigate();
+  const { required: fieldsRequired } = useProfileFieldsRequired();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
