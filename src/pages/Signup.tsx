@@ -14,6 +14,8 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { z } from 'zod';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+import { useProfileFieldsRequired } from '@/hooks/useProfileFieldsRequired';
+
 
 // Validation schema
 const buildSignupSchema = (fieldsRequired: boolean) => z.object({
