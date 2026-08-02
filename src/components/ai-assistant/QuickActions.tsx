@@ -50,7 +50,7 @@ const actions: Action[] = [
   },
 ];
 
-export function QuickActions({ onAction, isRTL }: QuickActionsProps) {
+export function QuickActions({ onAction, isRTL, onNavigate }: QuickActionsProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -61,7 +61,9 @@ export function QuickActions({ onAction, isRTL }: QuickActionsProps) {
       } else {
         navigate(action.navigateTo);
       }
+      onNavigate?.();
       return;
+
     }
     onAction(action.message);
   };
