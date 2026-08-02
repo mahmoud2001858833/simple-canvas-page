@@ -7,8 +7,21 @@ import { Progress } from '@/components/ui/progress';
 import { MyCoursesSkeleton } from '@/components/ui/skeletons';
 import { EmptyState } from '@/components/ui/EmptyState';
 import LazyImage from '@/components/ui/LazyImage';
-import { PlayCircle, Clock, ChevronLeft, ChevronRight, GraduationCap } from 'lucide-react';
+import { PlayCircle, Clock, ChevronLeft, ChevronRight, GraduationCap, LogOut } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 
 interface MyCoursesProps {
   limit?: number;
@@ -19,6 +32,26 @@ interface MyCoursesProps {
 export const MyCourses = ({ limit, showViewAll, onViewAll }: MyCoursesProps) => {
   const { language, dir } = useLanguage();
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  const handleWithdraw = async (enrollmentId: string) => {
+    const { error } = await supabase
+      .from('enrollments')
+      .update({ status: 'cancelled' })
+      .eq('id', enrollmentId);
+
+    if (error) {
+      toast.error(language === 'ar' ? 'تعذر إلغاء التسجيل' : 'Could not cancel enrollment');
+      return;
+    }
+
+    toast.success(
+      language === 'ar'
+        ? 'تم الانسحاب من الدورة وسيتم استرداد المبلغ وتحديث السجلات المالية'
+        : 'You withdrew from the course. The payment is refunded and financial records updated'
+    );
+    queryClient.invalidateQueries({ queryKey: ['my-enrollments'] });
+  };
 
   const { data: enrollments, isLoading } = useQuery({
     queryKey: ['my-enrollments', user?.id, limit],
@@ -106,11 +139,39 @@ export const MyCourses = ({ limit, showViewAll, onViewAll }: MyCoursesProps) => 
               </div>
 
               {/* Action */}
-              <Link to={`/courses/${enrollment.course_id}`}>
-                <Button size="sm" className="bg-gradient-gold text-primary-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-                  {language === 'ar' ? 'متابعة' : 'Continue'}
-                </Button>
-              </Link>
+              <div className="flex items-center gap-2">
+                <Link to={`/courses/${enrollment.course_id}`}>
+                  <Button size="sm" className="bg-gradient-gold text-primary-foreground">
+                    {language === 'ar' ? 'متابعة' : 'Continue'}
+                  </Button>
+                </Link>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive">
+                      <LogOut className="w-4 h-4 me-1" />
+                      {language === 'ar' ? 'انسحاب' : 'Withdraw'}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent dir={dir}>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>
+                        {language === 'ar' ? 'الانسحاب من الدورة' : 'Withdraw from course'}
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
+                        {language === 'ar'
+                          ? 'سيتم إلغاء تسجيلك في الدورة، واسترداد المبلغ المدفوع، وخصم أرباح المعلم المرتبطة بها، وتحديث السجلات المالية.'
+                          : 'Your enrollment will be cancelled, the payment refunded, the instructor earnings reversed and the financial records updated.'}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>{language === 'ar' ? 'تراجع' : 'Cancel'}</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => handleWithdraw(enrollment.id)}>
+                        {language === 'ar' ? 'تأكيد الانسحاب' : 'Confirm withdrawal'}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
             </div>
           ))}
         </div>
