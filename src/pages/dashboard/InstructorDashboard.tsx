@@ -55,7 +55,7 @@ const InstructorDashboard = () => {
       const { data, error } = await supabase
         .from('platform_settings')
         .select('*')
-        .in('key', ['instructor_skip_onboarding', 'instructor_hide_intro_video']);
+        .in('key', ['instructor_skip_onboarding', 'instructor_hide_intro_video', 'profile_fields_required']);
       
       if (error) throw error;
       
@@ -74,7 +74,8 @@ const InstructorDashboard = () => {
       
       try {
         // Check if skip onboarding is enabled in platform settings
-        const skipOnboarding = platformSettings?.instructor_skip_onboarding === 'true';
+        const fieldsOptional = platformSettings?.profile_fields_required === 'false';
+        const skipOnboarding = platformSettings?.instructor_skip_onboarding === 'true' || fieldsOptional;
         
         if (skipOnboarding) {
           // Auto-accept policies for the instructor
