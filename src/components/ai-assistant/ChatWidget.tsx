@@ -444,7 +444,7 @@ export function ChatWidget() {
                     {messages.length === 0 && (
                       <>
                         <ChatMessage role="assistant" content={welcomeMessage} />
-                        <QuickActions onAction={sendMessage} isRTL={isRTL} />
+                        <QuickActions onAction={sendMessage} isRTL={isRTL} onNavigate={() => setIsOpen(false)} />
                       </>
                     )}
 

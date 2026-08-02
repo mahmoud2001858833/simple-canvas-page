@@ -57,7 +57,17 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
   const { dir } = useLanguage();
   const { user } = useAuth();
   const language = dir === 'rtl' ? 'ar' : 'en';
-  
+
+  // learning_outcomes columns are text[] NOT NULL — always send an array
+  const toOutcomesArray = (value: string): string[] =>
+    (value || '')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+  const fromOutcomesArray = (value: unknown): string =>
+    Array.isArray(value) ? value.join('\n') : (typeof value === 'string' ? value : '');
+
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -274,8 +284,9 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
             study_year: formData.study_year || null,
             subject_name: formData.subject_name || null,
             subject_code: formData.subject_code || null,
-            learning_outcomes: formData.learning_outcomes || null,
-            learning_outcomes_ar: formData.learning_outcomes_ar || null,
+            learning_outcomes: toOutcomesArray(formData.learning_outcomes),
+            learning_outcomes_ar: toOutcomesArray(formData.learning_outcomes_ar),
+
             price_includes_tax: formData.price_includes_tax,
             expected_students: formData.expected_students || null,
           } as any)
@@ -310,8 +321,9 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
             study_year: formData.study_year || null,
             subject_name: formData.subject_name || null,
             subject_code: formData.subject_code || null,
-            learning_outcomes: formData.learning_outcomes || null,
-            learning_outcomes_ar: formData.learning_outcomes_ar || null,
+            learning_outcomes: toOutcomesArray(formData.learning_outcomes),
+            learning_outcomes_ar: toOutcomesArray(formData.learning_outcomes_ar),
+
             price_includes_tax: formData.price_includes_tax,
             expected_students: formData.expected_students || null,
             slug: slug,
@@ -388,8 +400,9 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
       study_year: (course as any).study_year || '',
       subject_name: (course as any).subject_name || '',
       subject_code: (course as any).subject_code || '',
-      learning_outcomes: (course as any).learning_outcomes || '',
-      learning_outcomes_ar: (course as any).learning_outcomes_ar || '',
+      learning_outcomes: fromOutcomesArray((course as any).learning_outcomes),
+      learning_outcomes_ar: fromOutcomesArray((course as any).learning_outcomes_ar),
+
       price_includes_tax: (course as any).price_includes_tax ?? false,
       expected_students: (course as any).expected_students || 0,
     });

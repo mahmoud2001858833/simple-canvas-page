@@ -14,9 +14,11 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { z } from 'zod';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
+import { useProfileFieldsRequired } from '@/hooks/useProfileFieldsRequired';
+
 
 // Validation schema
-const signupSchema = z.object({
+const buildSignupSchema = (fieldsRequired: boolean) => z.object({
   fullName: z.string()
     .trim()
     .min(1, { message: 'الاسم الكامل مطلوب' })
@@ -31,12 +33,15 @@ const signupSchema = z.object({
     .min(1, { message: 'كلمة المرور مطلوبة' })
     .min(8, { message: 'كلمة المرور يجب أن تكون 8 أحرف على الأقل' })
     .max(72, { message: 'كلمة المرور طويلة جداً' }),
-  phone: z.string()
-    .min(1, { message: 'رقم الهاتف مطلوب' })
-    .refine((val) => /^[0-9]{7,15}$/.test(val), {
-      message: 'رقم الهاتف غير صحيح',
-    }),
+  phone: fieldsRequired
+    ? z.string()
+        .min(1, { message: 'رقم الهاتف مطلوب' })
+        .refine((val) => /^[0-9]{7,15}$/.test(val), { message: 'رقم الهاتف غير صحيح' })
+    : z.string()
+        .optional()
+        .refine((val) => !val || /^[0-9]{7,15}$/.test(val), { message: 'رقم الهاتف غير صحيح' }),
 });
+
 
 // قائمة البلدان مع أكواد الهاتف
 const COUNTRIES = [
@@ -69,6 +74,8 @@ const Signup = () => {
   const { t, dir, language } = useLanguage();
   const { signUp, user, role, loading: authLoading, authReady } = useAuth();
   const navigate = useNavigate();
+  const { required: fieldsRequired } = useProfileFieldsRequired();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -288,7 +295,7 @@ const Signup = () => {
     }
 
     // Validate input
-    const validation = signupSchema.safeParse({ 
+    const validation = buildSignupSchema(fieldsRequired).safeParse({ 
       fullName: fullName.trim(), 
       email: email.trim(), 
       password,
@@ -305,11 +312,12 @@ const Signup = () => {
       return;
     }
 
-    // Validate specialty for instructors
-    if (selectedRole === 'instructor' && !specialty.trim()) {
+    // Validate specialty for instructors (only when profile fields are mandatory)
+    if (fieldsRequired && selectedRole === 'instructor' && !specialty.trim()) {
       toast.error(language === 'ar' ? 'التخصص مطلوب للمعلمين' : 'Specialty is required for instructors');
       return;
     }
+
 
     setLoading(true);
 

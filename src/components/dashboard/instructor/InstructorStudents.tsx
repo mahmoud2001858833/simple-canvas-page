@@ -116,34 +116,26 @@ export const InstructorStudents = () => {
 
       if (error) throw error;
 
-      // Get student profiles
+      // Build student rows from enrollments (profiles are not readable by instructors)
       const studentData: Student[] = [];
       for (const enrollment of enrollments || []) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', enrollment.user_id)
-          .single();
-
         const course = instructorCourses.find(c => c.id === enrollment.course_id);
+        if (!course) continue;
 
-        if (profile && course) {
-          // Privacy: instructors see anonymized identity only (Student #<short id>)
-          const shortId = enrollment.user_id.substring(0, 8).toUpperCase();
-          const anonName = `Student #${shortId}`;
-          studentData.push({
-            id: enrollment.id,
-            full_name: anonName,
-            email: '',
-            avatar_url: null,
-            course_title: course.title,
-            course_title_ar: course.title_ar,
-            course_id: course.id,
-            progress: enrollment.progress || 0,
-            enrolled_at: enrollment.enrolled_at || '',
-            status: enrollment.status || 'active',
-          });
-        }
+        // Privacy: instructors see anonymized identity only (Student #<short id>)
+        const shortId = enrollment.user_id.substring(0, 8).toUpperCase();
+        studentData.push({
+          id: enrollment.id,
+          full_name: `Student #${shortId}`,
+          email: '',
+          avatar_url: null,
+          course_title: course.title,
+          course_title_ar: course.title_ar,
+          course_id: course.id,
+          progress: enrollment.progress || 0,
+          enrolled_at: enrollment.enrolled_at || '',
+          status: enrollment.status || 'active',
+        });
       }
 
       setStudents(studentData);

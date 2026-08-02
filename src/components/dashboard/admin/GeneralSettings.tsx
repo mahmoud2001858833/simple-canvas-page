@@ -27,7 +27,9 @@ const SETTINGS_KEYS = {
   ANNOUNCEMENT_ENABLED: 'announcement_bar_enabled',
   ANNOUNCEMENT_TEXT: 'announcement_bar_text',
   ANNOUNCEMENT_TEXT_EN: 'announcement_bar_text_en',
+  PROFILE_FIELDS_REQUIRED: 'profile_fields_required',
 };
+
 
 export const GeneralSettings = () => {
   const { language, dir } = useLanguage();
@@ -47,6 +49,8 @@ export const GeneralSettings = () => {
   const [enableNotifications, setEnableNotifications] = useState(true);
   const [enableCourseRequests, setEnableCourseRequests] = useState(true);
   const [maintenanceMode, setMaintenanceMode] = useState(false);
+  const [profileFieldsRequired, setProfileFieldsRequired] = useState(true);
+
   
   // Notification Settings
   const [emailNotifications, setEmailNotifications] = useState(true);
@@ -91,7 +95,9 @@ export const GeneralSettings = () => {
           if (settingsMap.has(SETTINGS_KEYS.ANNOUNCEMENT_ENABLED)) setAnnouncementEnabled(settingsMap.get(SETTINGS_KEYS.ANNOUNCEMENT_ENABLED) === 'true');
           if (settingsMap.has(SETTINGS_KEYS.ANNOUNCEMENT_TEXT)) setAnnouncementText(settingsMap.get(SETTINGS_KEYS.ANNOUNCEMENT_TEXT) || '');
           if (settingsMap.has(SETTINGS_KEYS.ANNOUNCEMENT_TEXT_EN)) setAnnouncementTextEn(settingsMap.get(SETTINGS_KEYS.ANNOUNCEMENT_TEXT_EN) || '');
+          if (settingsMap.has(SETTINGS_KEYS.PROFILE_FIELDS_REQUIRED)) setProfileFieldsRequired(settingsMap.get(SETTINGS_KEYS.PROFILE_FIELDS_REQUIRED) !== 'false');
         }
+
       } catch (error) {
         console.error('Error fetching settings:', error);
       } finally {
@@ -144,7 +150,9 @@ export const GeneralSettings = () => {
         upsertSetting(SETTINGS_KEYS.ANNOUNCEMENT_ENABLED, announcementEnabled ? 'true' : 'false'),
         upsertSetting(SETTINGS_KEYS.ANNOUNCEMENT_TEXT, announcementText),
         upsertSetting(SETTINGS_KEYS.ANNOUNCEMENT_TEXT_EN, announcementTextEn),
+        upsertSetting(SETTINGS_KEYS.PROFILE_FIELDS_REQUIRED, profileFieldsRequired ? 'true' : 'false'),
       ]);
+
 
       toast.success(language === 'ar' ? 'تم حفظ الإعدادات بنجاح' : 'Settings saved successfully');
     } catch (error) {
@@ -269,6 +277,30 @@ export const GeneralSettings = () => {
               <Switch checked={enableCourseRequests} onCheckedChange={setEnableCourseRequests} />
             </div>
             <Separator />
+            <div className="flex items-center justify-between">
+              <div className="flex-1 pe-4">
+                <p className="font-medium">
+                  {language === 'ar' ? 'حقول الملف الشخصي' : 'Profile Fields'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {language === 'ar'
+                    ? profileFieldsRequired
+                      ? 'إجباري: يجب على المستخدمين (وخاصة المعلمين) تعبئة جميع الحقول عند التسجيل'
+                      : 'اختياري: يمكن للمستخدمين إنشاء الحسابات وتسجيل الدخول دون تعبئة الحقول'
+                    : profileFieldsRequired
+                      ? 'Mandatory: users (especially instructors) must fill all fields'
+                      : 'Optional: users can sign up and sign in without filling the fields'}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">
+                  {language === 'ar' ? (profileFieldsRequired ? 'إجباري' : 'اختياري') : (profileFieldsRequired ? 'Required' : 'Optional')}
+                </span>
+                <Switch checked={profileFieldsRequired} onCheckedChange={setProfileFieldsRequired} />
+              </div>
+            </div>
+            <Separator />
+
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium text-destructive">{language === 'ar' ? 'وضع الصيانة' : 'Maintenance Mode'}</p>
