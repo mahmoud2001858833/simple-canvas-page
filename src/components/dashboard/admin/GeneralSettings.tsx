@@ -27,7 +27,9 @@ const SETTINGS_KEYS = {
   ANNOUNCEMENT_ENABLED: 'announcement_bar_enabled',
   ANNOUNCEMENT_TEXT: 'announcement_bar_text',
   ANNOUNCEMENT_TEXT_EN: 'announcement_bar_text_en',
+  PROFILE_FIELDS_REQUIRED: 'profile_fields_required',
 };
+
 
 export const GeneralSettings = () => {
   const { language, dir } = useLanguage();
