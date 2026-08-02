@@ -57,7 +57,17 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
   const { dir } = useLanguage();
   const { user } = useAuth();
   const language = dir === 'rtl' ? 'ar' : 'en';
-  
+
+  // learning_outcomes columns are text[] NOT NULL — always send an array
+  const toOutcomesArray = (value: string): string[] =>
+    (value || '')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+  const fromOutcomesArray = (value: unknown): string =>
+    Array.isArray(value) ? value.join('\n') : (typeof value === 'string' ? value : '');
+
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
