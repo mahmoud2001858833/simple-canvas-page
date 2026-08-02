@@ -291,7 +291,7 @@ const Signup = () => {
     }
 
     // Validate input
-    const validation = signupSchema.safeParse({ 
+    const validation = buildSignupSchema(fieldsRequired).safeParse({ 
       fullName: fullName.trim(), 
       email: email.trim(), 
       password,
@@ -308,11 +308,12 @@ const Signup = () => {
       return;
     }
 
-    // Validate specialty for instructors
-    if (selectedRole === 'instructor' && !specialty.trim()) {
+    // Validate specialty for instructors (only when profile fields are mandatory)
+    if (fieldsRequired && selectedRole === 'instructor' && !specialty.trim()) {
       toast.error(language === 'ar' ? 'التخصص مطلوب للمعلمين' : 'Specialty is required for instructors');
       return;
     }
+
 
     setLoading(true);
 
