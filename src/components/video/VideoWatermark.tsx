@@ -92,8 +92,12 @@ export const VideoWatermark = ({ enabled }: VideoWatermarkProps) => {
         />
         <div className="text-right">
           <div>{userIdentifier}</div>
+          {secondaryIdentifier && (
+            <div className="text-white/20" style={{ fontSize: 'clamp(9px, 1.4vw, 13px)' }}>{secondaryIdentifier}</div>
+          )}
           <div className="text-white/20" style={{ fontSize: 'clamp(10px, 1.5vw, 14px)' }}>{platformName} • {timestamp}</div>
         </div>
+
       </div>
       
       {/* Corner watermark - top left with logo */}

@@ -7,7 +7,9 @@ import { useAuth } from "@/contexts/AuthContext";
 interface QuickActionsProps {
   onAction: (message: string) => void;
   isRTL: boolean;
+  onNavigate?: () => void;
 }
+
 
 type Action = {
   icon: any;
