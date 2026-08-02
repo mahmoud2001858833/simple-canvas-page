@@ -278,6 +278,30 @@ export const GeneralSettings = () => {
             </div>
             <Separator />
             <div className="flex items-center justify-between">
+              <div className="flex-1 pe-4">
+                <p className="font-medium">
+                  {language === 'ar' ? 'حقول الملف الشخصي' : 'Profile Fields'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {language === 'ar'
+                    ? profileFieldsRequired
+                      ? 'إجباري: يجب على المستخدمين (وخاصة المعلمين) تعبئة جميع الحقول عند التسجيل'
+                      : 'اختياري: يمكن للمستخدمين إنشاء الحسابات وتسجيل الدخول دون تعبئة الحقول'
+                    : profileFieldsRequired
+                      ? 'Mandatory: users (especially instructors) must fill all fields'
+                      : 'Optional: users can sign up and sign in without filling the fields'}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">
+                  {language === 'ar' ? (profileFieldsRequired ? 'إجباري' : 'اختياري') : (profileFieldsRequired ? 'Required' : 'Optional')}
+                </span>
+                <Switch checked={profileFieldsRequired} onCheckedChange={setProfileFieldsRequired} />
+              </div>
+            </div>
+            <Separator />
+
+            <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium text-destructive">{language === 'ar' ? 'وضع الصيانة' : 'Maintenance Mode'}</p>
                 <p className="text-sm text-muted-foreground">
