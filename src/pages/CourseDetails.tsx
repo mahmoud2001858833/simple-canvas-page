@@ -580,10 +580,69 @@ const CourseDetails = () => {
                       {isEnrolling ? (isRTL ? "جاري التسجيل..." : "Enrolling...") : (isRTL ? "سجّل مجاناً" : "Enroll for Free")}
                     </Button>
                   ) : (
-                    <Button className="w-full" size="lg" onClick={() => { if (!user) { navigate("/login"); return; } navigate(`/checkout/${id}`); }}>
-                      <ShoppingCart className="h-4 w-4 mr-2" />{isRTL ? "اشتري الآن" : "Buy Now"}
-                    </Button>
+                    <div className="space-y-2">
+                      <Button className="w-full" size="lg" onClick={() => { if (!user) { navigate("/login"); return; } navigate(`/checkout/${id}?installment=100`); }}>
+                        <ShoppingCart className="h-4 w-4 mr-2" />{isRTL ? "اشتري الآن" : "Buy Now"}
+                      </Button>
+                      <Button variant="outline" className="w-full" onClick={() => { if (!user) { navigate("/login"); return; } navigate(`/checkout/${id}?installment=33`); }}>
+                        <CreditCard className="h-4 w-4 me-2" />
+                        {isRTL ? "الشراء بالتقسيط (ادفع 1/3)" : "Pay in installments (1/3)"}
+                      </Button>
+                      {(course as any)?.monthly_installment_enabled && (
+                        <Button variant="outline" className="w-full" onClick={() => { if (!user) { navigate("/login"); return; } navigate(`/checkout/${id}?plan=monthly`); }}>
+                          <Calendar className="h-4 w-4 me-2" />
+                          {isRTL
+                            ? `التقسيط على ${(course as any)?.monthly_installment_months || 3} أشهر`
+                            : `${(course as any)?.monthly_installment_months || 3}-month plan`}
+                        </Button>
+                      )}
+                    </div>
                   )}
+
+                  {/* Share options */}
+                  <div className="mt-4">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="secondary" className="w-full">
+                          <Share2 className="h-4 w-4 me-2" />
+                          {isRTL ? "مشاركة الدورة" : "Share course"}
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="center" className="w-56 bg-popover z-50">
+                        <DropdownMenuLabel>{isRTL ? "مشاركة عبر" : "Share via"}</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={handleCopyCourseLink}>
+                          <Link2 className="h-4 w-4 me-2" />{isRTL ? "نسخ الرابط" : "Copy link"}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setShowQR(true)}>
+                          <QrCode className="h-4 w-4 me-2" />{isRTL ? "باركود الدورة" : "Course QR code"}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => openShare(`https://wa.me/?text=${shareTextEncoded}%20${shareUrlEncoded}`)}>
+                          <MessageSquare className="h-4 w-4 me-2" />{isRTL ? "واتساب" : "WhatsApp"}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openShare(`https://t.me/share/url?url=${shareUrlEncoded}&text=${shareTextEncoded}`)}>
+                          <Send className="h-4 w-4 me-2" />{isRTL ? "تيليجرام" : "Telegram"}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openShare(`https://twitter.com/intent/tweet?url=${shareUrlEncoded}&text=${shareTextEncoded}`)}>
+                          <Share2 className="h-4 w-4 me-2" />X (Twitter)
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openShare(`https://www.facebook.com/sharer/sharer.php?u=${shareUrlEncoded}`)}>
+                          <Share2 className="h-4 w-4 me-2" />Facebook
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openShare(`mailto:?subject=${shareTextEncoded}&body=${shareUrlEncoded}`)}>
+                          <Mail className="h-4 w-4 me-2" />{isRTL ? "بريد إلكتروني" : "Email"}
+                        </DropdownMenuItem>
+                        {typeof navigator !== 'undefined' && (navigator as any).share && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={handleNativeShare}>
+                              <Share2 className="h-4 w-4 me-2" />{isRTL ? "خيارات المشاركة في جهازك" : "More options"}
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </CardContent>
               </Card>
             </div>
