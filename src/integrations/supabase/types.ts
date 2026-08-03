@@ -1055,6 +1055,39 @@ export type Database = {
           },
         ]
       }
+      financial_backups: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          earnings_count: number
+          id: string
+          label: string | null
+          payments_count: number
+          snapshot: Json
+          total_revenue: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          earnings_count?: number
+          id?: string
+          label?: string | null
+          payments_count?: number
+          snapshot: Json
+          total_revenue?: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          earnings_count?: number
+          id?: string
+          label?: string | null
+          payments_count?: number
+          snapshot?: Json
+          total_revenue?: number
+        }
+        Relationships: []
+      }
       gamification_profiles: {
         Row: {
           created_at: string
@@ -2629,6 +2662,7 @@ export type Database = {
       check_request_deadlines: { Args: never; Returns: undefined }
       cleanup_expired_verification_codes: { Args: never; Returns: undefined }
       cleanup_old_logs: { Args: never; Returns: undefined }
+      create_financial_backup: { Args: { p_label?: string }; Returns: Json }
       delete_course_cascade: { Args: { course_uuid: string }; Returns: boolean }
       delete_user_cascade: {
         Args: { target_user_id: string }
@@ -2666,12 +2700,21 @@ export type Database = {
           is_active: boolean
         }[]
       }
+      mark_payment_failed: { Args: { p_payment_id: string }; Returns: boolean }
       recalc_course_duration: {
         Args: { _course_id: string }
         Returns: undefined
       }
       reset_all_accounts: { Args: never; Returns: boolean }
+      reset_financial_data: {
+        Args: { p_backup_first?: boolean }
+        Returns: Json
+      }
       reset_user_device: { Args: { target_user_id: string }; Returns: boolean }
+      set_course_commission: {
+        Args: { p_course_id: string; p_rate: number; p_retroactive?: boolean }
+        Returns: Json
+      }
       use_coupon: {
         Args: {
           p_coupon_id: string

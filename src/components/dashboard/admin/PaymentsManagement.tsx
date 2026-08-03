@@ -160,47 +160,12 @@ export const PaymentsManagement = () => {
 
       if (error) throw error;
 
-      // Auto-enroll student when confirming bank transfer
+      // Enrollment + instructor earnings are created automatically by the
+      // trg_finalize_paid_payment database trigger when status becomes 'paid'.
       if (status === 'paid' && payment?.course_id && payment?.user_id) {
         const plan = payment.installment_plan as Record<string, any> | null;
         const newPaidPercentage = plan?.new_paid_percentage ?? 100;
 
-        // Check if already enrolled
-        const { data: existing } = await supabase
-          .from('enrollments')
-          .select('id, paid_percentage')
-          .eq('user_id', payment.user_id)
-          .eq('course_id', payment.course_id)
-          .maybeSingle();
-
-        if (existing) {
-          // Update paid_percentage
-          await supabase.from('enrollments')
-            .update({ paid_percentage: newPaidPercentage, status: 'active' })
-            .eq('id', existing.id);
-        } else {
-          await supabase.from('enrollments').insert({
-            user_id: payment.user_id,
-            course_id: payment.course_id,
-            status: 'active',
-            paid_percentage: newPaidPercentage,
-          });
-        }
-
-        // Create instructor earnings
-        if (payment.course?.instructor_id) {
-          const commission = payment.course?.instructor_commission || 30;
-          const instructorAmount = (Number(payment.amount) * commission) / 100;
-
-          await supabase.from('instructor_earnings').insert({
-            instructor_id: payment.course.instructor_id,
-            payment_id: id,
-            course_id: payment.course_id,
-            amount: instructorAmount,
-            commission_rate: commission,
-            status: 'pending',
-          });
-        }
 
         // Notify student
         await supabase.from('notifications').insert({
@@ -322,39 +287,11 @@ export const PaymentsManagement = () => {
 
       if (error) throw error;
 
-      // Enroll the student
-      const { data: existing } = await supabase
-        .from('enrollments')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('course_id', course.id)
-        .maybeSingle();
+      // Enrollment and instructor earnings are created automatically by the
+      // trg_finalize_paid_payment database trigger, and the payment is flagged
+      // as manual in the ledger through payment_method = 'manual'.
+      void paymentRow;
 
-      if (existing) {
-        await supabase.from('enrollments')
-          .update({ status: 'active', paid_percentage: 100 })
-          .eq('id', existing.id);
-      } else {
-        await supabase.from('enrollments').insert({
-          user_id: user.id,
-          course_id: course.id,
-          status: 'active',
-          paid_percentage: 100,
-        });
-      }
-
-      // Record instructor earnings so the manual payment shows in the financial ledger
-      if (course.instructor_id) {
-        const commission = course.instructor_commission ?? 70;
-        await supabase.from('instructor_earnings').insert({
-          instructor_id: course.instructor_id,
-          payment_id: paymentRow.id,
-          course_id: course.id,
-          amount: (amount * commission) / 100,
-          commission_rate: commission,
-          status: 'pending',
-        });
-      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-payments'] });

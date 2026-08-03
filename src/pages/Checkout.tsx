@@ -184,6 +184,19 @@ const Checkout = () => {
     }
   }, [monthlyPlan]);
 
+  // Honour the plan chosen on the course page (?plan=monthly / ?installment=33)
+  useEffect(() => {
+    const planParam = searchParams.get('plan');
+    const instParam = Number(searchParams.get('installment'));
+    if (planParam === 'monthly') setPlanMode('monthly');
+    if (planParam === 'chapters') setPlanMode('chapters');
+    if (instParam === 33 || instParam === 66 || instParam === 100) {
+      setPlanMode('chapters');
+      setSelectedInstallment(instParam);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Redirect free courses to direct enrollment
   useEffect(() => {
     if (course && (course.price === 0 || course.price === null) && user && !isExistingEnrollment) {
@@ -794,7 +807,16 @@ const Checkout = () => {
                     <span>{totalPrice} {isRTL ? 'ر.س' : 'SAR'}</span>
                   </div>
                   
-                  {selectedInstallment < 100 || isExistingEnrollment ? (
+                  {isMonthly ? (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">
+                        {isRTL
+                          ? `الدفعة الشهرية ${nextMonthNumber}/${totalMonths}`
+                          : `Monthly payment ${nextMonthNumber}/${totalMonths}`}
+                      </span>
+                      <span>{priceBeforeCoupon} {isRTL ? 'ر.س' : 'SAR'}</span>
+                    </div>
+                  ) : (selectedInstallment < 100 || isExistingEnrollment) ? (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">
                         {isRTL ? `قسط ${selectedInstallment}%` : `${selectedInstallment}% Installment`}
@@ -829,19 +851,29 @@ const Checkout = () => {
                         {isRTL ? 'ما ستحصل عليه' : 'What you\'ll get'}
                       </span>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      {isRTL 
-                        ? `${accessibleChapters} من ${totalChapters} درس (${newPaidPercentage}% من المحتوى)`
-                        : `${accessibleChapters} of ${totalChapters} lessons (${newPaidPercentage}% of content)`
-                      }
-                    </p>
-                    {newPaidPercentage < 100 && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {isRTL 
-                          ? 'يمكنك دفع أقساط إضافية لاحقاً لفتح باقي المحتوى'
-                          : 'You can pay more installments later to unlock remaining content'
-                        }
+                    {isMonthly ? (
+                      <p className="text-sm text-muted-foreground">
+                        {isRTL
+                          ? `كامل محتوى الدورة (${totalChapters} درس) لمدة شهر واحد — الدفعة ${nextMonthNumber} من ${totalMonths}`
+                          : `Full course content (${totalChapters} lessons) for one month — payment ${nextMonthNumber} of ${totalMonths}`}
                       </p>
+                    ) : (
+                      <>
+                        <p className="text-sm text-muted-foreground">
+                          {isRTL 
+                            ? `${accessibleChapters} من ${totalChapters} درس (${newPaidPercentage}% من المحتوى)`
+                            : `${accessibleChapters} of ${totalChapters} lessons (${newPaidPercentage}% of content)`
+                          }
+                        </p>
+                        {newPaidPercentage < 100 && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {isRTL 
+                              ? 'يمكنك دفع أقساط إضافية لاحقاً لفتح باقي المحتوى'
+                              : 'You can pay more installments later to unlock remaining content'
+                            }
+                          </p>
+                        )}
+                      </>
                     )}
                   </div>
                 )}

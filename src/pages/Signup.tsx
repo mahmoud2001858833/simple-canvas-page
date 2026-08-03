@@ -868,6 +868,36 @@ const Signup = () => {
                 </motion.div>
               )}
 
+              {selectedRole === 'instructor' && (
+                <motion.div
+                  initial={{ x: -20, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: 0.465 }}
+                  className="space-y-2"
+                >
+                  <Label className="text-foreground/80 flex items-center gap-2">
+                    <GraduationCap className="w-4 h-4 text-muted-foreground" />
+                    {language === 'ar' ? 'الحالة الأكاديمية' : 'Academic Status'}
+                  </Label>
+                  <Select value={academicDegree} onValueChange={setAcademicDegree} disabled={loading || redirecting}>
+                    <SelectTrigger className="bg-background/50 border-border/50">
+                      <SelectValue placeholder={language === 'ar' ? 'اختر الحالة الأكاديمية' : 'Select academic status'} />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover z-50">
+                      <SelectItem value="bachelor">{language === 'ar' ? 'بكالوريوس' : 'Bachelor'}</SelectItem>
+                      <SelectItem value="masters_student">{language === 'ar' ? 'طالب ماجستير' : 'Masters Student'}</SelectItem>
+                      <SelectItem value="masters">{language === 'ar' ? 'ماجستير' : 'Masters'}</SelectItem>
+                      <SelectItem value="phd_student">{language === 'ar' ? 'طالب دكتوراه' : 'PhD Student'}</SelectItem>
+                      <SelectItem value="phd">{language === 'ar' ? 'دكتوراه' : 'PhD'}</SelectItem>
+                      <SelectItem value="assistant_professor">{language === 'ar' ? 'أستاذ مساعد' : 'Assistant Professor'}</SelectItem>
+                      <SelectItem value="associate_professor">{language === 'ar' ? 'أستاذ مشارك' : 'Associate Professor'}</SelectItem>
+                      <SelectItem value="professor">{language === 'ar' ? 'أستاذ (بروفيسور)' : 'Professor'}</SelectItem>
+                      <SelectItem value="specialist">{language === 'ar' ? 'مختص/خبرة مهنية' : 'Specialist / Professional'}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </motion.div>
+              )}
+
               {/* Year Selection (Both roles) */}
               <motion.div
                 initial={{ x: -20, opacity: 0 }}
