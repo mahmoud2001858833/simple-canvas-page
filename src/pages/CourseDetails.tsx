@@ -122,6 +122,22 @@ const CourseDetails = () => {
   const [showChat, setShowChat] = useState(false);
   const [showQR, setShowQR] = useState(false);
 
+  const shareUrl = typeof window !== 'undefined' ? window.location.href : '';
+  const shareUrlEncoded = encodeURIComponent(shareUrl);
+
+  const openShare = (url: string) => {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleCopyCourseLink = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success(isRTL ? 'تم نسخ الرابط' : 'Link copied');
+    } catch {
+      toast.error(isRTL ? 'تعذر نسخ الرابط' : 'Could not copy link');
+    }
+  };
+
   const isAdminOrInstructor = role === 'admin' || role === 'instructor';
 
   useEffect(() => {
