@@ -184,6 +184,19 @@ const Checkout = () => {
     }
   }, [monthlyPlan]);
 
+  // Honour the plan chosen on the course page (?plan=monthly / ?installment=33)
+  useEffect(() => {
+    const planParam = searchParams.get('plan');
+    const instParam = Number(searchParams.get('installment'));
+    if (planParam === 'monthly') setPlanMode('monthly');
+    if (planParam === 'chapters') setPlanMode('chapters');
+    if (instParam === 33 || instParam === 66 || instParam === 100) {
+      setPlanMode('chapters');
+      setSelectedInstallment(instParam);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Redirect free courses to direct enrollment
   useEffect(() => {
     if (course && (course.price === 0 || course.price === null) && user && !isExistingEnrollment) {
