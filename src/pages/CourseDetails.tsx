@@ -120,6 +120,7 @@ const CourseDetails = () => {
   const [showEnrollDialog, setShowEnrollDialog] = useState(false);
   const [isEnrolling, setIsEnrolling] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  const [showQR, setShowQR] = useState(false);
 
   const isAdminOrInstructor = role === 'admin' || role === 'instructor';
 
