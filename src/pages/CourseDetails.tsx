@@ -50,7 +50,16 @@ import { CourseReviews } from "@/components/course/CourseReviews";
 import { CourseDetailsCard } from "@/components/course/CourseDetailsCard";
 import { CourseChat } from "@/components/course/CourseChat";
 import { CourseDiscussions } from "@/components/course/CourseDiscussions";
-import { MessageSquare } from "lucide-react";
+import { CourseQRCode } from "@/components/dashboard/CourseQRCode";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { MessageSquare, Share2, Link2, QrCode, Send, Mail } from "lucide-react";
 
 // Onboarding steps for Course Details page
 const courseDetailsOnboardingSteps = [
