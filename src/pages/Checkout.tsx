@@ -851,19 +851,29 @@ const Checkout = () => {
                         {isRTL ? 'ما ستحصل عليه' : 'What you\'ll get'}
                       </span>
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      {isRTL 
-                        ? `${accessibleChapters} من ${totalChapters} درس (${newPaidPercentage}% من المحتوى)`
-                        : `${accessibleChapters} of ${totalChapters} lessons (${newPaidPercentage}% of content)`
-                      }
-                    </p>
-                    {newPaidPercentage < 100 && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {isRTL 
-                          ? 'يمكنك دفع أقساط إضافية لاحقاً لفتح باقي المحتوى'
-                          : 'You can pay more installments later to unlock remaining content'
-                        }
+                    {isMonthly ? (
+                      <p className="text-sm text-muted-foreground">
+                        {isRTL
+                          ? `كامل محتوى الدورة (${totalChapters} درس) لمدة شهر واحد — الدفعة ${nextMonthNumber} من ${totalMonths}`
+                          : `Full course content (${totalChapters} lessons) for one month — payment ${nextMonthNumber} of ${totalMonths}`}
                       </p>
+                    ) : (
+                      <>
+                        <p className="text-sm text-muted-foreground">
+                          {isRTL 
+                            ? `${accessibleChapters} من ${totalChapters} درس (${newPaidPercentage}% من المحتوى)`
+                            : `${accessibleChapters} of ${totalChapters} lessons (${newPaidPercentage}% of content)`
+                          }
+                        </p>
+                        {newPaidPercentage < 100 && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {isRTL 
+                              ? 'يمكنك دفع أقساط إضافية لاحقاً لفتح باقي المحتوى'
+                              : 'You can pay more installments later to unlock remaining content'
+                            }
+                          </p>
+                        )}
+                      </>
                     )}
                   </div>
                 )}
