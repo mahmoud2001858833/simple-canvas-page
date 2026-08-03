@@ -110,15 +110,28 @@ const PaymentSuccess = () => {
     ensureEnrollment();
   }, [isPaid, resolvedCourseId, user]);
 
-  // Auto-redirect countdown — only starts when payment is confirmed OR after max wait
-  
+  // Give the gateway webhook up to 30s; after that the payment is rejected (never left pending)
   useEffect(() => {
-    // After 10 seconds, redirect regardless (webhook may be slow)
-    const maxWait = setTimeout(() => setMaxWaitReached(true), 10000);
+    const maxWait = setTimeout(() => setMaxWaitReached(true), 30000);
     return () => clearTimeout(maxWait);
   }, []);
 
-  const shouldRedirect = resolvedCourseId && (isPaid || maxWaitReached);
+  useEffect(() => {
+    if (!maxWaitReached || !paymentId) return;
+    if (payment && payment.status !== 'pending') return;
+
+    const markFailed = async () => {
+      try {
+        await supabase.rpc('mark_payment_failed' as any, { p_payment_id: paymentId });
+      } catch (err) {
+        console.error('Failed to mark payment as failed', err);
+      }
+      navigate(`/payment/failed?payment_id=${paymentId}`, { replace: true });
+    };
+    markFailed();
+  }, [maxWaitReached, payment, paymentId, navigate]);
+
+  const shouldRedirect = !!resolvedCourseId && isPaid;
 
   useEffect(() => {
     if (!shouldRedirect) return;
