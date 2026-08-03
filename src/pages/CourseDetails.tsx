@@ -176,6 +176,19 @@ const CourseDetails = () => {
   // Use resolved course UUID for all sub-queries
   const courseUUID = course?.id;
 
+  const shareTitle = (isRTL ? course?.title_ar : course?.title) || course?.title || '';
+  const shareTextEncoded = encodeURIComponent(
+    isRTL ? `اطّلع على دورة: ${shareTitle}` : `Check out this course: ${shareTitle}`
+  );
+
+  const handleNativeShare = async () => {
+    try {
+      await (navigator as any).share({ title: shareTitle, url: shareUrl });
+    } catch {
+      /* user cancelled */
+    }
+  };
+
   // Fetch lessons
   const { data: lessons = [] } = useQuery({
     queryKey: ["lessons", courseUUID],
