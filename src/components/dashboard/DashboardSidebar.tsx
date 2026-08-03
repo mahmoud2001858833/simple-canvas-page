@@ -156,6 +156,7 @@ export const DashboardSidebar = ({ activeTab, onTabChange, isOpen, onToggle, use
     { id: 'capture-attempts', label: { ar: 'محاولات التقاط الشاشة', en: 'Screen Capture Attempts' }, icon: ShieldAlert, onboardingId: null, showBadge: false, isAction: false },
     { id: 'instructor-specialties', label: { ar: 'تخصصات المعلمين', en: 'Instructor Specialties' }, icon: UserCog, onboardingId: null, showBadge: false, isAction: false },
     { id: 'instructor-settings', label: { ar: 'إعدادات المعلمين', en: 'Instructor Settings' }, icon: Percent, onboardingId: null, showBadge: false, isAction: false },
+    { id: 'terms', label: { ar: 'الشروط والسياسات', en: 'Terms & Policies' }, icon: FileText, onboardingId: null, showBadge: false, isAction: false },
     { id: 'general', label: { ar: 'الإعدادات العامة', en: 'General Settings' }, icon: Settings, onboardingId: null, showBadge: false, isAction: false },
   ];
 
