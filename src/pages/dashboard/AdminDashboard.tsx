@@ -235,6 +235,12 @@ const AdminDashboard = () => {
             <InstructorSettings />
           </Suspense>
         );
+      case 'terms':
+        return (
+          <Suspense fallback={<LoadingFallback type="terms" />}>
+            <TermsManagement />
+          </Suspense>
+        );
       case 'capture-attempts':
         return (
           <Suspense fallback={<LoadingFallback type="capture-attempts" />}>
