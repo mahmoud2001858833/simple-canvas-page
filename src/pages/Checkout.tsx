@@ -807,7 +807,16 @@ const Checkout = () => {
                     <span>{totalPrice} {isRTL ? 'ر.س' : 'SAR'}</span>
                   </div>
                   
-                  {selectedInstallment < 100 || isExistingEnrollment ? (
+                  {isMonthly ? (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">
+                        {isRTL
+                          ? `الدفعة الشهرية ${nextMonthNumber}/${totalMonths}`
+                          : `Monthly payment ${nextMonthNumber}/${totalMonths}`}
+                      </span>
+                      <span>{priceBeforeCoupon} {isRTL ? 'ر.س' : 'SAR'}</span>
+                    </div>
+                  ) : (selectedInstallment < 100 || isExistingEnrollment) ? (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">
                         {isRTL ? `قسط ${selectedInstallment}%` : `${selectedInstallment}% Installment`}
