@@ -38,8 +38,9 @@ const InstructorSpecialties = lazy(() => import('@/components/dashboard/admin/In
 const AbandonedPaymentsAnalytics = lazy(() => import('@/components/dashboard/admin/AbandonedPaymentsAnalytics').then(m => ({ default: m.AbandonedPaymentsAnalytics })));
 const PaymentMethodsManagement = lazy(() => import('@/components/dashboard/admin/PaymentMethodsManagement').then(m => ({ default: m.PaymentMethodsManagement })));
 const MonthlyInstallmentsManagement = lazy(() => import('@/components/dashboard/admin/MonthlyInstallmentsManagement').then(m => ({ default: m.MonthlyInstallmentsManagement })));
+const TermsManagement = lazy(() => import('@/components/dashboard/admin/TermsManagement').then(m => ({ default: m.TermsManagement })));
 
-type TabType = 'overview' | 'users' | 'user-insights' | 'instructor-detail' | 'student-detail' | 'courses' | 'course-approvals' | 'requests' | 'payments' | 'abandoned-payments' | 'payment-methods' | 'monthly-installments' | 'financial-dashboard' | 'accounting' | 'withdrawals' | 'coupons' | 'universities' | 'colleges' | 'majors' | 'students-by-major' | 'reports' | 'notifications' | 'logs' | 'general' | 'settings' | 'support' | 'instructor-settings' | 'capture-attempts' | 'workflow' | 'video-analytics' | 'instructor-specialties';
+type TabType = 'overview' | 'users' | 'user-insights' | 'instructor-detail' | 'student-detail' | 'courses' | 'course-approvals' | 'requests' | 'payments' | 'abandoned-payments' | 'payment-methods' | 'monthly-installments' | 'financial-dashboard' | 'accounting' | 'withdrawals' | 'coupons' | 'universities' | 'colleges' | 'majors' | 'students-by-major' | 'reports' | 'notifications' | 'logs' | 'general' | 'settings' | 'support' | 'instructor-settings' | 'terms' | 'capture-attempts' | 'workflow' | 'video-analytics' | 'instructor-specialties';
 
 // Fallback components for each section
 const LoadingFallback = ({ type }: { type: string }) => {
