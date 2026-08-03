@@ -201,9 +201,16 @@ export const InstructorProfileWizard = ({ onCompleted }: Props) => {
             <Label>{isRTL ? 'الحالة الأكاديمية' : 'Academic status'} *</Label>
             <Select value={form.education_status} onValueChange={(v) => set('education_status', v)}>
               <SelectTrigger><SelectValue placeholder={isRTL ? 'اختر' : 'Select'} /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="student">{isRTL ? 'طالب حالي' : 'Current student'}</SelectItem>
-                <SelectItem value="graduate">{isRTL ? 'خريج' : 'Graduate'}</SelectItem>
+              <SelectContent className="bg-popover z-50">
+                <SelectItem value="bachelor">{isRTL ? 'بكالوريوس' : 'Bachelor'}</SelectItem>
+                <SelectItem value="masters_student">{isRTL ? 'طالب ماجستير' : 'Masters student'}</SelectItem>
+                <SelectItem value="masters">{isRTL ? 'ماجستير' : 'Masters'}</SelectItem>
+                <SelectItem value="phd_student">{isRTL ? 'طالب دكتوراه' : 'PhD student'}</SelectItem>
+                <SelectItem value="phd">{isRTL ? 'دكتوراه' : 'PhD'}</SelectItem>
+                <SelectItem value="assistant_professor">{isRTL ? 'أستاذ مساعد' : 'Assistant professor'}</SelectItem>
+                <SelectItem value="associate_professor">{isRTL ? 'أستاذ مشارك' : 'Associate professor'}</SelectItem>
+                <SelectItem value="professor">{isRTL ? 'أستاذ (بروفيسور)' : 'Professor'}</SelectItem>
+                <SelectItem value="specialist">{isRTL ? 'مختص/خبرة مهنية' : 'Specialist / Professional'}</SelectItem>
               </SelectContent>
             </Select>
           </div>
