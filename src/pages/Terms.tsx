@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Helmet } from 'react-helmet-async';
+import { useLocation } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import Navbar from '@/components/landing/Navbar';
 import Footer from '@/components/landing/Footer';
@@ -8,11 +9,16 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 const Terms = () => {
   const { language, dir } = useLanguage();
+  const location = useLocation();
+  const isPrivacy = location.pathname.startsWith('/privacy');
   const [content, setContent] = useState<string>('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const key = language === 'ar' ? 'instructor_policies_ar' : 'instructor_policies_en';
+    setLoading(true);
+    const key = isPrivacy
+      ? (language === 'ar' ? 'privacy_policy_ar' : 'privacy_policy')
+      : (language === 'ar' ? 'instructor_policies_ar' : 'instructor_policies_en');
     supabase
       .from('platform_settings')
       .select('value')
@@ -22,9 +28,11 @@ const Terms = () => {
         setContent((data?.value as string) || '');
         setLoading(false);
       });
-  }, [language]);
+  }, [language, isPrivacy]);
 
-  const title = language === 'ar' ? 'سياسات وشروط استخدام المنصة' : 'Platform Terms & Policies';
+  const title = isPrivacy
+    ? (language === 'ar' ? 'سياسة الخصوصية' : 'Privacy Policy')
+    : (language === 'ar' ? 'سياسات وشروط استخدام المنصة' : 'Platform Terms & Policies');
 
   return (
     <div dir={dir} className="min-h-screen bg-background flex flex-col">
