@@ -989,6 +989,17 @@ const CourseDetails = () => {
           courseName={isRTL ? course.title_ar : course.title}
         />
       )}
+
+      {/* Course QR code & link */}
+      {courseUUID && (
+        <CourseQRCode
+          open={showQR}
+          onOpenChange={setShowQR}
+          courseId={courseUUID}
+          courseTitle={shareTitle}
+          slug={(course as any)?.slug || undefined}
+        />
+      )}
     </div>
     </>
   );
