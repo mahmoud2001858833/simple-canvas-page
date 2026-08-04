@@ -424,7 +424,13 @@ export const InstructorSettings = () => {
           </CardContent>
         </Card>
 
+        {/* Per-course commissions */}
+        <div className="lg:col-span-2">
+          <CourseCommissions />
+        </div>
+
         {/* Policies */}
+
         <Card className="card-premium lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
