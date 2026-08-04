@@ -13,6 +13,8 @@ import { Percent, Video, FileText, Save, Upload, Loader2, Settings } from 'lucid
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { CourseCommissions } from './CourseCommissions';
+
 
 const WORKER_URL = 'https://nameless-smoke-ab0f.jowmahmoud6.workers.dev';
 const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunks
@@ -422,7 +424,13 @@ export const InstructorSettings = () => {
           </CardContent>
         </Card>
 
+        {/* Per-course commissions */}
+        <div className="lg:col-span-2">
+          <CourseCommissions />
+        </div>
+
         {/* Policies */}
+
         <Card className="card-premium lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

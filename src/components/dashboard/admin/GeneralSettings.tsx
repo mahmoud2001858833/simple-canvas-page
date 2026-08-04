@@ -10,6 +10,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Settings, Globe, Bell, Shield, Database, Save, RefreshCw, Video, Loader2, Megaphone } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { FinancialControls } from './FinancialControls';
+
 
 // Settings keys for database
 const SETTINGS_KEYS = {
@@ -455,7 +457,10 @@ export const GeneralSettings = () => {
           </CardContent>
         </Card>
 
+        <FinancialControls />
+
         {/* System Actions */}
+
         <Card className="card-premium">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
