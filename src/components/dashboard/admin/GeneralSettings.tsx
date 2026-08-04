@@ -455,7 +455,10 @@ export const GeneralSettings = () => {
           </CardContent>
         </Card>
 
+        <FinancialControls />
+
         {/* System Actions */}
+
         <Card className="card-premium">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
