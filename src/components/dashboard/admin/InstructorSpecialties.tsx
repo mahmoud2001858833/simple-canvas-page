@@ -290,6 +290,7 @@ export const InstructorSpecialties = () => {
 
                 <Section title={language === 'ar' ? 'البيانات الأكاديمية' : 'Academic Info'} icon={GraduationCap}>
                   <InfoRow label={language === 'ar' ? 'التخصص' : 'Specialty'} value={viewingInstructor.specialty} />
+                  <InfoRow label={language === 'ar' ? 'الجهة التعليمية' : 'Institution'} value={(viewingInstructor as any).institution_name} />
                   <InfoRow label={language === 'ar' ? 'الدرجة العلمية' : 'Academic Degree'} value={viewingInstructor.academic_degree} />
                   <InfoRow label={language === 'ar' ? 'السنة الأكاديمية' : 'Academic Year'} value={viewingInstructor.academic_year} />
                   <InfoRow label={language === 'ar' ? 'الحالة التعليمية' : 'Education Status'} value={viewingInstructor.education_status} />

@@ -1639,6 +1639,7 @@ export type Database = {
           gender: string | null
           has_accepted_policies: boolean | null
           id: string
+          institution_name: string | null
           is_banned: boolean | null
           major_id: string | null
           nationality: string | null
@@ -1674,6 +1675,7 @@ export type Database = {
           gender?: string | null
           has_accepted_policies?: boolean | null
           id: string
+          institution_name?: string | null
           is_banned?: boolean | null
           major_id?: string | null
           nationality?: string | null
@@ -1709,6 +1711,7 @@ export type Database = {
           gender?: string | null
           has_accepted_policies?: boolean | null
           id?: string
+          institution_name?: string | null
           is_banned?: boolean | null
           major_id?: string | null
           nationality?: string | null
