@@ -73,9 +73,9 @@ const InstructorDashboard = () => {
       if (!user) return;
       
       try {
-        // Check if skip onboarding is enabled in platform settings
-        const fieldsOptional = platformSettings?.profile_fields_required === 'false';
-        const skipOnboarding = platformSettings?.instructor_skip_onboarding === 'true' || fieldsOptional;
+        // Only an explicit admin setting can skip instructor onboarding
+        const skipOnboarding = platformSettings?.instructor_skip_onboarding === 'true';
+
         
         if (skipOnboarding) {
           // Auto-accept policies for the instructor
