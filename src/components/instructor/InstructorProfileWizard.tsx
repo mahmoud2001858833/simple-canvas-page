@@ -74,6 +74,10 @@ export const InstructorProfileWizard = ({ onCompleted }: Props) => {
   const step2Valid = step2Missing.length === 0;
 
   const handleSubmit = async () => {
+    if (!step2Valid) {
+      toast.error((isRTL ? 'يرجى تعبئة: ' : 'Please fill: ') + step2Missing.join('، '));
+      return;
+    }
     const parsed = schema.safeParse({
       ...form,
       expected_students_count: Number(form.expected_students_count),
