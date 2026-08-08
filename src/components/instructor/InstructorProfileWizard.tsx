@@ -23,7 +23,7 @@ const schema = z.object({
   institution_name: z.string().trim().min(2).max(150),
   specialty: z.string().trim().min(2).max(150),
   teaching_experience_years: z.string().trim().min(1).max(50),
-  teaching_experience_details: z.string().trim().min(10).max(1000),
+  teaching_experience_details: z.string().trim().min(3).max(1000),
   availability_to_start: z.string().trim().min(2).max(100),
   expected_students_count: z.number().int().min(0).max(100000),
   offers_research_services: z.string().trim().min(1).max(100),
@@ -61,19 +61,23 @@ export const InstructorProfileWizard = ({ onCompleted }: Props) => {
     !!form.date_of_birth &&
     form.gender.trim().length >= 2;
 
-  const step2Valid =
-    form.education_status.trim().length >= 2 &&
-    form.institution_name.trim().length >= 2 &&
-    form.specialty.trim().length >= 2 &&
-    form.teaching_experience_years.trim().length >= 1 &&
-    form.teaching_experience_details.trim().length >= 10 &&
-    form.availability_to_start.trim().length >= 2 &&
-    form.expected_students_count !== '' &&
-    Number(form.expected_students_count) >= 0 &&
-    form.offers_research_services.trim().length >= 1 &&
-    form.referral_source.trim().length >= 2;
+  const step2Missing: string[] = [];
+  if (form.education_status.trim().length < 2) step2Missing.push(isRTL ? 'الحالة الأكاديمية' : 'Academic status');
+  if (form.institution_name.trim().length < 2) step2Missing.push(isRTL ? 'الجهة التعليمية' : 'Institution');
+  if (form.specialty.trim().length < 2) step2Missing.push(isRTL ? 'التخصص' : 'Specialty');
+  if (form.teaching_experience_years.trim().length < 1) step2Missing.push(isRTL ? 'سنوات الخبرة' : 'Years of experience');
+  if (form.teaching_experience_details.trim().length < 3) step2Missing.push(isRTL ? 'نبذة عن خبرتك' : 'Experience details');
+  if (form.availability_to_start.trim().length < 2) step2Missing.push(isRTL ? 'جاهزية البدء' : 'Availability');
+  if (form.expected_students_count === '' || Number(form.expected_students_count) < 0) step2Missing.push(isRTL ? 'عدد الطلاب المتوقع' : 'Expected students');
+  if (form.offers_research_services.trim().length < 1) step2Missing.push(isRTL ? 'الخدمات البحثية' : 'Research services');
+  if (form.referral_source.trim().length < 2) step2Missing.push(isRTL ? 'من أين سمعت عنا' : 'Referral source');
+  const step2Valid = step2Missing.length === 0;
 
   const handleSubmit = async () => {
+    if (!step2Valid) {
+      toast.error((isRTL ? 'يرجى تعبئة: ' : 'Please fill: ') + step2Missing.join('، '));
+      return;
+    }
     const parsed = schema.safeParse({
       ...form,
       expected_students_count: Number(form.expected_students_count),
@@ -265,7 +269,7 @@ export const InstructorProfileWizard = ({ onCompleted }: Props) => {
             <Next className="w-4 h-4" />
           </Button>
         ) : (
-          <Button onClick={handleSubmit} disabled={!step2Valid || saving} className="gap-2">
+          <Button onClick={handleSubmit} disabled={saving} className="gap-2">
             {saving && <Loader2 className="w-4 h-4 animate-spin" />}
             {isRTL ? 'متابعة للسياسات' : 'Continue to policies'}
           </Button>
