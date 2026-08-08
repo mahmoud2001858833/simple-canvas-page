@@ -269,7 +269,7 @@ export const InstructorProfileWizard = ({ onCompleted }: Props) => {
             <Next className="w-4 h-4" />
           </Button>
         ) : (
-          <Button onClick={handleSubmit} disabled={!step2Valid || saving} className="gap-2">
+          <Button onClick={handleSubmit} disabled={saving} className="gap-2">>
             {saving && <Loader2 className="w-4 h-4 animate-spin" />}
             {isRTL ? 'متابعة للسياسات' : 'Continue to policies'}
           </Button>
