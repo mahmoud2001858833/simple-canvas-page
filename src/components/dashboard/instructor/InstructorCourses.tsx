@@ -100,6 +100,12 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [aiImagePrompt, setAiImagePrompt] = useState('');
   const [qrCourse, setQrCourse] = useState<{ id: string; title: string; slug?: string } | null>(null);
+  // Live (Zoom) course creation
+  const [liveMode, setLiveMode] = useState(false);
+  const [activeTab, setActiveTab] = useState<'info' | 'live'>('info');
+  const [liveUrl, setLiveUrl] = useState('');
+  const [liveDate, setLiveDate] = useState('');
+
   const [adCourse, setAdCourse] = useState<{
     id: string; title: string; slug?: string; price?: number; duration?: number;
     thumbnail?: string; university?: string; college?: string; major?: string;
