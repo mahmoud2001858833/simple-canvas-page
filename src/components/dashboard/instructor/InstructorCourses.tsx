@@ -563,23 +563,68 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
               <ArrowLeft className={`w-4 h-4 ${dir === 'rtl' ? 'mr-2' : 'ml-2 rotate-180'}`} />
             </Button>
           )}
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-primary/40"
+            onClick={() => {
+              setEditingCourse(null);
+              resetForm();
+              setLiveMode(true);
+              setActiveTab('info');
+              setIsDialogOpen(true);
+            }}
+          >
+            <Radio className="w-4 h-4 me-2" />
+            {language === 'ar' ? 'دورة مباشرة' : 'Live course'}
+          </Button>
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
             setIsDialogOpen(open);
             if (!open) {
               setEditingCourse(null);
+              setLiveMode(false);
               resetForm();
             }
           }}>
             <DialogTrigger asChild>
-              <Button size="sm" className="bg-gradient-gold">
+              <Button size="sm" className="bg-gradient-gold" onClick={() => { setLiveMode(false); setActiveTab('info'); }}>
                 <Plus className="w-4 h-4 me-2" />
                 {t.addCourse}
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>{editingCourse ? t.editCourse : t.addCourse}</DialogTitle>
+                <DialogTitle>
+                  {editingCourse
+                    ? t.editCourse
+                    : liveMode
+                      ? (language === 'ar' ? 'إنشاء دورة مباشرة' : 'Create live course')
+                      : t.addCourse}
+                </DialogTitle>
               </DialogHeader>
+
+              {liveMode && !editingCourse && (
+                <div className="grid grid-cols-2 gap-2 p-1 rounded-lg bg-muted mt-2">
+                  <Button
+                    type="button"
+                    variant={activeTab === 'info' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setActiveTab('info')}
+                  >
+                    {language === 'ar' ? 'المعلومات' : 'Information'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={activeTab === 'live' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setActiveTab('live')}
+                  >
+                    <Radio className="w-4 h-4 me-2" />
+                    {language === 'ar' ? 'رابط الزوم' : 'Zoom link'}
+                  </Button>
+                </div>
+              )}
+
               <form onSubmit={handleSubmit} className="space-y-4 mt-4">
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
