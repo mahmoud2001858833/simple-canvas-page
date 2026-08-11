@@ -100,6 +100,28 @@ export const NelcIntegration = () => {
     }
   };
 
+  const resendFailed = async () => {
+    setResending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('xapi-track', {
+        body: { resendFailed: true },
+      });
+      if (error) throw error;
+      const d = data as any;
+      if (d?.resent === 0) {
+        toast.info('لا توجد عبارات فاشلة لإعادة إرسالها');
+      } else {
+        toast.success(`تمت إعادة إرسال ${d?.resent ?? 0} عبارة — نجح: ${d?.succeeded ?? 0} (آخر رد: HTTP ${d?.lastStatus ?? '-'})`);
+      }
+      refetch();
+    } catch (e: any) {
+      toast.error(e.message || 'فشل إعادة الإرسال');
+    } finally {
+      setResending(false);
+    }
+  };
+
+
   return (
     <div className="space-y-6">
       <Card>
