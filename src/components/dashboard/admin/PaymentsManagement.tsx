@@ -78,10 +78,17 @@ export const PaymentsManagement = () => {
   const { data: payments, isLoading } = useQuery({
     queryKey: ['admin-payments', search, statusFilter, dateFrom, dateTo],
     queryFn: async () => {
+      // Strict rule: no online payment may stay "pending". Auto-fail anything
+      // older than 2 minutes that was never confirmed by the gateway.
+      try {
+        await supabase.rpc('expire_stale_online_payments' as any, { p_minutes: 2 });
+      } catch (_) { /* non blocking */ }
+
       let query = supabase
         .from('payments')
         .select(`*, course:courses(title, title_ar, instructor_id, instructor_commission)`)
         .order('created_at', { ascending: false });
+
 
       if (statusFilter === 'abandoned') {
         const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
