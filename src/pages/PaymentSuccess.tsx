@@ -36,7 +36,7 @@ const PaymentSuccess = () => {
   const [maxWaitReached, setMaxWaitReached] = useState(false);
 
   // Fetch payment details
-  const { data: payment, isLoading } = useQuery({
+  const { data: payment, isLoading, refetch } = useQuery({
     queryKey: ['payment-success', paymentId],
     queryFn: async () => {
       if (!paymentId) return null;
@@ -81,41 +81,66 @@ const PaymentSuccess = () => {
 
   const isPaid = payment?.status === 'paid';
 
+  // Ask the gateway directly for the real transaction status instead of
+  // waiting only for the webhook. Runs immediately, then every 3s.
+  useEffect(() => {
+    if (!paymentId) return;
+    if (payment && payment.status !== 'pending') return;
+
+    let cancelled = false;
+    let attempts = 0;
+
+    const verify = async () => {
+      attempts += 1;
+      try {
+        const { data, error } = await supabase.functions.invoke('verify-alinma-payment', {
+          body: { paymentId },
+        });
+        if (error) console.warn('verify-alinma-payment error', error.message);
+        const status = (data as any)?.status;
+        if (!cancelled && status && status !== 'pending') {
+          await refetch();
+        }
+      } catch (err) {
+        console.warn('verify-alinma-payment failed', err);
+      }
+      if (!cancelled && attempts < 20) {
+        setTimeout(verify, 3000);
+      }
+    };
+
+    verify();
+    return () => {
+      cancelled = true;
+    };
+  }, [paymentId, payment?.status, refetch]);
+
   // Create enrollment client-side as fallback when payment is confirmed
   useEffect(() => {
     if (!isPaid || !resolvedCourseId || !user) return;
-    
+
     const ensureEnrollment = async () => {
       try {
-        // Check if enrollment already exists
-        const { data: existing } = await supabase
+        const { error } = await supabase
           .from('enrollments')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('course_id', resolvedCourseId)
-          .maybeSingle();
-        
-        if (!existing) {
-          await supabase.from('enrollments').insert({
-            user_id: user.id,
-            course_id: resolvedCourseId,
-            status: 'active',
-          });
-          console.log('Enrollment created client-side as fallback');
-        }
+          .upsert(
+            { user_id: user.id, course_id: resolvedCourseId, status: 'active' },
+            { onConflict: 'user_id,course_id', ignoreDuplicates: true },
+          );
+        if (error) console.log('Enrollment fallback skipped:', error.message);
         // NELC xAPI: learner registered in the course
         trackXapi({ verb: 'registered', courseId: resolvedCourseId });
       } catch (err) {
         console.log('Enrollment fallback skipped (may already exist):', err);
       }
     };
-    
+
     ensureEnrollment();
   }, [isPaid, resolvedCourseId, user]);
 
-  // Give the gateway webhook up to 30s; after that the payment is rejected (never left pending)
+  // Give the gateway up to 90s; after that the payment is rejected (never left pending)
   useEffect(() => {
-    const maxWait = setTimeout(() => setMaxWaitReached(true), 30000);
+    const maxWait = setTimeout(() => setMaxWaitReached(true), 90000);
     return () => clearTimeout(maxWait);
   }, []);
 
@@ -133,6 +158,7 @@ const PaymentSuccess = () => {
     };
     markFailed();
   }, [maxWaitReached, payment, paymentId, navigate]);
+
 
   const shouldRedirect = !!resolvedCourseId && isPaid;
 

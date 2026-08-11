@@ -307,7 +307,11 @@ serve(async (req) => {
       requestId: rid,
     });
 
-    const gatewayPayload = {
+    // Server-to-server notification so the payment is confirmed even if the
+    // customer never returns to the receipt page.
+    const callbackUrl = `${supabaseUrl}/functions/v1/alinma-webhook`;
+
+    const gatewayPayload: Record<string, unknown> = {
       terminalId,
       password,
       signature,
@@ -327,10 +331,13 @@ serve(async (req) => {
         billingAddressCountry: "SA",
       },
       receipt: receiptUrl,
+      callbackUrl,
+      notificationUrl: callbackUrl,
       additionalDetails: {
         userData,
       },
     };
+
 
     console.log("=== AlinmaPay Request ===");
     console.log("OrderId:", orderId, "Amount:", formattedAmount, currency);
@@ -343,19 +350,35 @@ serve(async (req) => {
         .replaceAll(signature, "[sig]"),
     );
 
-    // Single POST — no retries, no variants
-    const resp = await fetch(GATEWAY_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify(gatewayPayload),
-    });
+    const postGateway = async (payload: Record<string, unknown>) => {
+      const r = await fetch(GATEWAY_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+      return { status: r.status, text: await r.text() };
+    };
 
-    const rawText = await resp.text();
-    console.log("Response status:", resp.status);
+    let { status: gwStatus, text: rawText } = await postGateway(gatewayPayload);
+
+    // Some gateway profiles reject unknown fields — retry once without the
+    // callback keys so payment creation never breaks because of them.
+    if (gwStatus >= 400 || /callbackUrl|notificationUrl|Missing mandatory|unknown field/i.test(rawText)) {
+      const { callbackUrl: _c, notificationUrl: _n, ...fallbackPayload } = gatewayPayload;
+      console.warn("Retrying gateway request without callback fields");
+      const retry = await postGateway(fallbackPayload);
+      if (retry.status < 400) {
+        gwStatus = retry.status;
+        rawText = retry.text;
+      }
+    }
+
+    console.log("Response status:", gwStatus);
     console.log("Response body:", rawText.substring(0, 2000));
+
 
     let parsed: Record<string, unknown>;
     try {

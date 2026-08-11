@@ -444,11 +444,12 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `course-${Date.now()}.${fileExt}`;
-      const filePath = `course-thumbnails/${user?.id}/${fileName}`;
+      // First folder must be the user id to satisfy storage policies
+      const filePath = `${user?.id}/course-thumbnails/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('chat-images')
-        .upload(filePath, file);
+        .upload(filePath, file, { contentType: file.type, upsert: false });
 
       if (uploadError) throw uploadError;
 
@@ -458,13 +459,17 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
 
       setFormData(prev => ({ ...prev, thumbnail_url: publicUrl }));
       toast.success(language === 'ar' ? 'تم رفع الصورة بنجاح' : 'Image uploaded successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading image:', error);
-      toast.error(language === 'ar' ? 'فشل في رفع الصورة' : 'Failed to upload image');
+      toast.error(
+        (language === 'ar' ? 'فشل في رفع الصورة: ' : 'Failed to upload image: ') +
+          (error?.message || ''),
+      );
     } finally {
       setIsUploading(false);
     }
   };
+
 
   const handleGenerateAIImage = async () => {
     if (!formData.title) {
@@ -491,11 +496,15 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
       }
     } catch (error: any) {
       console.error('Error generating AI image:', error);
-      toast.error(language === 'ar' ? 'فشل في إنشاء الصورة' : 'Failed to generate image');
+      toast.error(
+        (language === 'ar' ? 'فشل في إنشاء الصورة: ' : 'Failed to generate image: ') +
+          (error?.message || ''),
+      );
     } finally {
       setIsGeneratingAI(false);
     }
   };
+
 
   if (loading) {
     return <InstructorCoursesSkeleton rows={limit || 3} />;

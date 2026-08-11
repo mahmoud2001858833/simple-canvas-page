@@ -309,7 +309,9 @@ export const CoursesManagement = () => {
     
     setIsUploadingImage(true);
     try {
-      const fileName = `course-thumbnails/${Date.now()}-${file.name}`;
+      const { data: authUser } = await supabase.auth.getUser();
+      const safeName = file.name.replace(/[^\w.\-]/g, '_');
+      const fileName = `${authUser?.user?.id}/course-thumbnails/${Date.now()}-${safeName}`;
       const { error: uploadError } = await supabase.storage
         .from('chat-images')
         .upload(fileName, file, { contentType: file.type, upsert: false });
@@ -322,9 +324,10 @@ export const CoursesManagement = () => {
       
       setThumbnailUrl(publicUrlData.publicUrl);
       toast.success(language === 'ar' ? 'تم رفع الصورة بنجاح' : 'Image uploaded successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Upload error:', error);
-      toast.error(language === 'ar' ? 'فشل رفع الصورة' : 'Failed to upload image');
+      toast.error((language === 'ar' ? 'فشل رفع الصورة: ' : 'Failed to upload image: ') + (error?.message || ''));
+
     } finally {
       setIsUploadingImage(false);
     }

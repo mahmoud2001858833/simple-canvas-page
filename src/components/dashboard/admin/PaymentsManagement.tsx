@@ -251,6 +251,28 @@ export const PaymentsManagement = () => {
     onError: (e: any) => toast.error(e.message),
   });
 
+  // Ask the payment gateway for the real status of every stuck pending payment
+  const reconcileMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('verify-alinma-payment', {
+        body: { reconcileAll: true },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      return data as any;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-payments'] });
+      toast.success(
+        language === 'ar'
+          ? `تمت مراجعة ${data?.checked ?? 0} عملية — مدفوعة: ${data?.paid ?? 0}، مرفوضة: ${data?.failed ?? 0}، غير محسومة: ${data?.unknown ?? 0}`
+          : `Checked ${data?.checked ?? 0} — paid: ${data?.paid ?? 0}, failed: ${data?.failed ?? 0}, unknown: ${data?.unknown ?? 0}`,
+      );
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+
   const addManualPaymentMutation = useMutation({
     mutationFn: async (data: typeof newPayment) => {
       const { data: user, error: userError } = await supabase
@@ -345,7 +367,16 @@ export const PaymentsManagement = () => {
             {language === 'ar' ? 'تتبع وإدارة المدفوعات' : 'Track and manage payments'}
           </p>
         </div>
+        <Button
+          variant="outline"
+          disabled={reconcileMutation.isPending}
+          onClick={() => reconcileMutation.mutate()}
+        >
+          <RefreshCw className={`w-4 h-4 me-2 ${reconcileMutation.isPending ? 'animate-spin' : ''}`} />
+          {language === 'ar' ? 'مطابقة المدفوعات المعلقة' : 'Reconcile Pending Payments'}
+        </Button>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+
           <DialogTrigger asChild>
             <Button className="btn-gold">
               <Plus className="w-4 h-4 me-2" />
