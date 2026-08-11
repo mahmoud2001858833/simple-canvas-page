@@ -350,8 +350,27 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
           .single();
 
         if (error) throw error;
+
+        // Live course: create the first live session lesson with the Zoom link
+        if (liveMode && newCourse) {
+          const { error: lessonError } = await supabase.from('lessons').insert({
+            course_id: newCourse.id,
+            title: formData.title,
+            title_ar: formData.title_ar,
+            description: formData.description || null,
+            is_live: true,
+            live_url: liveUrl.trim(),
+            live_date: liveDate ? new Date(liveDate).toISOString() : null,
+            sort_order: 1,
+          } as any);
+          if (lessonError) {
+            console.error('Error creating live session:', lessonError);
+            toast.error(language === 'ar' ? 'تم إنشاء الدورة لكن تعذّر حفظ جلسة البث' : 'Course created but the live session could not be saved');
+          }
+        }
+
         toast.success(t.successAdd);
-        
+
         // Navigate to chapters page for the new course
         setIsDialogOpen(false);
         setEditingCourse(null);
@@ -364,6 +383,7 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
           });
         }
         return;
+
       }
 
       setIsDialogOpen(false);
