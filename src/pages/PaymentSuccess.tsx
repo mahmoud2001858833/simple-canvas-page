@@ -17,6 +17,7 @@ import {
   Loader2
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { trackXapi } from '@/lib/xapi';
 
 const AUTO_REDIRECT_SECONDS = 3;
 
@@ -102,6 +103,8 @@ const PaymentSuccess = () => {
           });
           console.log('Enrollment created client-side as fallback');
         }
+        // NELC xAPI: learner registered in the course
+        trackXapi({ verb: 'registered', courseId: resolvedCourseId });
       } catch (err) {
         console.log('Enrollment fallback skipped (may already exist):', err);
       }

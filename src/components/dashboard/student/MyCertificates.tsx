@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
@@ -9,6 +10,7 @@ import { Award, Download, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 import { ar, enUS } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
+import { trackXapi } from '@/lib/xapi';
 
 export const MyCertificates = () => {
   const { language } = useLanguage();
@@ -33,6 +35,24 @@ export const MyCertificates = () => {
     },
     enabled: !!user,
   });
+
+  // NELC xAPI: report earned certificates once each
+  useEffect(() => {
+    if (!certificates?.length) return;
+    const key = 'xapi_earned_sent';
+    const sent = new Set<string>(JSON.parse(localStorage.getItem(key) || '[]'));
+    certificates.forEach((cert: any) => {
+      if (sent.has(cert.id)) return;
+      sent.add(cert.id);
+      trackXapi({
+        verb: 'earned',
+        courseId: cert.course_id,
+        objectName: cert.course?.title || cert.course?.title_ar,
+        certificateUrl: `${window.location.origin}/certificate/${cert.certificate_number}`,
+      });
+    });
+    localStorage.setItem(key, JSON.stringify([...sent]));
+  }, [certificates]);
 
   const formatDate = (dateStr: string) => {
     return format(new Date(dateStr), 'd MMMM yyyy', {

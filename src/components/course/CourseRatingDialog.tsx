@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { Star } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { trackXapi } from '@/lib/xapi';
 
 interface CourseRatingDialogProps {
   open: boolean;
@@ -82,6 +83,14 @@ export const CourseRatingDialog = ({ open, onOpenChange, courseId, isRTL }: Cour
         });
         if (error) throw error;
       }
+
+      // NELC xAPI: learner rated the course
+      trackXapi({
+        verb: 'rated',
+        courseId,
+        score: { raw: starsRating, min: 0, max: 5, scaled: starsRating / 5 },
+        response: comment.trim() || undefined,
+      });
 
       toast.success(isRTL ? 'شكراً لتقييمك!' : 'Thank you for your rating!');
       onOpenChange(false);

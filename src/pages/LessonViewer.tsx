@@ -50,6 +50,7 @@ import { LessonAttachments } from "@/components/course/LessonAttachments";
 import { LessonAIAssistant } from "@/components/video/LessonAIAssistant";
 import { VideoNotesPanel } from "@/components/video/VideoNotesPanel";
 import { CourseRatingDialog } from "@/components/course/CourseRatingDialog";
+import { trackXapi } from "@/lib/xapi";
 
 // Onboarding steps for Lesson Viewer page
 const lessonOnboardingSteps = [
@@ -230,6 +231,13 @@ const LessonViewer = () => {
     return accessibleChapterIds.has(chapterId);
   })();
 
+  // NELC xAPI: learner initialized the course session
+  useEffect(() => {
+    if (!user || !courseId || !hasAccess) return;
+    trackXapi({ verb: "initialized", courseId });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, courseId, hasAccess]);
+
   // Fetch video URL using Cloudflare Worker
   // For preview lessons, allow access even without user login
   const { 
@@ -330,7 +338,24 @@ const LessonViewer = () => {
     },
     onSuccess: () => {
       toast.success(isRTL ? "تم إكمال الدرس!" : "Lesson completed!");
-      
+
+      // NELC xAPI: lesson video watched + lesson completed
+      trackXapi({
+        verb: "watched",
+        courseId,
+        lessonId,
+        objectName: currentLesson?.title || currentLesson?.title_ar,
+        durationSeconds: Math.round(duration || 0),
+        completion: true,
+      });
+      trackXapi({
+        verb: "completed",
+        courseId,
+        lessonId,
+        objectName: currentLesson?.title || currentLesson?.title_ar,
+        durationSeconds: Math.round(duration || 0),
+      });
+
       // Update enrollment progress
       if (enrollment) {
         const completedCount = allProgress.filter((p) => p.completed).length + 1;
@@ -341,14 +366,24 @@ const LessonViewer = () => {
           .update({ progress: progressPercent })
           .eq("id", enrollment.id)
           .then(() => {
+            // NELC xAPI: overall course progress
+            trackXapi({
+              verb: "progressed",
+              courseId,
+              score: { scaled: progressPercent / 100 },
+              completion: progressPercent >= 100,
+            });
+
             // Show rating dialog when course is 100% complete
             if (progressPercent >= 100) {
+              trackXapi({ verb: "completed", courseId });
               setTimeout(() => setShowRatingDialog(true), 1000);
             }
           });
       }
     },
   });
+
 
   // Video event handlers
   const handleTimeUpdate = () => {
