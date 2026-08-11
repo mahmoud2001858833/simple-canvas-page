@@ -626,13 +626,40 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
               )}
 
               <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+                {liveMode && !editingCourse && activeTab === 'live' && (
+                  <div className="space-y-4 p-4 rounded-xl border border-primary/30 bg-primary/5">
+                    <div>
+                      <Label>{language === 'ar' ? 'رابط الزوم / البث المباشر' : 'Zoom / live stream link'}</Label>
+                      <Input
+                        value={liveUrl}
+                        onChange={(e) => setLiveUrl(e.target.value)}
+                        placeholder="https://zoom.us/j/123456789"
+                        dir="ltr"
+                      />
+                    </div>
+                    <div>
+                      <Label>{language === 'ar' ? 'موعد البث' : 'Live session date'}</Label>
+                      <Input
+                        type="datetime-local"
+                        value={liveDate}
+                        onChange={(e) => setLiveDate(e.target.value)}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {language === 'ar'
+                        ? 'سيتم إنشاء جلسة مباشرة داخل الدورة بهذا الرابط، ويظهر للطلاب المسجلين فقط.'
+                        : 'A live session will be created inside the course with this link, visible to enrolled students only.'}
+                    </p>
+                  </div>
+                )}
+
+                <div className={liveMode && !editingCourse && activeTab === 'live' ? 'hidden' : 'space-y-4'}>
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
                     <Label>{t.courseTitle}</Label>
                     <Input
                       value={formData.title}
                       onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                      required
                     />
                   </div>
                   <div>
@@ -640,11 +667,11 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
                     <Input
                       value={formData.title_ar}
                       onChange={(e) => setFormData({ ...formData, title_ar: e.target.value })}
-                      required
                       dir="rtl"
                     />
                   </div>
                 </div>
+
                 <div>
                   <div className="flex items-center justify-between">
                     <Label>{t.courseDesc}</Label>
