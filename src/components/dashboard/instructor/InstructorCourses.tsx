@@ -270,8 +270,20 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    if (!formData.title.trim() || !formData.title_ar.trim()) {
+      setActiveTab('info');
+      toast.error(language === 'ar' ? 'يرجى إدخال عنوان الدورة بالعربية والإنجليزية' : 'Please enter the course title in Arabic and English');
+      return;
+    }
+    if (liveMode && !liveUrl.trim()) {
+      setActiveTab('live');
+      toast.error(language === 'ar' ? 'يرجى إدخال رابط الزوم' : 'Please enter the Zoom link');
+      return;
+    }
+
     try {
+
       if (editingCourse) {
         const { error } = await supabase
           .from('courses')
