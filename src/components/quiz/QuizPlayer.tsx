@@ -93,6 +93,19 @@ export const QuizPlayer = ({ quizId, onBack }: QuizPlayerProps) => {
       if (error) throw error;
       setResult(data);
       setSubmitted(true);
+
+      // NELC xAPI: quiz attempted
+      const total = data?.total || 1;
+      const raw = data?.score ?? 0;
+      trackXapi({
+        verb: 'attempted',
+        quizId,
+        courseId: (quiz as any)?.course_id || undefined,
+        objectName: (quiz as any)?.title || (quiz as any)?.title_ar,
+        score: { raw, min: 0, max: total, scaled: total ? raw / total : 0 },
+        success: total ? raw / total >= 0.5 : false,
+        completion: true,
+      });
     } catch (err) {
       console.error('Quiz submission error:', err);
       toast.error(t.submitError);
