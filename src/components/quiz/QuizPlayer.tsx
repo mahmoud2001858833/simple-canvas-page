@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { CheckCircle, XCircle, ArrowLeft, Trophy, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { trackXapi } from '@/lib/xapi';
 
 interface QuizPlayerProps {
   quizId: string;
