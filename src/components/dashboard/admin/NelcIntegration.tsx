@@ -20,6 +20,8 @@ export const NelcIntegration = () => {
   const [nationalId, setNationalId] = useState('');
   const [courseId, setCourseId] = useState('');
   const [running, setRunning] = useState(false);
+  const [resending, setResending] = useState(false);
+
 
   const { data: courses = [] } = useQuery({
     queryKey: ['nelc-courses'],
