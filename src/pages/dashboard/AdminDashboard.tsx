@@ -242,6 +242,13 @@ const AdminDashboard = () => {
             <TermsManagement />
           </Suspense>
         );
+      case 'nelc':
+        return (
+          <Suspense fallback={<LoadingFallback type="terms" />}>
+            <NelcIntegration />
+          </Suspense>
+        );
+
       case 'capture-attempts':
         return (
           <Suspense fallback={<LoadingFallback type="capture-attempts" />}>
