@@ -18,7 +18,7 @@ import {
   DollarSign, TrendingUp, TrendingDown, Users, CheckCircle, Clock,
   Download, ArrowUpRight, ArrowDownRight, Wallet, CreditCard, Building2,
   RefreshCw, Search, Filter, Percent, ArrowRight, Banknote, Receipt,
-  BookOpen, UserCheck, XCircle, Calendar, FileText, PiggyBank
+  BookOpen, UserCheck, XCircle, Calendar, FileText, Landmark
 } from 'lucide-react';
 import { format, subMonths, startOfMonth, endOfMonth, startOfWeek, subDays, isWithinInterval } from 'date-fns';
 import { ar as arLocale } from 'date-fns/locale';
@@ -412,7 +412,7 @@ export const AccountingLedger = () => {
             <CardContent className="p-5">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
-                  <PiggyBank className="w-5 h-5 text-primary" />
+                  <Landmark className="w-5 h-5 text-primary" />
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">{isRTL ? 'صافي المنصة' : 'Platform Net'}</p>
