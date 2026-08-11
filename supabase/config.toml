@@ -65,3 +65,9 @@ verify_jwt = false
 
 [functions.submit-quiz]
 verify_jwt = false
+
+[functions.verify-alinma-payment]
+verify_jwt = false
+
+[functions.xapi-track]
+verify_jwt = false
