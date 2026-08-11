@@ -26,7 +26,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { BookOpen, Users, Clock, Plus, Edit, Eye, ArrowLeft, Video, Upload, X, Loader2, ImageIcon, QrCode, Sparkles, Link2, Megaphone } from 'lucide-react';
+import { BookOpen, Users, Clock, Plus, Edit, Eye, ArrowLeft, Video, Upload, X, Loader2, ImageIcon, QrCode, Sparkles, Link2, Megaphone, Radio } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { InstructorChapters } from './InstructorChapters';
@@ -100,6 +100,12 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
   const [isGeneratingAI, setIsGeneratingAI] = useState(false);
   const [aiImagePrompt, setAiImagePrompt] = useState('');
   const [qrCourse, setQrCourse] = useState<{ id: string; title: string; slug?: string } | null>(null);
+  // Live (Zoom) course creation
+  const [liveMode, setLiveMode] = useState(false);
+  const [activeTab, setActiveTab] = useState<'info' | 'live'>('info');
+  const [liveUrl, setLiveUrl] = useState('');
+  const [liveDate, setLiveDate] = useState('');
+
   const [adCourse, setAdCourse] = useState<{
     id: string; title: string; slug?: string; price?: number; duration?: number;
     thumbnail?: string; university?: string; college?: string; major?: string;
@@ -264,8 +270,20 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
+    if (!formData.title.trim() || !formData.title_ar.trim()) {
+      setActiveTab('info');
+      toast.error(language === 'ar' ? 'يرجى إدخال عنوان الدورة بالعربية والإنجليزية' : 'Please enter the course title in Arabic and English');
+      return;
+    }
+    if (liveMode && !liveUrl.trim()) {
+      setActiveTab('live');
+      toast.error(language === 'ar' ? 'يرجى إدخال رابط الزوم' : 'Please enter the Zoom link');
+      return;
+    }
+
     try {
+
       if (editingCourse) {
         const { error } = await supabase
           .from('courses')
@@ -332,8 +350,27 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
           .single();
 
         if (error) throw error;
+
+        // Live course: create the first live session lesson with the Zoom link
+        if (liveMode && newCourse) {
+          const { error: lessonError } = await supabase.from('lessons').insert({
+            course_id: newCourse.id,
+            title: formData.title,
+            title_ar: formData.title_ar,
+            description: formData.description || null,
+            is_live: true,
+            live_url: liveUrl.trim(),
+            live_date: liveDate ? new Date(liveDate).toISOString() : null,
+            sort_order: 1,
+          } as any);
+          if (lessonError) {
+            console.error('Error creating live session:', lessonError);
+            toast.error(language === 'ar' ? 'تم إنشاء الدورة لكن تعذّر حفظ جلسة البث' : 'Course created but the live session could not be saved');
+          }
+        }
+
         toast.success(t.successAdd);
-        
+
         // Navigate to chapters page for the new course
         setIsDialogOpen(false);
         setEditingCourse(null);
@@ -346,6 +383,7 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
           });
         }
         return;
+
       }
 
       setIsDialogOpen(false);
@@ -381,7 +419,11 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
     });
     setSelectedUniversityId('');
     setSelectedCollegeId('');
+    setLiveUrl('');
+    setLiveDate('');
+    setActiveTab('info');
   };
+
 
   const openEditDialog = async (course: Course) => {
     setEditingCourse(course);
@@ -521,31 +563,103 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
               <ArrowLeft className={`w-4 h-4 ${dir === 'rtl' ? 'mr-2' : 'ml-2 rotate-180'}`} />
             </Button>
           )}
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-primary/40"
+            onClick={() => {
+              setEditingCourse(null);
+              resetForm();
+              setLiveMode(true);
+              setActiveTab('info');
+              setIsDialogOpen(true);
+            }}
+          >
+            <Radio className="w-4 h-4 me-2" />
+            {language === 'ar' ? 'دورة مباشرة' : 'Live course'}
+          </Button>
           <Dialog open={isDialogOpen} onOpenChange={(open) => {
             setIsDialogOpen(open);
             if (!open) {
               setEditingCourse(null);
+              setLiveMode(false);
               resetForm();
             }
           }}>
             <DialogTrigger asChild>
-              <Button size="sm" className="bg-gradient-gold">
+              <Button size="sm" className="bg-gradient-gold" onClick={() => { setLiveMode(false); setActiveTab('info'); }}>
                 <Plus className="w-4 h-4 me-2" />
                 {t.addCourse}
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>{editingCourse ? t.editCourse : t.addCourse}</DialogTitle>
+                <DialogTitle>
+                  {editingCourse
+                    ? t.editCourse
+                    : liveMode
+                      ? (language === 'ar' ? 'إنشاء دورة مباشرة' : 'Create live course')
+                      : t.addCourse}
+                </DialogTitle>
               </DialogHeader>
+
+              {liveMode && !editingCourse && (
+                <div className="grid grid-cols-2 gap-2 p-1 rounded-lg bg-muted mt-2">
+                  <Button
+                    type="button"
+                    variant={activeTab === 'info' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setActiveTab('info')}
+                  >
+                    {language === 'ar' ? 'المعلومات' : 'Information'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={activeTab === 'live' ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setActiveTab('live')}
+                  >
+                    <Radio className="w-4 h-4 me-2" />
+                    {language === 'ar' ? 'رابط الزوم' : 'Zoom link'}
+                  </Button>
+                </div>
+              )}
+
               <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+                {liveMode && !editingCourse && activeTab === 'live' && (
+                  <div className="space-y-4 p-4 rounded-xl border border-primary/30 bg-primary/5">
+                    <div>
+                      <Label>{language === 'ar' ? 'رابط الزوم / البث المباشر' : 'Zoom / live stream link'}</Label>
+                      <Input
+                        value={liveUrl}
+                        onChange={(e) => setLiveUrl(e.target.value)}
+                        placeholder="https://zoom.us/j/123456789"
+                        dir="ltr"
+                      />
+                    </div>
+                    <div>
+                      <Label>{language === 'ar' ? 'موعد البث' : 'Live session date'}</Label>
+                      <Input
+                        type="datetime-local"
+                        value={liveDate}
+                        onChange={(e) => setLiveDate(e.target.value)}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {language === 'ar'
+                        ? 'سيتم إنشاء جلسة مباشرة داخل الدورة بهذا الرابط، ويظهر للطلاب المسجلين فقط.'
+                        : 'A live session will be created inside the course with this link, visible to enrolled students only.'}
+                    </p>
+                  </div>
+                )}
+
+                <div className={liveMode && !editingCourse && activeTab === 'live' ? 'hidden' : 'space-y-4'}>
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
                     <Label>{t.courseTitle}</Label>
                     <Input
                       value={formData.title}
                       onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                      required
                     />
                   </div>
                   <div>
@@ -553,11 +667,11 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
                     <Input
                       value={formData.title_ar}
                       onChange={(e) => setFormData({ ...formData, title_ar: e.target.value })}
-                      required
                       dir="rtl"
                     />
                   </div>
                 </div>
+
                 <div>
                   <div className="flex items-center justify-between">
                     <Label>{t.courseDesc}</Label>
@@ -916,7 +1030,9 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
                     </Label>
                   </div>
                 </div>
+                </div>
                 <div className="flex justify-end gap-2 pt-4">
+
                   <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                     {t.cancel}
                   </Button>
