@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
@@ -9,6 +10,7 @@ import { Award, Download, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 import { ar, enUS } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
+import { trackXapi } from '@/lib/xapi';
 
 export const MyCertificates = () => {
   const { language } = useLanguage();
