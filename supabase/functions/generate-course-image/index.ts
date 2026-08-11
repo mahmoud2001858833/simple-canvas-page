@@ -91,9 +91,8 @@ serve(async (req) => {
     const base64Data = imageUrl.replace(/^data:image\/\w+;base64,/, "");
     const imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const fileName2 = `ai-generated/course-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
+
 
     const fileName = `ai-generated/course-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
 
