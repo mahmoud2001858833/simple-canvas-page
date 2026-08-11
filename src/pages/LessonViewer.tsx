@@ -231,6 +231,13 @@ const LessonViewer = () => {
     return accessibleChapterIds.has(chapterId);
   })();
 
+  // NELC xAPI: learner initialized the course session
+  useEffect(() => {
+    if (!user || !courseId || !hasAccess) return;
+    trackXapi({ verb: "initialized", courseId });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, courseId, hasAccess]);
+
   // Fetch video URL using Cloudflare Worker
   // For preview lessons, allow access even without user login
   const { 
