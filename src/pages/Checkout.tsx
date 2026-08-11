@@ -202,20 +202,24 @@ const Checkout = () => {
     if (course && (course.price === 0 || course.price === null) && user && !isExistingEnrollment) {
       const enrollFree = async () => {
         try {
-          const { error } = await supabase.from('enrollments').insert({
-            user_id: user.id,
-            course_id: courseId!,
-            status: 'active',
-          });
+          const { error } = await supabase.from('enrollments').upsert(
+            {
+              user_id: user.id,
+              course_id: courseId!,
+              status: 'active',
+            },
+            { onConflict: 'user_id,course_id', ignoreDuplicates: true },
+          );
           if (error) {
-            if (error.message.includes('duplicate')) {
-              toast.info(isRTL ? 'أنت مسجل بالفعل في هذا الدورة' : 'You are already enrolled in this course');
+            if (/duplicate|conflict/i.test(error.message)) {
+              toast.info(isRTL ? 'أنت مسجل بالفعل في هذه الدورة' : 'You are already enrolled in this course');
             } else {
               throw error;
             }
           } else {
             toast.success(isRTL ? 'تم التسجيل بنجاح!' : 'Enrolled successfully!');
           }
+
           navigate(`/courses/${courseId}`, { replace: true });
         } catch (e: any) {
           toast.error(e.message);
