@@ -496,11 +496,15 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
       }
     } catch (error: any) {
       console.error('Error generating AI image:', error);
-      toast.error(language === 'ar' ? 'فشل في إنشاء الصورة' : 'Failed to generate image');
+      toast.error(
+        (language === 'ar' ? 'فشل في إنشاء الصورة: ' : 'Failed to generate image: ') +
+          (error?.message || ''),
+      );
     } finally {
       setIsGeneratingAI(false);
     }
   };
+
 
   if (loading) {
     return <InstructorCoursesSkeleton rows={limit || 3} />;
