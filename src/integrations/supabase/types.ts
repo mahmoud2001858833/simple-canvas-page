@@ -1642,6 +1642,7 @@ export type Database = {
           institution_name: string | null
           is_banned: boolean | null
           major_id: string | null
+          national_id: string | null
           nationality: string | null
           offers_research_services: boolean | null
           phone: string | null
@@ -1678,6 +1679,7 @@ export type Database = {
           institution_name?: string | null
           is_banned?: boolean | null
           major_id?: string | null
+          national_id?: string | null
           nationality?: string | null
           offers_research_services?: boolean | null
           phone?: string | null
@@ -1714,6 +1716,7 @@ export type Database = {
           institution_name?: string | null
           is_banned?: boolean | null
           major_id?: string | null
+          national_id?: string | null
           nationality?: string | null
           offers_research_services?: boolean | null
           phone?: string | null
@@ -2654,6 +2657,42 @@ export type Database = {
           rejection_reason?: string | null
           requested_at?: string
           status?: string
+        }
+        Relationships: []
+      }
+      xapi_statements: {
+        Row: {
+          course_id: string | null
+          created_at: string
+          id: string
+          response: string | null
+          statement: Json
+          status_code: number | null
+          success: boolean
+          user_id: string | null
+          verb: string
+        }
+        Insert: {
+          course_id?: string | null
+          created_at?: string
+          id?: string
+          response?: string | null
+          statement: Json
+          status_code?: number | null
+          success?: boolean
+          user_id?: string | null
+          verb: string
+        }
+        Update: {
+          course_id?: string | null
+          created_at?: string
+          id?: string
+          response?: string | null
+          statement?: Json
+          status_code?: number | null
+          success?: boolean
+          user_id?: string | null
+          verb?: string
         }
         Relationships: []
       }
