@@ -2710,6 +2710,10 @@ export type Database = {
         Args: { target_user_id: string }
         Returns: boolean
       }
+      expire_stale_online_payments: {
+        Args: { p_minutes?: number }
+        Returns: number
+      }
       generate_referral_code: { Args: never; Returns: string }
       get_admin_stats: { Args: never; Returns: Json }
       get_course_enrollment_counts: {
