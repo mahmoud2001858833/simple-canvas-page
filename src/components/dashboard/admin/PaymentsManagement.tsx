@@ -345,7 +345,16 @@ export const PaymentsManagement = () => {
             {language === 'ar' ? 'تتبع وإدارة المدفوعات' : 'Track and manage payments'}
           </p>
         </div>
+        <Button
+          variant="outline"
+          disabled={reconcileMutation.isPending}
+          onClick={() => reconcileMutation.mutate()}
+        >
+          <RefreshCw className={`w-4 h-4 me-2 ${reconcileMutation.isPending ? 'animate-spin' : ''}`} />
+          {language === 'ar' ? 'مطابقة المدفوعات المعلقة' : 'Reconcile Pending Payments'}
+        </Button>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+
           <DialogTrigger asChild>
             <Button className="btn-gold">
               <Plus className="w-4 h-4 me-2" />
