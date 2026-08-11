@@ -307,7 +307,11 @@ serve(async (req) => {
       requestId: rid,
     });
 
-    const gatewayPayload = {
+    // Server-to-server notification so the payment is confirmed even if the
+    // customer never returns to the receipt page.
+    const callbackUrl = `${supabaseUrl}/functions/v1/alinma-webhook`;
+
+    const gatewayPayload: Record<string, unknown> = {
       terminalId,
       password,
       signature,
@@ -327,10 +331,13 @@ serve(async (req) => {
         billingAddressCountry: "SA",
       },
       receipt: receiptUrl,
+      callbackUrl,
+      notificationUrl: callbackUrl,
       additionalDetails: {
         userData,
       },
     };
+
 
     console.log("=== AlinmaPay Request ===");
     console.log("OrderId:", orderId, "Amount:", formattedAmount, currency);
