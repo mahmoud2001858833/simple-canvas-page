@@ -259,8 +259,11 @@ export const PaymentsManagement = () => {
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
+      // Anything the gateway can't confirm and is older than 20 minutes fails.
+      await supabase.rpc('expire_stale_online_payments' as any, { p_minutes: 20 });
       return data as any;
     },
+
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['admin-payments'] });
       toast.success(

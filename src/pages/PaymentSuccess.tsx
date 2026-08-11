@@ -33,7 +33,6 @@ const PaymentSuccess = () => {
   const courseIdParam = searchParams.get('course_id');
 
   const [countdown, setCountdown] = useState(AUTO_REDIRECT_SECONDS);
-  const [maxWaitReached, setMaxWaitReached] = useState(false);
 
   // Fetch payment details
   const { data: payment, isLoading, refetch } = useQuery({
@@ -81,14 +80,24 @@ const PaymentSuccess = () => {
 
   const isPaid = payment?.status === 'paid';
 
-  // Ask the gateway directly for the real transaction status instead of
-  // waiting only for the webhook. Runs immediately, then every 3s.
+  // Ask the gateway directly for the real transaction status. Online payments
+  // resolve to paid or failed only — never left "pending".
   useEffect(() => {
     if (!paymentId) return;
     if (payment && payment.status !== 'pending') return;
 
     let cancelled = false;
     let attempts = 0;
+    const MAX_ATTEMPTS = 10; // ~25 seconds
+
+    const finishAsFailed = async () => {
+      try {
+        await supabase.rpc('mark_payment_failed' as any, { p_payment_id: paymentId });
+      } catch (err) {
+        console.error('Failed to mark payment as failed', err);
+      }
+      if (!cancelled) navigate(`/payment/failed?payment_id=${paymentId}`, { replace: true });
+    };
 
     const verify = async () => {
       attempts += 1;
@@ -98,22 +107,31 @@ const PaymentSuccess = () => {
         });
         if (error) console.warn('verify-alinma-payment error', error.message);
         const status = (data as any)?.status;
-        if (!cancelled && status && status !== 'pending') {
+        if (cancelled) return;
+        if (status === 'paid') {
           await refetch();
+          return;
+        }
+        if (status === 'failed') {
+          navigate(`/payment/failed?payment_id=${paymentId}`, { replace: true });
+          return;
         }
       } catch (err) {
         console.warn('verify-alinma-payment failed', err);
       }
-      if (!cancelled && attempts < 20) {
-        setTimeout(verify, 3000);
+      if (cancelled) return;
+      if (attempts >= MAX_ATTEMPTS) {
+        finishAsFailed();
+        return;
       }
+      setTimeout(verify, 2500);
     };
 
     verify();
     return () => {
       cancelled = true;
     };
-  }, [paymentId, payment?.status, refetch]);
+  }, [paymentId, payment?.status, refetch, navigate]);
 
   // Create enrollment client-side as fallback when payment is confirmed
   useEffect(() => {
@@ -138,26 +156,13 @@ const PaymentSuccess = () => {
     ensureEnrollment();
   }, [isPaid, resolvedCourseId, user]);
 
-  // Give the gateway up to 90s; after that the payment is rejected (never left pending)
+  // Any non-paid final status sends the student to the failure page
   useEffect(() => {
-    const maxWait = setTimeout(() => setMaxWaitReached(true), 90000);
-    return () => clearTimeout(maxWait);
-  }, []);
+    if (!paymentId || !payment) return;
+    if (payment.status === 'paid' || payment.status === 'pending') return;
+    navigate(`/payment/failed?payment_id=${paymentId}`, { replace: true });
+  }, [payment, paymentId, navigate]);
 
-  useEffect(() => {
-    if (!maxWaitReached || !paymentId) return;
-    if (payment && payment.status !== 'pending') return;
-
-    const markFailed = async () => {
-      try {
-        await supabase.rpc('mark_payment_failed' as any, { p_payment_id: paymentId });
-      } catch (err) {
-        console.error('Failed to mark payment as failed', err);
-      }
-      navigate(`/payment/failed?payment_id=${paymentId}`, { replace: true });
-    };
-    markFailed();
-  }, [maxWaitReached, payment, paymentId, navigate]);
 
 
   const shouldRedirect = !!resolvedCourseId && isPaid;
