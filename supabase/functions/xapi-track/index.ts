@@ -81,6 +81,64 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
+
+    // Admin-only: re-send previously failed statements exactly as stored
+    if (body?.resendFailed === true) {
+      const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: user.id, _role: "admin" });
+      if (!isAdmin) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: failed } = await supabase
+        .from("xapi_statements")
+        .select("id, statement")
+        .eq("success", false)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      let resent = 0;
+      let ok = 0;
+      let lastStatus = 0;
+      let lastResponse = "";
+
+      for (const row of failed ?? []) {
+        const r = await fetch(LRS_ENDPOINT, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Experience-API-Version": "1.0.3",
+            Authorization: "Basic " + btoa(`${LRS_USER}:${LRS_PASS}`),
+          },
+          body: JSON.stringify(row.statement),
+        });
+        const t = await r.text();
+        lastStatus = r.status;
+        lastResponse = t.slice(0, 500);
+        resent += 1;
+        if (r.ok) {
+          ok += 1;
+          await supabase
+            .from("xapi_statements")
+            .update({ success: true, status_code: r.status, response: t.slice(0, 2000) })
+            .eq("id", row.id);
+        } else {
+          await supabase
+            .from("xapi_statements")
+            .update({ status_code: r.status, response: t.slice(0, 2000) })
+            .eq("id", row.id);
+        }
+      }
+
+      return new Response(
+        JSON.stringify({ ok: true, resent, succeeded: ok, lastStatus, lastResponse }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+
     const {
       verb,
       courseId,
