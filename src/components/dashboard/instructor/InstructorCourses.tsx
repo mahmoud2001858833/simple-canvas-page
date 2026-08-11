@@ -26,7 +26,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { BookOpen, Users, Clock, Plus, Edit, Eye, ArrowLeft, Video, Upload, X, Loader2, ImageIcon, QrCode, Sparkles, Link2, Megaphone } from 'lucide-react';
+import { BookOpen, Users, Clock, Plus, Edit, Eye, ArrowLeft, Video, Upload, X, Loader2, ImageIcon, QrCode, Sparkles, Link2, Megaphone, Radio } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import { InstructorChapters } from './InstructorChapters';
