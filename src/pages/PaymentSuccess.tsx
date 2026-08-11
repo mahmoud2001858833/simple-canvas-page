@@ -33,7 +33,6 @@ const PaymentSuccess = () => {
   const courseIdParam = searchParams.get('course_id');
 
   const [countdown, setCountdown] = useState(AUTO_REDIRECT_SECONDS);
-  const [maxWaitReached, setMaxWaitReached] = useState(false);
 
   // Fetch payment details
   const { data: payment, isLoading, refetch } = useQuery({
