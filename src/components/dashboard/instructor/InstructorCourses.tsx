@@ -419,7 +419,11 @@ export const InstructorCourses = ({ limit, showViewAll, onViewAll }: InstructorC
     });
     setSelectedUniversityId('');
     setSelectedCollegeId('');
+    setLiveUrl('');
+    setLiveDate('');
+    setActiveTab('info');
   };
+
 
   const openEditDialog = async (course: Course) => {
     setEditingCourse(course);
