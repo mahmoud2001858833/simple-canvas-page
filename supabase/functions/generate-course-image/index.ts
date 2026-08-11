@@ -91,9 +91,6 @@ serve(async (req) => {
     const base64Data = imageUrl.replace(/^data:image\/\w+;base64,/, "");
     const imageBytes = Uint8Array.from(atob(base64Data), (c) => c.charCodeAt(0));
 
-    const fileName2 = `ai-generated/course-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
-
-
     const fileName = `ai-generated/course-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.png`;
 
     const { error: uploadError } = await supabase.storage
@@ -105,8 +102,9 @@ serve(async (req) => {
 
     if (uploadError) {
       console.error("Upload error:", uploadError);
-      throw new Error("Failed to upload generated image");
+      throw new Error(`Failed to upload generated image: ${uploadError.message}`);
     }
+
 
     const { data: publicUrlData } = supabase.storage
       .from("chat-images")
