@@ -36,7 +36,7 @@ const PaymentSuccess = () => {
   const [maxWaitReached, setMaxWaitReached] = useState(false);
 
   // Fetch payment details
-  const { data: payment, isLoading } = useQuery({
+  const { data: payment, isLoading, refetch } = useQuery({
     queryKey: ['payment-success', paymentId],
     queryFn: async () => {
       if (!paymentId) return null;
