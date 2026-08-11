@@ -205,8 +205,28 @@ serve(async (req) => {
     );
 
     if (outcome.status === "unknown") {
+      // Online payments must never stay pending: expire stale ones as failed.
+      const { data: createdRow } = await admin
+        .from("payments")
+        .select("created_at")
+        .eq("id", payment.id)
+        .maybeSingle();
+      const createdAt = createdRow?.created_at ? new Date(createdRow.created_at).getTime() : Date.now();
+      const ageMinutes = (Date.now() - createdAt) / 60000;
+      if (ageMinutes >= 20) {
+        await admin
+          .from("payments")
+          .update({
+            status: "failed",
+            notes: "Auto-failed: no confirmation from gateway",
+          })
+          .eq("id", payment.id)
+          .eq("status", "pending");
+        return json({ success: true, status: "failed", details: "No gateway confirmation" });
+      }
       return json({ success: true, status: "pending", details: outcome.description });
     }
+
 
     const { error: updErr } = await admin
       .from("payments")
