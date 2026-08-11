@@ -138,10 +138,30 @@ export const NelcIntegration = () => {
             </div>
           </div>
 
-          <Button onClick={runJourney} disabled={running}>
-            {running ? <Loader2 className="w-4 h-4 me-2 animate-spin" /> : <ShieldCheck className="w-4 h-4 me-2" />}
-            تشغيل رحلة التحقق الكاملة
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={runJourney} disabled={running}>
+              {running ? <Loader2 className="w-4 h-4 me-2 animate-spin" /> : <ShieldCheck className="w-4 h-4 me-2" />}
+              تشغيل رحلة التحقق الكاملة
+            </Button>
+            <Button variant="outline" onClick={resendFailed} disabled={resending}>
+              {resending ? <Loader2 className="w-4 h-4 me-2 animate-spin" /> : <RefreshCw className="w-4 h-4 me-2" />}
+              إعادة إرسال العبارات الفاشلة
+            </Button>
+          </div>
+
+          <div className="rounded-lg border bg-muted/40 p-3 text-xs leading-6 text-muted-foreground">
+            <p className="font-semibold text-foreground">كيف يعمل التكامل؟</p>
+            <p>
+              عند كل حدث تعليمي (التسجيل، فتح الدورة، مشاهدة الدرس، إتمامه، أداء اختبار، التقييم، الحصول على الشهادة)
+              تُبنى عبارة xAPI 1.0.3 وتُرسل إلى مستودع سجلات التعلم (LRS) الخاص بالمركز الوطني، وتُحفظ نسخة منها مع رمز
+              الرد في السجل بالأسفل.
+            </p>
+            <p className="mt-2">
+              إذا ظهر رمز <strong>403</strong> في السجل فهذا يعني أن المركز الوطني يرفض الاتصال من عنوان خادم المنصة —
+              المطلوب من المركز إضافة عنوان الخادم إلى القائمة المسموح بها وتأكيد بيانات بيئة الاختبار، ثم اضغط
+              «إعادة إرسال العبارات الفاشلة».
+            </p>
+          </div>
         </CardContent>
       </Card>
 
@@ -152,6 +172,7 @@ export const NelcIntegration = () => {
             <RefreshCw className={`w-4 h-4 me-2 ${isFetching ? 'animate-spin' : ''}`} />
             تحديث
           </Button>
+
         </CardHeader>
         <CardContent>
           <ScrollArea className="h-[400px] pe-2">
