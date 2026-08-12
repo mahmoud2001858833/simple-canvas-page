@@ -383,21 +383,24 @@ export const DashboardSidebar = ({ activeTab, onTabChange, isOpen, onToggle, use
 
         {/* Bottom Actions */}
         <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-white/10 space-y-1" style={{ background: 'linear-gradient(0deg, hsl(215, 55%, 10%) 0%, hsl(215, 55%, 12%) 100%)' }}>
-          <button
-            onClick={() => {
-              onTabChange('settings');
-              if (window.innerWidth < 768) onToggle();
-            }}
-            className={cn(
-              'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200',
-              activeTab === 'settings'
-                ? 'bg-gradient-to-r from-primary/90 to-primary/70 text-white shadow-lg shadow-primary/20'
-                : 'text-white/70 hover:bg-white/8 hover:text-white'
-            )}
-          >
-            <Settings className="w-5 h-5 flex-shrink-0" />
-            {isOpen && <span className="text-sm">{language === 'ar' ? 'الإعدادات' : 'Settings'}</span>}
-          </button>
+          {userRole === 'admin' && (
+            <button
+              onClick={() => {
+                onTabChange('settings');
+                if (window.innerWidth < 768) onToggle();
+              }}
+              className={cn(
+                'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200',
+                activeTab === 'settings'
+                  ? 'bg-gradient-to-r from-primary/90 to-primary/70 text-white shadow-lg shadow-primary/20'
+                  : 'text-white/70 hover:bg-white/8 hover:text-white'
+              )}
+            >
+              <Settings className="w-5 h-5 flex-shrink-0" />
+              {isOpen && <span className="text-sm">{language === 'ar' ? 'الإعدادات' : 'Settings'}</span>}
+            </button>
+          )}
+
           <button
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-red-400 hover:bg-red-500/10 transition-all duration-200"
