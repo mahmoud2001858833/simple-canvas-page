@@ -22,13 +22,15 @@ const IntroVideoSection = () => {
       ([entry]) => {
         if (entry.isIntersecting) {
           setVisible(true);
-          if (entry.intersectionRatio > 0.5) {
+          if (entry.intersectionRatio > 0.5 && !userPaused) {
             video.play().then(() => setPlaying(true)).catch(() => undefined);
           }
         } else {
           video.pause();
           setPlaying(false);
+          // Don't reset userPaused here; when they scroll back, respect the manual choice.
         }
+
       },
       { threshold: [0, 0.5, 0.75] }
     );
