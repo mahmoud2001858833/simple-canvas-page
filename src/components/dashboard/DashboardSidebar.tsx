@@ -159,6 +159,7 @@ export const DashboardSidebar = ({ activeTab, onTabChange, isOpen, onToggle, use
     { id: 'instructor-specialties', label: { ar: 'تخصصات المعلمين', en: 'Instructor Specialties' }, icon: UserCog, onboardingId: null, showBadge: false, isAction: false },
     { id: 'instructor-settings', label: { ar: 'إعدادات المعلمين', en: 'Instructor Settings' }, icon: Percent, onboardingId: null, showBadge: false, isAction: false },
     { id: 'instructor-payouts', label: { ar: 'دفع أجور المعلمين', en: 'Instructor Payouts' }, icon: Wallet, onboardingId: null, showBadge: false, isAction: false },
+    { id: 'student-refunds', label: { ar: 'مستحقات الطلبة المنسحبين', en: 'Withdrawn Students Refunds' }, icon: RotateCcw, onboardingId: null, showBadge: false, isAction: false },
     { id: 'terms', label: { ar: 'الشروط والسياسات', en: 'Terms & Policies' }, icon: FileText, onboardingId: null, showBadge: false, isAction: false },
     { id: 'nelc', label: { ar: 'التكامل مع المركز الوطني', en: 'NELC Integration' }, icon: ShieldAlert, onboardingId: null, showBadge: false, isAction: false },
     { id: 'general', label: { ar: 'الإعدادات العامة', en: 'General Settings' }, icon: Settings, onboardingId: null, showBadge: false, isAction: false },
