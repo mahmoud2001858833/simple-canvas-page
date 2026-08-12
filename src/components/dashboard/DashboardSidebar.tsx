@@ -48,6 +48,7 @@ import {
   CalendarClock,
   RotateCcw,
 } from 'lucide-react';
+import { Inbox } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -119,6 +120,7 @@ export const DashboardSidebar = ({ activeTab, onTabChange, isOpen, onToggle, use
     { id: 'courses', label: { ar: 'دوراتي', en: 'My Courses' }, icon: BookOpen, onboardingId: null, showBadge: false, isAction: false },
     { id: 'assignments', label: { ar: 'الواجبات', en: 'Assignments' }, icon: ClipboardList, onboardingId: null, showBadge: false, isAction: false },
     { id: 'question-bank', label: { ar: 'بنك الأسئلة', en: 'Question Bank' }, icon: HelpCircle, onboardingId: null, showBadge: false, isAction: false },
+    { id: 'assigned-requests', label: { ar: 'الطلبات المحالة إليّ', en: 'Assigned Requests' }, icon: Inbox, onboardingId: null, showBadge: false, isAction: false },
     { id: 'students', label: { ar: 'طلابي', en: 'My Students' }, icon: Users, onboardingId: null, showBadge: false, isAction: false },
     { id: 'student-engagement', label: { ar: 'تفاعل الطلاب', en: 'Student Engagement' }, icon: Activity, onboardingId: null, showBadge: false, isAction: false },
     { id: 'earnings', label: { ar: 'أرباحي', en: 'Earnings' }, icon: DollarSign, onboardingId: null, showBadge: false, isAction: false },

@@ -833,6 +833,7 @@ export type Database = {
       custom_course_requests: {
         Row: {
           academic_year: string | null
+          ai_analysis: Json | null
           assigned_instructor_id: string | null
           assigned_production_id: string | null
           assigned_secretary_id: string | null
@@ -858,6 +859,7 @@ export type Database = {
         }
         Insert: {
           academic_year?: string | null
+          ai_analysis?: Json | null
           assigned_instructor_id?: string | null
           assigned_production_id?: string | null
           assigned_secretary_id?: string | null
@@ -883,6 +885,7 @@ export type Database = {
         }
         Update: {
           academic_year?: string | null
+          ai_analysis?: Json | null
           assigned_instructor_id?: string | null
           assigned_production_id?: string | null
           assigned_secretary_id?: string | null

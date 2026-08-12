@@ -83,7 +83,7 @@ export const STUDENT_GROUPS: SidebarGroupDef[] = [
 ];
 
 export const INSTRUCTOR_GROUPS: SidebarGroupDef[] = [
-  GROUP('content', 'المحتوى التعليمي', 'Teaching Content', 'إنشاء وإدارة الدورات والواجبات وبنك الأسئلة.', 'Create and manage courses, assignments and the question bank.', ['courses', 'assignments', 'question-bank']),
+  GROUP('content', 'المحتوى التعليمي', 'Teaching Content', 'إنشاء وإدارة الدورات والواجبات وبنك الأسئلة.', 'Create and manage courses, assignments and the question bank.', ['courses', 'assignments', 'question-bank', 'assigned-requests']),
   GROUP('students', 'الطلاب والتفاعل', 'Students & Engagement', 'متابعة طلابك ومستوى تفاعلهم مع المحتوى.', 'Track your students and their engagement.', ['students', 'student-engagement']),
   GROUP('finance', 'المالية', 'Finance', 'أرباحك من الدورات وطلبات السحب.', 'Your course earnings and payout requests.', ['earnings', 'withdrawals']),
   GROUP('tools', 'الأدوات', 'Tools', 'الرسائل والتحليلات والمساعد الذكي.', 'Messages, analytics and the AI assistant.', ['messages', 'analytics', 'ai-assistant']),
