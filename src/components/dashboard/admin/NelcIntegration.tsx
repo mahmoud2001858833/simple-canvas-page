@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Loader2, ShieldCheck, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
-import { trackXapi, XapiPayload } from '@/lib/xapi';
+import { trackXapi, XapiPayload, isValidNationalId } from '@/lib/xapi';
 
 /**
  * NELC / FutureX technical integration control panel.
@@ -54,11 +54,15 @@ export const NelcIntegration = () => {
       toast.error('أدخل بريد المتعلم واختر الدورة');
       return;
     }
+    if (nationalId.trim() && !isValidNationalId(nationalId)) {
+      toast.error('رقم الهوية يجب أن يكون 10 أرقام ويبدأ بـ 1 أو 2 أو 4');
+      return;
+    }
     setRunning(true);
     try {
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('id')
+        .select('id, national_id')
         .eq('email', email.trim())
         .maybeSingle();
       if (error || !profile) throw new Error('لم يتم العثور على المتعلم بهذا البريد');
@@ -68,30 +72,76 @@ export const NelcIntegration = () => {
           .from('profiles')
           .update({ national_id: nationalId.trim() })
           .eq('id', profile.id);
+      } else if (!isValidNationalId(profile.national_id || '')) {
+        throw new Error('المتعلم لا يملك رقم هوية صالح — أدخل رقم الهوية أولاً');
       }
 
       const targetUserId = profile.id;
+      const unit = (n: number) => `MD00${n}`;
+
+      // Official NELC learner engagement scenario (registered → certificate)
       const journey: XapiPayload[] = [
-        { verb: 'registered', courseId, targetUserId },
-        { verb: 'initialized', courseId, targetUserId },
-        { verb: 'watched', courseId, lessonId: 'VD001', durationSeconds: 622, completion: true, targetUserId },
-        { verb: 'completed', courseId, lessonId: 'VD001', durationSeconds: 300, targetUserId },
-        { verb: 'attempted', courseId, quizId: 'QZ001', attemptId: 1, score: { raw: 95, min: 0, max: 100, scaled: 0.95 }, success: true, completion: true, targetUserId },
-        { verb: 'completed', courseId, quizId: 'QZ001', targetUserId },
-        { verb: 'progressed', courseId, score: { scaled: 0.9 }, completion: true, targetUserId },
-        { verb: 'completed', courseId, targetUserId },
-        { verb: 'rated', courseId, score: { raw: 4, min: 0, max: 5, scaled: 0.8 }, response: 'Great course', targetUserId },
-        { verb: 'earned', courseId, certificateUrl: `${window.location.origin}/certificate/12341231`, targetUserId },
+        { verb: 'registered', courseId, objectKind: 'course', targetUserId },
+        { verb: 'initialized', courseId, objectKind: 'course', targetUserId },
       ];
 
+      [1, 2, 3].forEach((u) => {
+        const moduleId = unit(u);
+        journey.push(
+          {
+            verb: 'watched', courseId, moduleId, lessonId: `VD00${u}`, objectKind: 'video',
+            objectName: `Unit ${u} - Video ${u}`, durationSeconds: 622, completion: true, targetUserId,
+          },
+          {
+            verb: 'completed', courseId, moduleId, lessonId: `LSN00${u}`, objectKind: 'lesson',
+            objectName: `Unit ${u} - Lesson ${u}`, durationSeconds: 300, targetUserId,
+          },
+          {
+            verb: 'attended', courseId, moduleId, lessonId: `VC00${u}`, objectKind: 'virtual-classroom',
+            objectName: `Unit ${u} - Live session`, durationSeconds: 5400, completion: true, targetUserId,
+          },
+          {
+            verb: 'attempted', courseId, moduleId, quizId: `QZ00${u}`, objectKind: 'quiz',
+            objectName: `Unit ${u} - Quiz`, attemptId: 1,
+            score: { raw: 95, min: 0, max: 100, scaled: 0.95 }, success: true, completion: false, targetUserId,
+          },
+          {
+            verb: 'completed', courseId, moduleId, objectKind: 'module',
+            objectName: `Unit ${u}`, targetUserId,
+          },
+          {
+            verb: 'progressed', courseId, objectKind: 'course',
+            score: { scaled: Number((u * 0.3).toFixed(2)) }, completion: u === 3,
+            targetUserId, allowDuplicate: true,
+          },
+        );
+      });
+
+      journey.push(
+        { verb: 'completed', courseId, objectKind: 'course', targetUserId },
+        {
+          verb: 'rated', courseId, objectKind: 'course',
+          score: { raw: 4, min: 0, max: 5, scaled: 0.8 }, response: 'Great course', targetUserId,
+        },
+        {
+          verb: 'earned', courseId, objectKind: 'certificate', lessonId: 'CFT001',
+          objectName: 'Certificate of completion',
+          certificateUrl: `${window.location.origin}/certificate/${courseId}`, targetUserId,
+        },
+      );
+
       let ok = 0;
+      let skipped = 0;
       for (const step of journey) {
         const res: any = await trackXapi(step);
-        if (res?.ok) ok++;
-        await new Promise((r) => setTimeout(r, 400));
+        if (res?.duplicate) skipped++;
+        else if (res?.ok) ok++;
+        await new Promise((r) => setTimeout(r, 350));
       }
 
-      toast.success(`تم إرسال ${ok} من ${journey.length} عبارة إلى نظام تسجيل التعلم`);
+      toast.success(
+        `تم إرسال ${ok} من ${journey.length} عبارة${skipped ? ` (تم تخطي ${skipped} مكررة)` : ''}`,
+      );
       refetch();
     } catch (e: any) {
       toast.error(e.message || 'فشل إرسال العبارات');
@@ -99,6 +149,7 @@ export const NelcIntegration = () => {
       setRunning(false);
     }
   };
+
 
   const resendFailed = async () => {
     setResending(true);

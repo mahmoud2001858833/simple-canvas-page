@@ -5,17 +5,32 @@ export type XapiVerb =
   | "initialized"
   | "watched"
   | "completed"
+  | "attended"
   | "attempted"
   | "progressed"
   | "rated"
   | "earned";
 
+export type XapiObjectKind =
+  | "course"
+  | "module"
+  | "lesson"
+  | "video"
+  | "quiz"
+  | "assessment"
+  | "assignment"
+  | "virtual-classroom"
+  | "certificate";
+
 export interface XapiPayload {
   verb: XapiVerb;
   courseId?: string;
+  moduleId?: string;
   lessonId?: string;
   quizId?: string;
+  objectKind?: XapiObjectKind;
   objectName?: string;
+  objectDescription?: string;
   durationSeconds?: number;
   score?: { raw?: number; min?: number; max?: number; scaled?: number };
   response?: string;
@@ -24,6 +39,12 @@ export interface XapiPayload {
   attemptId?: number;
   certificateUrl?: string;
   targetUserId?: string;
+  allowDuplicate?: boolean;
+}
+
+/** National ID must be 10 digits and start with 1, 2 or 4 (NELC rule). */
+export function isValidNationalId(value: string) {
+  return /^[124]\d{9}$/.test((value || "").trim());
 }
 
 /**
