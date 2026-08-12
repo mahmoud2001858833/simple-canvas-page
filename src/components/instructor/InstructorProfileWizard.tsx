@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Loader2, ChevronRight, ChevronLeft, HelpCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
@@ -29,6 +30,61 @@ const schema = z.object({
   offers_research_services: z.string().trim().min(1).max(100),
   referral_source: z.string().trim().min(2).max(200),
 });
+
+const fieldHelp: Record<string, { ar: string; en: string }> = {
+  residence_country: {
+    ar: 'اكتب البلد والمدينة التي تقيم فيها حالياً.',
+    en: 'Enter the country and city where you currently live.',
+  },
+  nationality: {
+    ar: 'اكتب جنسيتك الحالية.',
+    en: 'Enter your current nationality.',
+  },
+  date_of_birth: {
+    ar: 'اختر تاريخ ميلادك الحقيقي.',
+    en: 'Select your real date of birth.',
+  },
+  gender: {
+    ar: 'اكتب ذكر أو أنثى.',
+    en: 'Type Male or Female.',
+  },
+  education_status: {
+    ar: 'اكتب أعلى مؤهل علمي حاصل عليه (مثلاً: دكتوراه، ماجستير، بكالوريوس).',
+    en: 'Type your highest academic degree (e.g., PhD, Masters, Bachelor).',
+  },
+  institution_name: {
+    ar: 'اكتب اسم الجهة التعليمية أو الكلية التي تنتمي إليها.',
+    en: 'Type the name of the educational institution or college you belong to.',
+  },
+  specialty: {
+    ar: 'اكتب التخصص الدقيق الذي تدرّس فيه (مثلاً: الفيزياء الطبية).',
+    en: 'Type the specific field you teach in (e.g., Medical Physics).',
+  },
+  teaching_experience_years: {
+    ar: 'اكتب عدد سنوات خبرتك العملية في التدريس.',
+    en: 'Enter the number of years you have practically taught.',
+  },
+  teaching_experience_details: {
+    ar: 'اكتب نبذة مختصرة عن خبراتك السابقة: المواد، الجهات، والإنجازات.',
+    en: 'Write a brief summary of your previous experience: subjects, institutions, and achievements.',
+  },
+  availability_to_start: {
+    ar: 'حدّد متى تستطيع البدء بالتدريس على المنصة (مثلاً: فوراً، خلال أسبوع).',
+    en: 'State when you can start teaching on the platform (e.g., immediately, within a week).',
+  },
+  expected_students_count: {
+    ar: 'كم طالباً تتوقع تسجيله في دوراتك تقريباً؟',
+    en: 'Approximately how many students do you expect to enroll in your courses?',
+  },
+  offers_research_services: {
+    ar: 'هل تستطيع مساعدة الطلاب في إعداد البحوث والأوراق العلمية؟ اكتب نعم أو لا.',
+    en: 'Can you help students prepare research papers and academic articles? Type Yes or No.',
+  },
+  referral_source: {
+    ar: 'كيف تعرّفت على منصة جسوركم؟ (مثلاً: إعلان، زميل، وسائل التواصل).',
+    en: 'How did you hear about Jasorkom platform? (e.g., ad, colleague, social media).',
+  },
+};
 
 export const InstructorProfileWizard = ({ onCompleted }: Props) => {
   const { language } = useLanguage();
@@ -118,18 +174,60 @@ export const InstructorProfileWizard = ({ onCompleted }: Props) => {
 
   const Next = isRTL ? ChevronLeft : ChevronRight;
 
+  const FieldLabel = ({
+    fieldKey,
+    children,
+    required,
+  }: {
+    fieldKey: string;
+    children: React.ReactNode;
+    required?: boolean;
+  }) => {
+    const help = fieldHelp[fieldKey];
+    return (
+      <div className="flex items-center gap-2 flex-wrap">
+        <Label className="flex items-center gap-1">
+          {children}
+          {required && <span className="text-destructive">*</span>}
+        </Label>
+        {help && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className="inline-flex items-center justify-center text-muted-foreground hover:text-primary transition-colors"
+                aria-label={isRTL ? 'شرح الحقل' : 'Field explanation'}
+              >
+                <HelpCircle className="w-4 h-4" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent
+              side={isRTL ? 'left' : 'right'}
+              align="start"
+              className="w-64 sm:w-80 text-xs leading-relaxed"
+            >
+              {isRTL ? help.ar : help.en}
+            </PopoverContent>
+          </Popover>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-4 max-h-[60vh] overflow-y-auto pe-1">
       <p className="text-muted-foreground text-sm">
         {isRTL
-          ? 'جميع الحقول التالية إجبارية ويتم تعبئتها كتابةً لإكمال تسجيلك كمعلم.'
-          : 'All the following fields are required and must be typed in to complete your instructor registration.'}
+          ? 'جميع الحقول التالية إجبارية ويتم تعبئتها كتابةً لإكمال تسجيلك كمعلم. اضغط على أيقونة الاستفهام بجانب كل خيار لمعرفة ما يُطلب منك.'
+          : 'All the following fields are required and must be typed in to complete your instructor registration. Click the question mark next to each option to see what is requested.'}
       </p>
 
       {subStep === 1 ? (
         <div className="grid sm:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>{isRTL ? 'مقر الإقامة' : 'Country of residence'} *</Label>
+            <FieldLabel fieldKey="residence_country" required>
+              {isRTL ? 'مقر الإقامة' : 'Country of residence'}
+            </FieldLabel>
             <Input
               value={form.residence_country}
               maxLength={100}
@@ -138,7 +236,9 @@ export const InstructorProfileWizard = ({ onCompleted }: Props) => {
             />
           </div>
           <div className="space-y-2">
-            <Label>{isRTL ? 'الجنسية' : 'Nationality'} *</Label>
+            <FieldLabel fieldKey="nationality" required>
+              {isRTL ? 'الجنسية' : 'Nationality'}
+            </FieldLabel>
             <Input
               value={form.nationality}
               maxLength={100}
@@ -147,7 +247,9 @@ export const InstructorProfileWizard = ({ onCompleted }: Props) => {
             />
           </div>
           <div className="space-y-2">
-            <Label>{isRTL ? 'تاريخ الميلاد' : 'Date of birth'} *</Label>
+            <FieldLabel fieldKey="date_of_birth" required>
+              {isRTL ? 'تاريخ الميلاد' : 'Date of birth'}
+            </FieldLabel>
             <Input
               type="date"
               value={form.date_of_birth}
@@ -156,7 +258,9 @@ export const InstructorProfileWizard = ({ onCompleted }: Props) => {
             />
           </div>
           <div className="space-y-2">
-            <Label>{isRTL ? 'الجنس' : 'Gender'} *</Label>
+            <FieldLabel fieldKey="gender" required>
+              {isRTL ? 'الجنس' : 'Gender'}
+            </FieldLabel>
             <Input
               value={form.gender}
               maxLength={30}
@@ -168,7 +272,9 @@ export const InstructorProfileWizard = ({ onCompleted }: Props) => {
       ) : (
         <div className="grid sm:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>{isRTL ? 'الحالة الأكاديمية' : 'Academic status'} *</Label>
+            <FieldLabel fieldKey="education_status" required>
+              {isRTL ? 'الحالة الأكاديمية' : 'Academic status'}
+            </FieldLabel>
             <Input
               value={form.education_status}
               maxLength={100}
@@ -177,7 +283,9 @@ export const InstructorProfileWizard = ({ onCompleted }: Props) => {
             />
           </div>
           <div className="space-y-2">
-            <Label>{isRTL ? 'الجهة التعليمية' : 'Institution'} *</Label>
+            <FieldLabel fieldKey="institution_name" required>
+              {isRTL ? 'الجهة التعليمية' : 'Institution'}
+            </FieldLabel>
             <Input
               value={form.institution_name}
               maxLength={150}
@@ -186,7 +294,9 @@ export const InstructorProfileWizard = ({ onCompleted }: Props) => {
             />
           </div>
           <div className="space-y-2">
-            <Label>{isRTL ? 'التخصص' : 'Specialty'} *</Label>
+            <FieldLabel fieldKey="specialty" required>
+              {isRTL ? 'التخصص' : 'Specialty'}
+            </FieldLabel>
             <Input
               value={form.specialty}
               maxLength={150}
@@ -195,7 +305,9 @@ export const InstructorProfileWizard = ({ onCompleted }: Props) => {
             />
           </div>
           <div className="space-y-2">
-            <Label>{isRTL ? 'سنوات خبرة التدريس' : 'Years of teaching experience'} *</Label>
+            <FieldLabel fieldKey="teaching_experience_years" required>
+              {isRTL ? 'سنوات خبرة التدريس' : 'Years of teaching experience'}
+            </FieldLabel>
             <Input
               value={form.teaching_experience_years}
               maxLength={50}
@@ -204,7 +316,9 @@ export const InstructorProfileWizard = ({ onCompleted }: Props) => {
             />
           </div>
           <div className="space-y-2">
-            <Label>{isRTL ? 'جاهزية البدء بالعمل' : 'Availability to start'} *</Label>
+            <FieldLabel fieldKey="availability_to_start" required>
+              {isRTL ? 'جاهزية البدء بالعمل' : 'Availability to start'}
+            </FieldLabel>
             <Input
               value={form.availability_to_start}
               maxLength={100}
@@ -213,7 +327,9 @@ export const InstructorProfileWizard = ({ onCompleted }: Props) => {
             />
           </div>
           <div className="space-y-2">
-            <Label>{isRTL ? 'عدد الطلاب المتوقع تسجيلهم' : 'Expected number of students'} *</Label>
+            <FieldLabel fieldKey="expected_students_count" required>
+              {isRTL ? 'عدد الطلاب المتوقع تسجيلهم' : 'Expected number of students'}
+            </FieldLabel>
             <Input
               type="number"
               min={0}
@@ -223,7 +339,9 @@ export const InstructorProfileWizard = ({ onCompleted }: Props) => {
             />
           </div>
           <div className="space-y-2 sm:col-span-2">
-            <Label>{isRTL ? 'نبذة عن خبرتك في التدريس' : 'Describe your teaching experience'} *</Label>
+            <FieldLabel fieldKey="teaching_experience_details" required>
+              {isRTL ? 'نبذة عن خبرتك في التدريس' : 'Describe your teaching experience'}
+            </FieldLabel>
             <Textarea
               rows={3}
               maxLength={1000}
@@ -233,7 +351,9 @@ export const InstructorProfileWizard = ({ onCompleted }: Props) => {
             />
           </div>
           <div className="space-y-2">
-            <Label>{isRTL ? 'هل تقدّم إعداد البحوث والأوراق العلمية؟' : 'Do you offer research & academic papers?'} *</Label>
+            <FieldLabel fieldKey="offers_research_services" required>
+              {isRTL ? 'هل تقدّم إعداد البحوث والأوراق العلمية؟' : 'Do you offer research & academic papers?'}
+            </FieldLabel>
             <Input
               value={form.offers_research_services}
               maxLength={100}
@@ -242,7 +362,9 @@ export const InstructorProfileWizard = ({ onCompleted }: Props) => {
             />
           </div>
           <div className="space-y-2 sm:col-span-2">
-            <Label>{isRTL ? 'من أين سمعت عنا؟' : 'How did you hear about us?'} *</Label>
+            <FieldLabel fieldKey="referral_source" required>
+              {isRTL ? 'من أين سمعت عنا؟' : 'How did you hear about us?'}
+            </FieldLabel>
             <Textarea
               rows={2}
               maxLength={200}
