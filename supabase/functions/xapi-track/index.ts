@@ -185,13 +185,24 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     const email = profile?.email || user.email || `${actorUserId}@josoorcom.com`;
-    const actorName = profile?.national_id || profile?.full_name || email.split("@")[0];
+    const actorName = profile?.full_name || email.split("@")[0];
+    const nationalId = profile?.national_id;
 
-    const actor = {
-      mbox: `mailto:${email}`,
+    // NELC/FutureX prefers an account-based Actor keyed by the learner's national ID.
+    // If the national ID is not available, fall back to the mbox identifier.
+    const actor: Record<string, unknown> = {
       name: String(actorName),
       objectType: "Agent",
     };
+    if (nationalId) {
+      actor.account = {
+        homePage: PLATFORM,
+        name: String(nationalId),
+      };
+    } else {
+      actor.mbox = `mailto:${email}`;
+    }
+
 
     // Course + instructor info
     let courseName = objectName || "Course";
