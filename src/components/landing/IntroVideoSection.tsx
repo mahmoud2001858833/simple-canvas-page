@@ -10,6 +10,8 @@ const IntroVideoSection = () => {
   const [visible, setVisible] = useState(false);
   const [muted, setMuted] = useState(true);
   const [playing, setPlaying] = useState(false);
+  const [userPaused, setUserPaused] = useState(false);
+
 
   useEffect(() => {
     const el = sectionRef.current;
@@ -20,31 +22,42 @@ const IntroVideoSection = () => {
       ([entry]) => {
         if (entry.isIntersecting) {
           setVisible(true);
-          if (entry.intersectionRatio > 0.5) {
+          if (entry.intersectionRatio > 0.5 && !userPaused) {
             video.play().then(() => setPlaying(true)).catch(() => undefined);
           }
         } else {
           video.pause();
           setPlaying(false);
+          // Don't reset userPaused here; when they scroll back, respect the manual choice.
         }
+
       },
       { threshold: [0, 0.5, 0.75] }
     );
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [userPaused]);
+
 
   const togglePlay = () => {
     const video = videoRef.current;
     if (!video) return;
     if (video.paused) {
-      video.play().then(() => setPlaying(true)).catch(() => undefined);
+      video
+        .play()
+        .then(() => {
+          setPlaying(true);
+          setUserPaused(false);
+        })
+        .catch(() => undefined);
     } else {
       video.pause();
       setPlaying(false);
+      setUserPaused(true);
     }
   };
+
 
   const toggleMute = () => {
     const video = videoRef.current;
@@ -86,7 +99,10 @@ const IntroVideoSection = () => {
               loop
               playsInline
               preload="metadata"
+              onPlay={() => setPlaying(true)}
+              onPause={() => setPlaying(false)}
             />
+
 
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background/40 via-transparent to-transparent opacity-60" />
 
