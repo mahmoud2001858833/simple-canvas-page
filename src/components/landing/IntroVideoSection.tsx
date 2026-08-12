@@ -37,7 +37,8 @@ const IntroVideoSection = () => {
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [userPaused]);
+
 
   const togglePlay = () => {
     const video = videoRef.current;
