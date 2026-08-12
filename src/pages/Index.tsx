@@ -5,6 +5,7 @@ import Navbar from '@/components/landing/Navbar';
 import AnnouncementBar from '@/components/landing/AnnouncementBar';
 import HeroSection from '@/components/landing/HeroSection';
 import HowItWorks from '@/components/landing/HowItWorks';
+import IntroVideoSection from '@/components/landing/IntroVideoSection';
 import FeaturesSection from '@/components/landing/FeaturesSection';
 import UniversitiesSection from '@/components/landing/UniversitiesSection';
 import CoursesSection from '@/components/landing/CoursesSection';
