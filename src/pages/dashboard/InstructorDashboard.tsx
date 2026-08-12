@@ -13,6 +13,7 @@ const InstructorStats = lazy(() => import('@/components/dashboard/instructor/Ins
 const InstructorCourses = lazy(() => import('@/components/dashboard/instructor/InstructorCourses').then(m => ({ default: m.InstructorCourses })));
 const InstructorStudents = lazy(() => import('@/components/dashboard/instructor/InstructorStudents').then(m => ({ default: m.InstructorStudents })));
 const InstructorEarnings = lazy(() => import('@/components/dashboard/instructor/InstructorEarnings').then(m => ({ default: m.InstructorEarnings })));
+const InstructorPayoutsPanel = lazy(() => import('@/components/dashboard/instructor/InstructorPayoutsPanel').then(m => ({ default: m.InstructorPayoutsPanel })));
 const InstructorMessages = lazy(() => import('@/components/dashboard/instructor/InstructorMessages').then(m => ({ default: m.InstructorMessages })));
 const InstructorAnalytics = lazy(() => import('@/components/dashboard/instructor/InstructorAnalytics').then(m => ({ default: m.InstructorAnalytics })));
 const WithdrawalRequest = lazy(() => import('@/components/dashboard/instructor/WithdrawalRequest').then(m => ({ default: m.WithdrawalRequest })));
@@ -22,7 +23,7 @@ const AssignmentManager = lazy(() => import('@/components/dashboard/instructor/A
 const QuestionBankManager = lazy(() => import('@/components/dashboard/instructor/QuestionBankManager').then(m => ({ default: m.QuestionBankManager })));
 const StudentEngagementAnalytics = lazy(() => import('@/components/dashboard/instructor/StudentEngagementAnalytics').then(m => ({ default: m.StudentEngagementAnalytics })));
 
-type TabType = 'overview' | 'courses' | 'assignments' | 'question-bank' | 'students' | 'student-engagement' | 'earnings' | 'withdrawals' | 'messages' | 'analytics' | 'ai-assistant';
+type TabType = 'overview' | 'courses' | 'assignments' | 'question-bank' | 'students' | 'student-engagement' | 'earnings' | 'withdrawals' | 'payouts' | 'messages' | 'analytics' | 'ai-assistant';
 
 // Loading skeleton for dashboard content
 const DashboardSkeleton = () => (
@@ -167,6 +168,8 @@ const InstructorDashboard = () => {
         return <InstructorStudents />;
       case 'earnings':
         return <InstructorEarnings />;
+      case 'payouts':
+        return <InstructorPayoutsPanel />;
       case 'withdrawals':
         return <WithdrawalRequest />;
       case 'messages':
