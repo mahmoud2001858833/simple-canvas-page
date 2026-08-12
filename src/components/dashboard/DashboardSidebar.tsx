@@ -48,6 +48,7 @@ import {
   CalendarClock,
   RotateCcw,
 } from 'lucide-react';
+import { Inbox } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
