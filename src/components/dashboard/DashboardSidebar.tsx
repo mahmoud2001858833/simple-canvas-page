@@ -121,6 +121,7 @@ export const DashboardSidebar = ({ activeTab, onTabChange, isOpen, onToggle, use
     { id: 'student-engagement', label: { ar: 'تفاعل الطلاب', en: 'Student Engagement' }, icon: Activity, onboardingId: null, showBadge: false, isAction: false },
     { id: 'earnings', label: { ar: 'أرباحي', en: 'Earnings' }, icon: DollarSign, onboardingId: null, showBadge: false, isAction: false },
     { id: 'withdrawals', label: { ar: 'سحب الأرباح', en: 'Withdrawals' }, icon: Wallet, onboardingId: null, showBadge: false, isAction: false },
+    { id: 'payouts', label: { ar: 'مستحقاتي', en: 'My Payouts' }, icon: Landmark, onboardingId: null, showBadge: false, isAction: false },
     { id: 'messages', label: { ar: 'الرسائل', en: 'Messages' }, icon: MessageSquare, onboardingId: null, showBadge: false, isAction: false },
     { id: 'analytics', label: { ar: 'التحليلات', en: 'Analytics' }, icon: TrendingUp, onboardingId: null, showBadge: false, isAction: false },
     { id: 'ai-assistant', label: { ar: 'مساعدك الذكي', en: 'AI Assistant' }, icon: Sparkles, onboardingId: null, showBadge: false, isAction: false },
