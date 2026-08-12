@@ -58,6 +58,8 @@ export const RequestsManagement = () => {
   const [editingAI, setEditingAI] = useState<{ fileId: string; data: AIClassification } | null>(null);
   const [isAnalyzingFiles, setIsAnalyzingFiles] = useState(false);
   const [isDownloadingZip, setIsDownloadingZip] = useState(false);
+  const [isRecommending, setIsRecommending] = useState(false);
+  const [selectedInstructor, setSelectedInstructor] = useState<string>('');
   const [previewFile, setPreviewFile] = useState<{ url: string; name: string; type: string } | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
 
@@ -222,6 +224,63 @@ export const RequestsManagement = () => {
       toast.success(language === 'ar' ? 'تم تحديث تصنيف AI' : 'AI classification updated');
     },
   });
+
+  const { data: instructors } = useQuery({
+    queryKey: ['all-instructors-for-assignment'],
+    queryFn: async () => {
+      const { data: roles } = await supabase.from('user_roles').select('user_id').eq('role', 'instructor');
+      const ids = (roles || []).map((r: any) => r.user_id);
+      if (!ids.length) return [];
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, full_name, full_name_ar, email, specialty, academic_degree')
+        .in('id', ids);
+      return data || [];
+    },
+  });
+
+  const assignInstructorMutation = useMutation({
+    mutationFn: async ({ id, instructorId, requestTitle, studentName }: { id: string; instructorId: string; requestTitle: string; studentName?: string }) => {
+      const { error } = await supabase
+        .from('custom_course_requests')
+        .update({ assigned_instructor_id: instructorId, status: 'in_progress' } as any)
+        .eq('id', id);
+      if (error) throw error;
+      await supabase.from('notifications').insert({
+        user_id: instructorId,
+        title: 'New course request assigned',
+        title_ar: 'تم إحالة طلب دورة إليك',
+        message: `A custom course request was assigned to you: ${requestTitle}`,
+        message_ar: `تم إحالة طلب دورة خاصة إليك: ${requestTitle}${studentName ? ` (الطالب: ${studentName})` : ''}`,
+        type: 'info',
+        link: '/instructor',
+      } as any);
+    },
+    onSuccess: (_d, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['admin-requests'] });
+      setSelectedRequest((prev: any) => prev ? { ...prev, assigned_instructor_id: vars.instructorId, status: 'in_progress' } : prev);
+      toast.success(language === 'ar' ? 'تم إحالة الطلب إلى المعلم' : 'Request assigned to instructor');
+    },
+    onError: () => toast.error(language === 'ar' ? 'تعذر إحالة الطلب' : 'Failed to assign request'),
+  });
+
+  const runAIRecommendation = async (requestId: string) => {
+    setIsRecommending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-request-recommendation', {
+        body: { requestId },
+      });
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ['admin-requests'] });
+      setSelectedRequest((prev: any) => prev ? { ...prev, ai_analysis: data.analysis } : prev);
+      toast.success(language === 'ar' ? 'تم إنشاء التحليل والتوصيات' : 'Analysis and recommendations generated');
+    } catch (err: any) {
+      console.error('AI recommendation error:', err);
+      toast.error(language === 'ar' ? 'تعذر إنشاء التحليل الذكي' : 'Failed to generate AI analysis');
+    } finally {
+      setIsRecommending(false);
+    }
+  };
 
   const checkDeadlines = async () => {
     setIsCheckingDeadlines(true);
@@ -936,6 +995,124 @@ export const RequestsManagement = () => {
                   </CardContent>
                 </Card>
               )}
+
+              {/* AI Analysis & Instructor Assignment */}
+              <Card>
+                <CardHeader className="pb-3 flex flex-row items-center justify-between gap-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <Brain className="w-4 h-4 text-primary" />
+                    {language === 'ar' ? 'التحليل الذكي وإحالة الدورة' : 'AI Analysis & Assignment'}
+                  </CardTitle>
+                  <Button size="sm" onClick={() => runAIRecommendation(selectedRequest.id)} disabled={isRecommending}>
+                    {isRecommending ? <Loader2 className="w-4 h-4 animate-spin me-1" /> : <Sparkles className="w-4 h-4 me-1" />}
+                    {language === 'ar' ? 'تحليل وترشيح معلم' : 'Analyze & Recommend'}
+                  </Button>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {selectedRequest.ai_analysis ? (
+                    <div className="space-y-3">
+                      <p className="text-sm">{selectedRequest.ai_analysis.summary}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedRequest.ai_analysis.estimated_hours != null && (
+                          <Badge variant="secondary">
+                            {language === 'ar' ? 'المدة المقدرة: ' : 'Est. hours: '}{selectedRequest.ai_analysis.estimated_hours}
+                          </Badge>
+                        )}
+                        {selectedRequest.ai_analysis.suggested_price != null && (
+                          <Badge variant="secondary">
+                            {language === 'ar' ? 'السعر المقترح: ' : 'Suggested price: '}{selectedRequest.ai_analysis.suggested_price}
+                          </Badge>
+                        )}
+                      </div>
+                      {Array.isArray(selectedRequest.ai_analysis.advice) && selectedRequest.ai_analysis.advice.length > 0 && (
+                        <div>
+                          <h4 className="text-sm font-semibold mb-1">{language === 'ar' ? 'نصائح' : 'Advice'}</h4>
+                          <ul className="list-disc ps-5 text-sm space-y-1">
+                            {selectedRequest.ai_analysis.advice.map((a: string, i: number) => <li key={i}>{a}</li>)}
+                          </ul>
+                        </div>
+                      )}
+                      {Array.isArray(selectedRequest.ai_analysis.recommendations) && selectedRequest.ai_analysis.recommendations.length > 0 && (
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-semibold">{language === 'ar' ? 'المعلمون المرشحون' : 'Recommended Instructors'}</h4>
+                          {selectedRequest.ai_analysis.recommendations.map((rec: any) => (
+                            <div key={rec.instructor_id} className="border rounded-lg p-3 space-y-2">
+                              <div className="flex items-center justify-between gap-2 flex-wrap">
+                                <div className="font-medium text-sm flex items-center gap-2">
+                                  <GraduationCap className="w-4 h-4 text-primary" />
+                                  {rec.instructor_name}
+                                  <Badge variant="outline">{Math.round(rec.score)}%</Badge>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant={selectedRequest.assigned_instructor_id === rec.instructor_id ? 'secondary' : 'default'}
+                                  disabled={assignInstructorMutation.isPending || selectedRequest.assigned_instructor_id === rec.instructor_id}
+                                  onClick={() => assignInstructorMutation.mutate({
+                                    id: selectedRequest.id,
+                                    instructorId: rec.instructor_id,
+                                    requestTitle: selectedRequest.title,
+                                    studentName: selectedRequest.user?.full_name,
+                                  })}
+                                >
+                                  {selectedRequest.assigned_instructor_id === rec.instructor_id
+                                    ? (language === 'ar' ? 'محال إليه' : 'Assigned')
+                                    : (language === 'ar' ? 'إحالة' : 'Assign')}
+                                </Button>
+                              </div>
+                              <p className="text-sm text-muted-foreground">{rec.reason}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">
+                      {language === 'ar'
+                        ? 'اضغط على "تحليل وترشيح معلم" ليقوم الذكاء الاصطناعي بتحليل الطلب وملفاته وترشيح أنسب المعلمين.'
+                        : 'Click "Analyze & Recommend" to let AI analyze the request and suggest the best instructors.'}
+                    </p>
+                  )}
+
+                  <Separator />
+
+                  <div className="space-y-2">
+                    <Label>{language === 'ar' ? 'إحالة يدوية إلى معلم' : 'Manually assign to instructor'}</Label>
+                    <div className="flex gap-2">
+                      <Select value={selectedInstructor} onValueChange={setSelectedInstructor}>
+                        <SelectTrigger className="flex-1">
+                          <SelectValue placeholder={language === 'ar' ? 'اختر معلماً' : 'Select instructor'} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(instructors || []).map((ins: any) => (
+                            <SelectItem key={ins.id} value={ins.id}>
+                              {(ins.full_name_ar || ins.full_name || ins.email)}{ins.specialty ? ` — ${ins.specialty}` : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        disabled={!selectedInstructor || assignInstructorMutation.isPending}
+                        onClick={() => assignInstructorMutation.mutate({
+                          id: selectedRequest.id,
+                          instructorId: selectedInstructor,
+                          requestTitle: selectedRequest.title,
+                          studentName: selectedRequest.user?.full_name,
+                        })}
+                      >
+                        {assignInstructorMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : (language === 'ar' ? 'إحالة' : 'Assign')}
+                      </Button>
+                    </div>
+                    {selectedRequest.assigned_instructor_id && (
+                      <p className="text-xs text-muted-foreground">
+                        {language === 'ar' ? 'الطلب محال حالياً إلى: ' : 'Currently assigned to: '}
+                        {(instructors || []).find((i: any) => i.id === selectedRequest.assigned_instructor_id)?.full_name_ar
+                          || (instructors || []).find((i: any) => i.id === selectedRequest.assigned_instructor_id)?.full_name
+                          || selectedRequest.assigned_instructor_id}
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
 
               {/* Status Update */}
               <Card>
