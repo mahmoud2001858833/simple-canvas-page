@@ -62,6 +62,7 @@ const Index = () => {
       <Navbar />
       <AnnouncementBar />
       <HeroSection />
+      <IntroVideoSection />
       <section id="how-it-works">
         <HowItWorks />
       </section>
