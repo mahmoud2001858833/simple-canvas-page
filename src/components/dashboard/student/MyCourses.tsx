@@ -55,6 +55,7 @@ export const MyCourses = ({ limit, showViewAll, onViewAll }: MyCoursesProps) => 
       .eq('id', enrollmentId);
 
     if (error) {
+      console.error('withdraw error:', error);
       const expired = (error.message || '').includes('WITHDRAW_WINDOW_EXPIRED');
       toast.error(
         expired
@@ -65,6 +66,7 @@ export const MyCourses = ({ limit, showViewAll, onViewAll }: MyCoursesProps) => 
             ? 'تعذر إلغاء التسجيل'
             : 'Could not cancel enrollment'
       );
+      if (!expired && error.message) toast.error(error.message);
       return;
     }
 
