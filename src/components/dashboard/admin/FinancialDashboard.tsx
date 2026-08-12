@@ -89,8 +89,9 @@ export const FinancialDashboard = () => {
         .reduce((sum, p) => sum + Number(p.amount), 0);
       const pendingAmount = pendingPayments.reduce((sum, p) => sum + Number(p.amount), 0);
       const refundedAmount = refundedPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+      const activeEarnings = earnings?.filter(e => e.status !== 'refunded') || [];
 
-      const instructorTotalEarnings = earnings?.reduce((sum, e) => sum + Number(e.amount), 0) || 0;
+      const instructorTotalEarnings = activeEarnings.reduce((sum, e) => sum + Number(e.amount), 0);
       const instructorPaidEarnings = earnings?.filter(e => e.status === 'paid').reduce((sum, e) => sum + Number(e.amount), 0) || 0;
       const instructorPendingEarnings = earnings?.filter(e => e.status === 'pending').reduce((sum, e) => sum + Number(e.amount), 0) || 0;
 
@@ -108,7 +109,7 @@ export const FinancialDashboard = () => {
       // Course revenue
       const courseRevenue = courses?.map(course => {
         const coursePayments = paidPayments.filter(p => p.course_id === course.id);
-        const courseEarnings = earnings?.filter(e => e.course_id === course.id) || [];
+        const courseEarnings = activeEarnings.filter(e => e.course_id === course.id);
         const revenue = coursePayments.reduce((sum, p) => sum + Number(p.amount), 0);
         const instructorEarning = courseEarnings.reduce((sum, e) => sum + Number(e.amount), 0);
         const instructor = profiles?.find(p => p.id === course.instructor_id);
@@ -126,8 +127,8 @@ export const FinancialDashboard = () => {
       }).filter(c => c.revenue > 0).sort((a, b) => b.revenue - a.revenue) || [];
 
       // Instructor earnings breakdown
-      const instructorBreakdown = Array.from(new Set(earnings?.map(e => e.instructor_id) || [])).map(instructorId => {
-        const instructorEarnings = earnings?.filter(e => e.instructor_id === instructorId) || [];
+      const instructorBreakdown = Array.from(new Set(activeEarnings.map(e => e.instructor_id))).map(instructorId => {
+        const instructorEarnings = activeEarnings.filter(e => e.instructor_id === instructorId);
         const instructor = profiles?.find(p => p.id === instructorId);
         const instructorCourses = courses?.filter(c => c.instructor_id === instructorId) || [];
         
@@ -154,10 +155,10 @@ export const FinancialDashboard = () => {
           return paidAt && paidAt >= monthStart && paidAt <= monthEnd;
         });
         
-        const monthEarnings = earnings?.filter(e => {
+        const monthEarnings = activeEarnings.filter(e => {
           const createdAt = new Date(e.created_at);
           return createdAt >= monthStart && createdAt <= monthEnd;
-        }) || [];
+        });
         
         monthlyTrend.push({
           month: format(monthDate, 'MMM', { locale: isRTL ? ar : undefined }),

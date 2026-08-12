@@ -142,7 +142,9 @@ export const WorkflowDashboard = () => {
         const courseIds = courses.map(c => c.id);
         const lessons = lessonsRes.data?.filter(l => courseIds.includes(l.course_id)) || [];
         const courseEnrollments = enrollmentsRes.data?.filter(e => courseIds.includes(e.course_id)) || [];
-        const totalEarnings = earnings.reduce((sum, e) => sum + Number(e.amount), 0);
+        const totalEarnings = earnings
+          .filter(e => e.status !== 'refunded')
+          .reduce((sum, e) => sum + Number(e.amount), 0);
         const pendingEarnings = earnings.filter(e => e.status === 'pending').reduce((sum, e) => sum + Number(e.amount), 0);
         const activeCourses = courses.filter(c => c.is_active && c.approval_status === 'approved');
         const pendingCourses = courses.filter(c => c.approval_status === 'pending');

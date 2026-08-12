@@ -91,7 +91,8 @@ export const AccountingLedger = () => {
 
     // === MONEY OUT (to instructors) ===
     const filteredEarnings = earnings.filter(e => filterByDate(e.created_at));
-    const totalInstructorEarnings = filteredEarnings.reduce((s, e) => s + Number(e.amount), 0);
+    const activeEarnings = filteredEarnings.filter(e => e.status !== 'refunded');
+    const totalInstructorEarnings = activeEarnings.reduce((s, e) => s + Number(e.amount), 0);
     const paidToInstructors = filteredEarnings.filter(e => e.status === 'paid').reduce((s, e) => s + Number(e.amount), 0);
     const pendingForInstructors = filteredEarnings.filter(e => e.status === 'pending').reduce((s, e) => s + Number(e.amount), 0);
 
@@ -112,7 +113,7 @@ export const AccountingLedger = () => {
     // === PER-COURSE DETAILED BREAKDOWN ===
     const courseBreakdown = courses.map(course => {
       const coursePayments = paidPayments.filter(p => p.course_id === course.id);
-      const courseEarnings = filteredEarnings.filter(e => e.course_id === course.id);
+      const courseEarnings = activeEarnings.filter(e => e.course_id === course.id);
       const courseCouponUsage = couponUsage.filter(u => {
         const payment = payments.find(p => p.id === u.payment_id);
         return payment?.course_id === course.id;
@@ -149,7 +150,7 @@ export const AccountingLedger = () => {
     const instructorIds = [...new Set(earnings.map(e => e.instructor_id))];
     const instructorBreakdown = instructorIds.map(id => {
       const instructor = getProfile(id);
-      const instEarnings = filteredEarnings.filter(e => e.instructor_id === id);
+      const instEarnings = activeEarnings.filter(e => e.instructor_id === id);
       const instWithdrawals = filteredWithdrawals.filter(w => w.instructor_id === id);
       const instCourses = courses.filter(c => c.instructor_id === id);
       
@@ -193,7 +194,7 @@ export const AccountingLedger = () => {
         const d = new Date(p.paid_at || p.created_at);
         return d >= dayStart && d <= dayEnd;
       });
-      const dayEarnings = filteredEarnings.filter(e => {
+      const dayEarnings = activeEarnings.filter(e => {
         const d = new Date(e.created_at);
         return d >= dayStart && d <= dayEnd;
       });
@@ -211,7 +212,7 @@ export const AccountingLedger = () => {
       const student = getProfile(p.user_id);
       const course = getCourse(p.course_id || '');
       const instructor = course ? getProfile(course.instructor_id || '') : null;
-      const paymentEarnings = earnings.filter(e => e.payment_id === p.id);
+      const paymentEarnings = earnings.filter(e => e.payment_id === p.id && e.status !== 'refunded');
       const instructorAmount = paymentEarnings.reduce((s, e) => s + Number(e.amount), 0);
       const platformAmount = p.status === 'paid' ? Number(p.amount) - instructorAmount : 0;
       const couponUsed = couponUsage.find(u => u.payment_id === p.id);

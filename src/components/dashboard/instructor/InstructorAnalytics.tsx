@@ -110,7 +110,7 @@ export const InstructorAnalytics = () => {
           [] // placeholder
         ),
         supabase.from('course_reviews').select('course_id, rating').in('course_id', courseIds),
-        supabase.from('instructor_earnings').select('course_id, amount').eq('instructor_id', user!.id),
+        supabase.from('instructor_earnings').select('course_id, amount, status').eq('instructor_id', user!.id),
         supabase.from('lessons').select('id, course_id').in('course_id', courseIds),
         // We'll handle progress differently
         Promise.resolve({ data: null }),
@@ -142,7 +142,9 @@ export const InstructorAnalytics = () => {
         const courseEnrollments = (enrollmentsRes.data || []).filter(e => e.course_id === course.id);
         const completedEnrollments = courseEnrollments.filter(e => e.completed_at !== null);
         const courseReviews = (reviewsRes.data || []).filter(r => r.course_id === course.id);
-        const courseEarnings = (earningsRes.data || []).filter(e => e.course_id === course.id);
+        const courseEarnings = (earningsRes.data || []).filter(
+          e => e.course_id === course.id && e.status !== 'refunded'
+        );
 
         const avgRating = courseReviews.length > 0
           ? courseReviews.reduce((sum, r) => sum + r.rating, 0) / courseReviews.length
