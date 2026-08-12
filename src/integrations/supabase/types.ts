@@ -1131,6 +1131,7 @@ export type Database = {
           instructor_id: string
           paid_at: string | null
           payment_id: string | null
+          payout_id: string | null
           status: string | null
         }
         Insert: {
@@ -1142,6 +1143,7 @@ export type Database = {
           instructor_id: string
           paid_at?: string | null
           payment_id?: string | null
+          payout_id?: string | null
           status?: string | null
         }
         Update: {
@@ -1153,6 +1155,7 @@ export type Database = {
           instructor_id?: string
           paid_at?: string | null
           payment_id?: string | null
+          payout_id?: string | null
           status?: string | null
         }
         Relationships: [
@@ -1170,7 +1173,65 @@ export type Database = {
             referencedRelation: "payments"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "instructor_earnings_payout_id_fkey"
+            columns: ["payout_id"]
+            isOneToOne: false
+            referencedRelation: "instructor_payouts"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      instructor_payouts: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          earnings_count: number
+          id: string
+          instructor_id: string
+          method: string
+          notes: string | null
+          paid_at: string
+          period_end: string | null
+          period_start: string | null
+          receipt_url: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          earnings_count?: number
+          id?: string
+          instructor_id: string
+          method?: string
+          notes?: string | null
+          paid_at?: string
+          period_end?: string | null
+          period_start?: string | null
+          receipt_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          earnings_count?: number
+          id?: string
+          instructor_id?: string
+          method?: string
+          notes?: string | null
+          paid_at?: string
+          period_end?: string | null
+          period_start?: string | null
+          receipt_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       lesson_attachments: {
         Row: {
