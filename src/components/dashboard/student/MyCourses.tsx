@@ -34,6 +34,20 @@ export const MyCourses = ({ limit, showViewAll, onViewAll }: MyCoursesProps) => 
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
+  const WITHDRAW_WINDOW_DAYS = 2;
+
+  const canWithdraw = (enrolledAt?: string | null) => {
+    if (!enrolledAt) return false;
+    const diffDays = (Date.now() - new Date(enrolledAt).getTime()) / (1000 * 60 * 60 * 24);
+    return diffDays <= WITHDRAW_WINDOW_DAYS;
+  };
+
+  const daysLeft = (enrolledAt?: string | null) => {
+    if (!enrolledAt) return 0;
+    const diffDays = (Date.now() - new Date(enrolledAt).getTime()) / (1000 * 60 * 60 * 24);
+    return Math.max(0, Math.ceil(WITHDRAW_WINDOW_DAYS - diffDays));
+  };
+
   const handleWithdraw = async (enrollmentId: string) => {
     const { error } = await supabase
       .from('enrollments')
@@ -41,13 +55,22 @@ export const MyCourses = ({ limit, showViewAll, onViewAll }: MyCoursesProps) => 
       .eq('id', enrollmentId);
 
     if (error) {
-      toast.error(language === 'ar' ? 'تعذر إلغاء التسجيل' : 'Could not cancel enrollment');
+      const expired = (error.message || '').includes('WITHDRAW_WINDOW_EXPIRED');
+      toast.error(
+        expired
+          ? language === 'ar'
+            ? 'انتهت مهلة الانسحاب (يومان من تاريخ الشراء)'
+            : 'The withdrawal window (2 days after purchase) has expired'
+          : language === 'ar'
+            ? 'تعذر إلغاء التسجيل'
+            : 'Could not cancel enrollment'
+      );
       return;
     }
 
     toast.success(
       language === 'ar'
-        ? 'تم الانسحاب من الدورة وسيتم استرداد المبلغ وتحديث السجلات المالية'
+        ? 'تم الانسحاب من الدورة، وسُجّل مبلغ الاسترداد لدى الإدارة لتحويله إليك، وتم تحديث السجلات المالية'
         : 'You withdrew from the course. The payment is refunded and financial records updated'
     );
     queryClient.invalidateQueries({ queryKey: ['my-enrollments'] });
@@ -145,6 +168,7 @@ export const MyCourses = ({ limit, showViewAll, onViewAll }: MyCoursesProps) => 
                     {language === 'ar' ? 'متابعة' : 'Continue'}
                   </Button>
                 </Link>
+                {canWithdraw(enrollment.enrolled_at) ? (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive">
@@ -159,7 +183,7 @@ export const MyCourses = ({ limit, showViewAll, onViewAll }: MyCoursesProps) => 
                       </AlertDialogTitle>
                       <AlertDialogDescription>
                         {language === 'ar'
-                          ? 'سيتم إلغاء تسجيلك في الدورة، واسترداد المبلغ المدفوع، وخصم أرباح المعلم المرتبطة بها، وتحديث السجلات المالية.'
+                          ? `سيتم إلغاء تسجيلك في الدورة، وتسجيل مبلغ الاسترداد لتحويله إليك، وخصم أرباح المعلم المرتبطة بها، وتحديث السجلات المالية. (متبقٍ ${daysLeft(enrollment.enrolled_at)} يوم على انتهاء مهلة الانسحاب)`
                           : 'Your enrollment will be cancelled, the payment refunded, the instructor earnings reversed and the financial records updated.'}
                       </AlertDialogDescription>
                     </AlertDialogHeader>
@@ -171,6 +195,11 @@ export const MyCourses = ({ limit, showViewAll, onViewAll }: MyCoursesProps) => 
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
+                ) : (
+                  <span className="text-xs text-muted-foreground max-w-[120px] text-center">
+                    {language === 'ar' ? 'انتهت مهلة الانسحاب' : 'Withdrawal window closed'}
+                  </span>
+                )}
               </div>
             </div>
           ))}
