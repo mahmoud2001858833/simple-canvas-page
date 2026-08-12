@@ -98,7 +98,10 @@ const IntroVideoSection = () => {
               loop
               playsInline
               preload="metadata"
+              onPlay={() => setPlaying(true)}
+              onPause={() => setPlaying(false)}
             />
+
 
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background/40 via-transparent to-transparent opacity-60" />
 
