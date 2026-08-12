@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Loader2, ShieldCheck, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
-import { trackXapi, XapiPayload } from '@/lib/xapi';
+import { trackXapi, XapiPayload, isValidNationalId } from '@/lib/xapi';
 
 /**
  * NELC / FutureX technical integration control panel.
