@@ -43,12 +43,20 @@ const IntroVideoSection = () => {
     const video = videoRef.current;
     if (!video) return;
     if (video.paused) {
-      video.play().then(() => setPlaying(true)).catch(() => undefined);
+      video
+        .play()
+        .then(() => {
+          setPlaying(true);
+          setUserPaused(false);
+        })
+        .catch(() => undefined);
     } else {
       video.pause();
       setPlaying(false);
+      setUserPaused(true);
     }
   };
+
 
   const toggleMute = () => {
     const video = videoRef.current;
