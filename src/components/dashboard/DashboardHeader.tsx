@@ -163,23 +163,16 @@ export const DashboardHeader = ({ userName, onMenuClick }: HeaderProps) => {
           </DropdownMenu>
 
           {/* User Avatar */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center gap-2 px-2 hover:bg-white/10 rounded-xl transition-all duration-200">
-                <Avatar className="w-9 h-9 ring-2 ring-accent/40 ring-offset-1 ring-offset-transparent">
-                  <AvatarImage src="" />
-                  <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-white text-sm font-bold">
-                    {getInitials(userName || 'U')}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="hidden md:block text-sm font-medium text-white">{userName}</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align={dir === 'rtl' ? 'start' : 'end'} className="rounded-xl shadow-xl">
-              <DropdownMenuItem className="rounded-lg">{language === 'ar' ? 'الملف الشخصي' : 'Profile'}</DropdownMenuItem>
-              <DropdownMenuItem className="rounded-lg">{language === 'ar' ? 'الإعدادات' : 'Settings'}</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <div className="flex items-center gap-2 px-2">
+            <Avatar className="w-9 h-9 ring-2 ring-accent/40 ring-offset-1 ring-offset-transparent">
+              <AvatarImage src="" />
+              <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-white text-sm font-bold">
+                {getInitials(userName || 'U')}
+              </AvatarFallback>
+            </Avatar>
+            <span className="hidden md:block text-sm font-medium text-white">{userName}</span>
+          </div>
+
         </div>
       </div>
     </header>
