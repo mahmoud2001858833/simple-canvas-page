@@ -74,7 +74,7 @@ export const InstructorSpecialties = () => {
           .eq('status', 'active'),
         supabase
           .from('instructor_earnings')
-          .select('instructor_id, amount'),
+          .select('instructor_id, amount, status'),
       ]);
 
       const profiles = profilesRes.data || [];
@@ -87,7 +87,9 @@ export const InstructorSpecialties = () => {
         const instructorCourses = courses.filter(c => c.instructor_id === p.id);
         const courseIds = instructorCourses.map(c => c.id);
         const studentCount = enrollments.filter(e => courseIds.includes(e.course_id)).length;
-        const totalEarnings = earnings.filter(e => e.instructor_id === p.id).reduce((sum, e) => sum + Number(e.amount), 0);
+        const totalEarnings = earnings
+          .filter(e => e.instructor_id === p.id && e.status !== 'refunded')
+          .reduce((sum, e) => sum + Number(e.amount), 0);
 
         return {
           ...p,
