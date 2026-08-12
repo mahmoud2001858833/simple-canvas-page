@@ -10,6 +10,8 @@ const IntroVideoSection = () => {
   const [visible, setVisible] = useState(false);
   const [muted, setMuted] = useState(true);
   const [playing, setPlaying] = useState(false);
+  const [userPaused, setUserPaused] = useState(false);
+
 
   useEffect(() => {
     const el = sectionRef.current;
