@@ -29,6 +29,7 @@ import {
   ShieldAlert,
   UserCheck,
   Wallet,
+  Landmark,
   UserCog,
   Send,
   Ticket,
