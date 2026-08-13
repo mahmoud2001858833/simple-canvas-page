@@ -712,6 +712,12 @@ const LessonViewer = () => {
                   poster={course?.thumbnail_url}
                   protectionEnabled={isProtectionEnabled}
                   lessonId={lessonId}
+                  introTitle={
+                    isRTL
+                      ? (currentLesson.title_ar?.trim() ? currentLesson.title_ar : currentLesson.title)
+                      : (currentLesson.title || currentLesson.title_ar)
+                  }
+                  introSubtitle={isRTL ? course?.title_ar || course?.title : course?.title || course?.title_ar}
                   className={`w-full h-full relative z-10 ${showThumbnail && !isPlaying ? 'opacity-0' : 'opacity-100'}`}
                   onTimeUpdate={() => {
                     if (protectedPlayerRef.current?.video) {
