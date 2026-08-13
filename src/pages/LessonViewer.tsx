@@ -145,6 +145,21 @@ const LessonViewer = () => {
     enabled: !!courseId,
   });
 
+  // Fetch instructor name (for the intro board)
+  const { data: instructorProfile } = useQuery({
+    queryKey: ["course-instructor", (course as any)?.instructor_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("full_name, full_name_ar")
+        .eq("id", (course as any).instructor_id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!(course as any)?.instructor_id,
+  });
+
   // Fetch all lessons with chapter info for proper ordering
   const { data: lessons = [] } = useQuery({
     queryKey: ["lessons", courseId],
@@ -718,6 +733,11 @@ const LessonViewer = () => {
                       : (currentLesson.title || currentLesson.title_ar)
                   }
                   introSubtitle={isRTL ? course?.title_ar || course?.title : course?.title || course?.title_ar}
+                  introInstructor={
+                    isRTL
+                      ? ((instructorProfile as any)?.full_name_ar || (instructorProfile as any)?.full_name)
+                      : ((instructorProfile as any)?.full_name || (instructorProfile as any)?.full_name_ar)
+                  }
                   className={`w-full h-full relative z-10 ${showThumbnail && !isPlaying ? 'opacity-0' : 'opacity-100'}`}
                   onTimeUpdate={() => {
                     if (protectedPlayerRef.current?.video) {
