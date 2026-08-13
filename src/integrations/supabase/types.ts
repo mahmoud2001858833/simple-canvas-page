@@ -2878,6 +2878,10 @@ export type Database = {
         Args: { _course_id: string }
         Returns: undefined
       }
+      register_current_device_session: {
+        Args: { _device_fingerprint: string; _device_info?: Json }
+        Returns: undefined
+      }
       reset_all_accounts: { Args: never; Returns: boolean }
       reset_financial_data: {
         Args: { p_backup_first?: boolean }
