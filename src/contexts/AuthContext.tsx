@@ -151,49 +151,55 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const fingerprint = await generateDeviceFingerprint();
       const deviceInfo = getDeviceInfo();
       
-      // Check for existing active sessions
+      // Read every registration for this user. The current device must be
+      // activated before older devices are disabled, otherwise an older tab
+      // can react to its deactivation and revoke the fresh login mid-flow.
       const { data: existingSessions, error: fetchError } = await supabase
         .from('device_sessions')
         .select('*')
-        .eq('user_id', userId)
-        .eq('is_active', true);
+        .eq('user_id', userId);
       
       if (fetchError) {
         console.error('Error fetching device sessions:', fetchError);
         return { allowed: true }; // Allow on error to not block users
       }
       
-      // Check if this device is already registered
+      // Register/activate the new device first.
       const currentDeviceSession = existingSessions?.find(s => s.device_fingerprint === fingerprint);
-      
+
       if (currentDeviceSession) {
-        // Update last seen
-        await supabase
+        const { error: activateError } = await supabase
           .from('device_sessions')
-          .update({ last_seen_at: new Date().toISOString() })
+          .update({
+            is_active: true,
+            device_info: deviceInfo,
+            last_seen_at: new Date().toISOString(),
+          })
           .eq('id', currentDeviceSession.id);
-        return { allowed: true };
+
+        if (activateError) throw activateError;
+      } else {
+        const { error: insertError } = await supabase.from('device_sessions').insert({
+          user_id: userId,
+          device_fingerprint: fingerprint,
+          device_info: deviceInfo,
+          is_active: true,
+          last_seen_at: new Date().toISOString(),
+        });
+
+        if (insertError) throw insertError;
       }
-      
-      // ⭐ NEW: Deactivate all other sessions instead of blocking
-      if (existingSessions && existingSessions.length > 0) {
-        console.log('Deactivating existing sessions for new device login');
-        await supabase
-          .from('device_sessions')
-          .update({ is_active: false })
-          .eq('user_id', userId)
-          .eq('is_active', true);
-      }
-      
-      // Register this new device
-      await supabase.from('device_sessions').insert({
-        user_id: userId,
-        device_fingerprint: fingerprint,
-        device_info: deviceInfo,
-        is_active: true,
-        last_seen_at: new Date().toISOString(),
-      });
-      
+
+      // Only after the new device is active, deactivate every other device.
+      const { error: deactivateError } = await supabase
+        .from('device_sessions')
+        .update({ is_active: false })
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .neq('device_fingerprint', fingerprint);
+
+      if (deactivateError) throw deactivateError;
+
       return { allowed: true };
     } catch (error) {
       console.error('Error checking device session:', error);
@@ -310,7 +316,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             queryClient.clear();
             
             try {
-              await supabase.auth.signOut();
+              // Local scope is essential: a global logout from the old device
+              // would also revoke the newly-created session on the new device.
+              await supabase.auth.signOut({ scope: 'local' });
             } catch (e) {
               console.log('Sign out failed (session may be invalid)');
             }
@@ -338,7 +346,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setRole(null);
       queryClient.clear();
       try {
-        await supabase.auth.signOut();
+        // Never let a kicked device revoke the active device's refresh token.
+        await supabase.auth.signOut({ scope: 'local' });
       } catch (e) {
         console.log('Sign out failed (session may be invalid)');
       }
