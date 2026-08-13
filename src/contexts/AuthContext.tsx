@@ -156,54 +156,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const fingerprint = await generateDeviceFingerprint();
       const deviceInfo = getDeviceInfo();
       
-      // Read every registration for this user. The current device must be
-      // activated before older devices are disabled, otherwise an older tab
-      // can react to its deactivation and revoke the fresh login mid-flow.
-      const { data: existingSessions, error: fetchError } = await supabase
-        .from('device_sessions')
-        .select('*')
-        .eq('user_id', userId);
-      
-      if (fetchError) {
-        console.error('Error fetching device sessions:', fetchError);
-        return { allowed: false, message: 'تعذر التحقق من جلسات الأجهزة' };
-      }
-      
-      // Register/activate the new device first.
-      const currentDeviceSession = existingSessions?.find(s => s.device_fingerprint === fingerprint);
+      // Perform activation and old-device deactivation atomically in the
+      // database. This prevents RLS/query races during a fresh login.
+      const { error: registrationError } = await supabase.rpc(
+        'register_current_device_session',
+        {
+          _device_fingerprint: fingerprint,
+          _device_info: deviceInfo,
+        }
+      );
 
-      if (currentDeviceSession) {
-        const { error: activateError } = await supabase
-          .from('device_sessions')
-          .update({
-            is_active: true,
-            device_info: deviceInfo,
-            last_seen_at: new Date().toISOString(),
-          })
-          .eq('id', currentDeviceSession.id);
-
-        if (activateError) throw activateError;
-      } else {
-        const { error: insertError } = await supabase.from('device_sessions').insert({
-          user_id: userId,
-          device_fingerprint: fingerprint,
-          device_info: deviceInfo,
-          is_active: true,
-          last_seen_at: new Date().toISOString(),
-        });
-
-        if (insertError) throw insertError;
-      }
-
-      // Only after the new device is active, deactivate every other device.
-      const { error: deactivateError } = await supabase
-        .from('device_sessions')
-        .update({ is_active: false })
-        .eq('user_id', userId)
-        .eq('is_active', true)
-        .neq('device_fingerprint', fingerprint);
-
-      if (deactivateError) throw deactivateError;
+      if (registrationError) throw registrationError;
 
       return { allowed: true };
     } catch (error) {
@@ -526,11 +489,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw new Error('تعذر تحميل صلاحيات الحساب، يرجى المحاولة مرة أخرى');
       }
 
-      deviceRegistrationInProgress.current = false;
       return { error: null, data: { user: data.user, role: resolvedRole } };
     } catch (error) {
-      deviceRegistrationInProgress.current = false;
       return { error: error as Error, data: null };
+    } finally {
+      deviceRegistrationInProgress.current = false;
     }
   };
 
