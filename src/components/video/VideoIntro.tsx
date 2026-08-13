@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import introAsset from '@/assets/josoorcom-video-intro.mp4.asset.json';
+import introAsset from '@/assets/josoorcom-intro-blank.mp4.asset.json';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 interface VideoIntroProps {
@@ -10,7 +10,7 @@ interface VideoIntroProps {
 }
 
 /** اللحظة التي يكتمل فيها تجميع اللوح الأخضر في المقدمة (بالثواني) */
-const BOARD_READY_AT = 2.6;
+const BOARD_READY_AT = 5.35;
 
 /**
  * مقدمة تلقائية تُعرض قبل تشغيل الفيديو الأصلي،
@@ -78,10 +78,12 @@ export const VideoIntro = ({ title, subtitle, instructor, onFinish }: VideoIntro
             dir={isRTL ? 'rtl' : 'ltr'}
           >
             <div
-              className="text-center px-[12%]"
+              className="text-center absolute left-1/2 -translate-x-1/2 w-[52%]"
+              data-board-text
               style={{
+                top: '36%',
                 opacity: eased,
-                transform: `translateY(${(1 - eased) * 26 + float}px) scale(${0.94 + eased * 0.06})`,
+                transform: `translate(-50%, ${(1 - eased) * 26 + float}px) scale(${0.94 + eased * 0.06})`,
                 filter: `blur(${(1 - eased) * 6}px)`,
                 textShadow: '0 2px 10px rgba(0,0,0,0.45)',
               }}
@@ -89,8 +91,8 @@ export const VideoIntro = ({ title, subtitle, instructor, onFinish }: VideoIntro
               <h2
                 className="font-extrabold leading-tight"
                 style={{
-                  color: '#F3E7C9',
-                  fontSize: 'clamp(1.1rem, 4.2vw, 3rem)',
+                  color: '#E4BE63',
+                  fontSize: 'clamp(0.9rem, 2.6vw, 2.2rem)',
                   letterSpacing: '0.01em',
                 }}
               >
@@ -116,7 +118,7 @@ export const VideoIntro = ({ title, subtitle, instructor, onFinish }: VideoIntro
                   <p
                     style={{
                       color: '#E7DCBC',
-                      fontSize: 'clamp(0.7rem, 2.2vw, 1.4rem)',
+                      fontSize: 'clamp(0.6rem, 1.5vw, 1.1rem)',
                     }}
                   >
                     {subtitle}
@@ -128,8 +130,8 @@ export const VideoIntro = ({ title, subtitle, instructor, onFinish }: VideoIntro
                 <p
                   className="mt-[1.5%] font-semibold"
                   style={{
-                    color: '#CBB77C',
-                    fontSize: 'clamp(0.65rem, 1.9vw, 1.15rem)',
+                    color: '#F0DFAE',
+                    fontSize: 'clamp(0.6rem, 1.6vw, 1.2rem)',
                     opacity: Math.max(0, (eased - 0.45) / 0.55),
                     transform: `translateY(${(1 - eased) * 10}px)`,
                   }}
