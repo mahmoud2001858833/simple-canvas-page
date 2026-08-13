@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import introAsset from '@/assets/josoorcom-intro-blank-v2.mp4.asset.json';
+import introAsset from '@/assets/josoorcom-intro-v3.mp4.asset.json';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 interface VideoIntroProps {
