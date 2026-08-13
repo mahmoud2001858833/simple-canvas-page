@@ -361,12 +361,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (error || cancelled || !sessions) return;
 
         const mine = sessions.find((s) => s.device_fingerprint === fingerprint);
-        const otherActive = sessions.some(
-          (s) => s.device_fingerprint !== fingerprint && s.is_active
-        );
-
-        // Signed out remotely: my session was deactivated, or another device took over
-        if ((mine && !mine.is_active) || (!mine && otherActive)) {
+        // Only sign out a device after its own registered session is explicitly
+        // deactivated. During a fresh login there is a short interval where the
+        // auth event arrives before checkDeviceSession registers this device;
+        // treating a missing row as invalid causes the new login to sign itself out.
+        if (mine && !mine.is_active) {
           console.log('Device session no longer valid - signing out');
           await forceSignOut();
         }
