@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, forwardRef, useImperativeHandle, useCallba
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { VideoWatermark } from './VideoWatermark';
+import { VideoIntro } from './VideoIntro';
 import { AlertTriangle, Eye, EyeOff, Maximize, Minimize } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -19,6 +20,9 @@ interface ProtectedVideoPlayerProps {
   onPause?: () => void;
   onContextMenu?: (e: React.MouseEvent) => void;
   className?: string;
+  /** عنوان الدرس الذي يُكتب تلقائياً على مقدمة الفيديو */
+  introTitle?: string;
+  introSubtitle?: string;
 }
 
 export interface ProtectedVideoPlayerRef {
@@ -40,6 +44,8 @@ export const ProtectedVideoPlayer = forwardRef<ProtectedVideoPlayerRef, Protecte
   onPause,
   onContextMenu,
   className,
+  introTitle,
+  introSubtitle,
 }, ref) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -50,6 +56,8 @@ export const ProtectedVideoPlayer = forwardRef<ProtectedVideoPlayerRef, Protecte
   const [isBlurred, setIsBlurred] = useState(false);
   const [blurReason, setBlurReason] = useState<string>('');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showIntro, setShowIntro] = useState(false);
+  const introPlayedRef = useRef(false);
   const wasPlayingRef = useRef(false);
   const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastLoggedAttemptRef = useRef<number>(0);
@@ -276,7 +284,15 @@ export const ProtectedVideoPlayer = forwardRef<ProtectedVideoPlayerRef, Protecte
         onWaiting={onWaiting}
         onCanPlay={onCanPlay}
         onEnded={onEnded}
-        onPlay={onPlay}
+        onPlay={() => {
+          if (introTitle && !introPlayedRef.current) {
+            introPlayedRef.current = true;
+            videoRef.current?.pause();
+            setShowIntro(true);
+            return;
+          }
+          onPlay?.();
+        }}
         onPause={onPause}
         onContextMenu={onContextMenu}
         controlsList="nodownload noplaybackrate"
@@ -292,6 +308,18 @@ export const ProtectedVideoPlayer = forwardRef<ProtectedVideoPlayerRef, Protecte
           toggleFullscreen();
         }}
       />
+
+      {/* المقدمة التلقائية مع عنوان الدرس */}
+      {showIntro && introTitle && (
+        <VideoIntro
+          title={introTitle}
+          subtitle={introSubtitle}
+          onFinish={() => {
+            setShowIntro(false);
+            videoRef.current?.play().catch(() => {});
+          }}
+        />
+      )}
 
       {/* Watermark overlay - ALWAYS visible including fullscreen */}
       <VideoWatermark enabled={protectionEnabled} />
