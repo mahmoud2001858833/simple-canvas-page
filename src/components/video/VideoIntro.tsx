@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import introAsset from '@/assets/josoorcom-intro-blank.mp4.asset.json';
+import introAsset from '@/assets/josoorcom-intro-blank-v2.mp4.asset.json';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 interface VideoIntroProps {
@@ -74,69 +74,76 @@ export const VideoIntro = ({ title, subtitle, instructor, onFinish }: VideoIntro
 
           {/* نص فوق اللوح الأخضر */}
           <div
-            className="absolute inset-0 flex items-center justify-center pointer-events-none"
+            className="absolute inset-0 pointer-events-none"
             dir={isRTL ? 'rtl' : 'ltr'}
           >
             <div
-              className="text-center absolute left-1/2 -translate-x-1/2 w-[52%]"
+              className="absolute flex flex-col items-center justify-center text-center"
               data-board-text
               style={{
-                top: '36%',
+                left: '25.5%',
+                right: '25.5%',
+                top: '27%',
+                bottom: '17%',
                 opacity: eased,
-                transform: `translate(-50%, ${(1 - eased) * 26 + float}px) scale(${0.94 + eased * 0.06})`,
-                filter: `blur(${(1 - eased) * 6}px)`,
-                textShadow: '0 2px 10px rgba(0,0,0,0.45)',
+                transform: `translateY(${(1 - eased) * 24 + float}px) scale(${0.95 + eased * 0.05})`,
+                filter: `blur(${(1 - eased) * 5}px)`,
               }}
             >
               <h2
-                className="font-extrabold leading-tight"
+                className="font-black leading-[1.15] w-full"
                 style={{
-                  color: '#E4BE63',
-                  fontSize: 'clamp(0.9rem, 2.6vw, 2.2rem)',
-                  letterSpacing: '0.01em',
+                  color: '#EBC873',
+                  fontSize: 'clamp(1.1rem, 3.6vw, 3.4rem)',
+                  letterSpacing: '-0.01em',
+                  textShadow: '0 2px 0 #8E6A1E, 0 6px 16px rgba(0,0,0,0.5)',
                 }}
               >
                 {title}
               </h2>
 
+              <div
+                className="mx-auto"
+                style={{
+                  marginTop: '3.5%',
+                  marginBottom: '3.5%',
+                  height: 3,
+                  borderRadius: 3,
+                  width: `${20 + eased * 45}%`,
+                  background:
+                    'linear-gradient(90deg, transparent, #EBC873, #FAEBBE, #EBC873, transparent)',
+                  opacity: Math.max(0, (eased - 0.2) / 0.8),
+                }}
+              />
+
               {subtitle && (
-                <div
+                <p
+                  className="font-semibold w-full"
                   style={{
+                    color: '#E7DCBC',
+                    fontSize: 'clamp(0.7rem, 1.9vw, 1.7rem)',
                     opacity: Math.max(0, (eased - 0.25) / 0.75),
                     transform: `translateY(${(1 - eased) * 14}px)`,
+                    textShadow: '0 2px 8px rgba(0,0,0,0.45)',
                   }}
                 >
-                  <div
-                    className="mx-auto my-[2%]"
-                    style={{
-                      height: 2,
-                      width: `${30 + eased * 40}%`,
-                      background:
-                        'linear-gradient(90deg, transparent, #D8C38A, transparent)',
-                    }}
-                  />
-                  <p
-                    style={{
-                      color: '#E7DCBC',
-                      fontSize: 'clamp(0.6rem, 1.5vw, 1.1rem)',
-                    }}
-                  >
-                    {subtitle}
-                  </p>
-                </div>
+                  {subtitle}
+                </p>
               )}
 
               {instructor && (
                 <p
-                  className="mt-[1.5%] font-semibold"
+                  className="font-bold w-full"
                   style={{
-                    color: '#F0DFAE',
-                    fontSize: 'clamp(0.6rem, 1.6vw, 1.2rem)',
+                    marginTop: '2.5%',
+                    color: '#F3E3B4',
+                    fontSize: 'clamp(0.75rem, 2.2vw, 2rem)',
                     opacity: Math.max(0, (eased - 0.45) / 0.55),
                     transform: `translateY(${(1 - eased) * 10}px)`,
+                    textShadow: '0 2px 0 #8E6A1E, 0 5px 12px rgba(0,0,0,0.45)',
                   }}
                 >
-                  {isRTL ? `المعلم: ${instructor}` : `Instructor: ${instructor}`}
+                  {instructor}
                 </p>
               )}
             </div>

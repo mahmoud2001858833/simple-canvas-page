@@ -40,10 +40,7 @@ const PIECES = [
   { x: 66, y: 72, w: 34, h: 28, from: [440, 400], rot: -24 },
 ];
 
-export const MainVideo: React.FC<{
-  courseTitle: string;
-  teacherName: string;
-}> = ({ courseTitle, teacherName }) => {
+export const MainVideo: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
@@ -65,16 +62,8 @@ export const MainVideo: React.FC<{
   const boardY = interpolate(boardT, [0, 1], [BOARD_CY + 900, BOARD_CY]);
   const boardTilt = interpolate(boardT, [0, 1], [3.5, 0]);
 
-  const textSpring = (delay: number) =>
-    spring({
-      frame: frame - TRANSITION_START - delay,
-      fps,
-      config: { damping: 14, stiffness: 110, mass: 1 },
-    });
 
-  const titleT = textSpring(10);
-  const dividerT = textSpring(13);
-  const nameT = textSpring(16);
+
 
   // rays behind logo
   const raysPulse = 1 + Math.sin(frame / 14) * 0.035;
@@ -124,72 +113,6 @@ export const MainVideo: React.FC<{
             style={{ width: "100%", height: "100%" }}
           />
 
-          {/* text block on the board */}
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              paddingTop: BOARD_H * 0.26,
-              paddingLeft: BOARD_W * 0.1,
-              paddingRight: BOARD_W * 0.1,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "flex-start",
-              direction: "rtl",
-            }}
-          >
-            <div
-              style={{
-                fontSize: 84,
-                fontWeight: 900,
-                lineHeight: 1.18,
-                color: GOLD,
-                textAlign: "center",
-                width: "100%",
-                textShadow: `0 2px 0 ${GOLD_DEEP}, 0 5px 10px rgba(0,0,0,0.45)`,
-                opacity: titleT,
-                transform: `translateY(${interpolate(titleT, [0, 1], [70, 0])}px) scale(${interpolate(
-                  titleT,
-                  [0, 1],
-                  [0.9, 1],
-                )})`,
-              }}
-            >
-              {courseTitle}
-            </div>
-
-            <div
-              style={{
-                marginTop: 34,
-                height: 6,
-                width: `${interpolate(dividerT, [0, 1], [0, 62])}%`,
-                borderRadius: 3,
-                background: `linear-gradient(90deg, rgba(228,190,99,0) 0%, ${GOLD} 18%, #F3DE9E 50%, ${GOLD} 82%, rgba(228,190,99,0) 100%)`,
-                boxShadow: "0 3px 6px rgba(0,0,0,0.4)",
-                opacity: dividerT,
-              }}
-            />
-
-            <div
-              style={{
-                marginTop: 34,
-                fontSize: 54,
-                fontWeight: 700,
-                color: "#F0DFAE",
-                textAlign: "center",
-                textShadow: `0 2px 0 ${GOLD_DEEP}, 0 4px 9px rgba(0,0,0,0.42)`,
-                opacity: nameT,
-                transform: `translateY(${interpolate(nameT, [0, 1], [60, 0])}px) scale(${interpolate(
-                  nameT,
-                  [0, 1],
-                  [0.92, 1],
-                )})`,
-              }}
-            >
-              {teacherName}
-            </div>
-          </div>
         </div>
 
         {/* logo pieces */}
@@ -207,15 +130,18 @@ export const MainVideo: React.FC<{
         >
           {PIECES.map((p, i) => {
             const s = spring({
-              frame: frame - 6 - i * 5,
+              frame: frame - 6 - i * 8,
               fps,
-              config: { damping: 12, stiffness: 130, mass: 1 },
+              config: { damping: 18, stiffness: 70, mass: 1.1 },
             });
             const px = interpolate(s, [0, 1], [p.from[0], 0]);
             const py = interpolate(s, [0, 1], [p.from[1], 0]);
             const rot = interpolate(s, [0, 1], [p.rot, 0]);
+            // arc + breathing scale for a softer, more graceful settle
+            const arc = Math.sin(s * Math.PI) * -26;
+            const sc = interpolate(s, [0, 1], [1.12, 1]);
             const settleWobble =
-              (1 - s) * 0 + Math.sin((frame - i * 7) / 26) * 1.4 * (1 - t);
+              (1 - s) * 0 + Math.sin((frame - i * 7) / 30) * 1.1 * (1 - t);
             return (
               <div
                 key={i}
@@ -223,7 +149,7 @@ export const MainVideo: React.FC<{
                   position: "absolute",
                   inset: 0,
                   clipPath: `inset(${p.y}% ${100 - (p.x + p.w)}% ${100 - (p.y + p.h)}% ${p.x}%)`,
-                  transform: `translate(${px}px, ${py + settleWobble}px) rotate(${rot}deg)`,
+                  transform: `translate(${px}px, ${py + arc + settleWobble}px) rotate(${rot}deg) scale(${sc})`,
                   opacity: interpolate(s, [0, 0.25], [0, 1], {
                     extrapolateRight: "clamp",
                   }),
