@@ -482,7 +482,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       // التحقق من تأكيد البريد الإلكتروني
       if (!data.user.email_confirmed_at) {
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: 'local' });
         return { 
           error: new Error('EMAIL_NOT_CONFIRMED'), 
           data: null 
@@ -497,7 +497,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .single();
       
       if (profileData?.is_banned) {
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: 'local' });
         const reason = profileData.banned_reason || 'تم حظر حسابك';
         return { 
           error: new Error(`تم حظر حسابك: ${reason}`), 
@@ -540,7 +540,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     }
     
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: 'local' });
     setUser(null);
     setSession(null);
     setProfile(null);

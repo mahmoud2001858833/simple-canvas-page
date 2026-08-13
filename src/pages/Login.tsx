@@ -46,6 +46,23 @@ const Login = () => {
     }
   }, [redirecting, user, role, authLoading, authReady, navigate]);
 
+  // Never leave the form spinning forever if navigation is interrupted.
+  useEffect(() => {
+    if (!redirecting) return;
+
+    const timeout = window.setTimeout(() => {
+      setRedirecting(false);
+      setLoading(false);
+      toast.error(
+        language === 'ar'
+          ? 'تعذر فتح لوحة التحكم، يرجى المحاولة مرة أخرى'
+          : 'Could not open the dashboard. Please try again.'
+      );
+    }, 10000);
+
+    return () => window.clearTimeout(timeout);
+  }, [redirecting, language]);
+
   // Show device kicked message
   useEffect(() => {
     if (sessionStorage.getItem('device_kicked') === 'true') {
