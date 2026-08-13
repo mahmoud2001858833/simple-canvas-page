@@ -65,16 +65,8 @@ export const MainVideo: React.FC<{
   const boardY = interpolate(boardT, [0, 1], [BOARD_CY + 900, BOARD_CY]);
   const boardTilt = interpolate(boardT, [0, 1], [3.5, 0]);
 
-  const textSpring = (delay: number) =>
-    spring({
-      frame: frame - TRANSITION_START - delay,
-      fps,
-      config: { damping: 14, stiffness: 110, mass: 1 },
-    });
 
-  const titleT = textSpring(10);
-  const dividerT = textSpring(13);
-  const nameT = textSpring(16);
+
 
   // rays behind logo
   const raysPulse = 1 + Math.sin(frame / 14) * 0.035;
