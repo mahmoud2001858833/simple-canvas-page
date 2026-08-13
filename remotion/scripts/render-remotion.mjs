@@ -33,7 +33,7 @@ await renderMedia({
   outputLocation: out,
   puppeteerInstance: browser,
   muted: true,
-  inputProps: { courseTitle: "", teacherName: "" },
+
   concurrency: 1,
 });
 
