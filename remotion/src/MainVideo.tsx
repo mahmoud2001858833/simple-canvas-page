@@ -28,10 +28,22 @@ const BOARD_W = 1190;
 const BOARD_H = (BOARD_W * 1024) / 1536;
 const BOARD_CY = 592;
 
-const STRIPS = 18;
-const STRIP_ORDER = Array.from({ length: STRIPS }, (_, i) => i).sort(
-  (a, b) => Math.abs(a - (STRIPS - 1) / 2) - Math.abs(b - (STRIPS - 1) / 2),
-);
+// soft radial fragments that drift together to form the logo
+const PIECES = 10;
+const PIECE_ANGLE = 360 / PIECES;
+const polar = (cx: number, cy: number, r: number, deg: number) => {
+  const rad = ((deg - 90) * Math.PI) / 180;
+  return `${cx + r * Math.cos(rad)}% ${cy + r * Math.sin(rad)}%`;
+};
+const wedge = (i: number) => {
+  const a0 = i * PIECE_ANGLE;
+  const pts = [`50% 50%`];
+  for (let s = 0; s <= 4; s++) {
+    pts.push(polar(50, 50, 120, a0 + (PIECE_ANGLE * s) / 4));
+  }
+  return `polygon(${pts.join(",")})`;
+};
+
 
 export const MainVideo: React.FC = () => {
   const frame = useCurrentFrame();
