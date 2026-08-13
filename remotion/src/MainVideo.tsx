@@ -28,10 +28,7 @@ const BOARD_W = 1190;
 const BOARD_H = (BOARD_W * 1024) / 1536;
 const BOARD_CY = 592;
 
-const STRIPS = 18;
-const STRIP_ORDER = Array.from({ length: STRIPS }, (_, i) => i).sort(
-  (a, b) => Math.abs(a - (STRIPS - 1) / 2) - Math.abs(b - (STRIPS - 1) / 2),
-);
+
 
 export const MainVideo: React.FC = () => {
   const frame = useCurrentFrame();
@@ -121,42 +118,36 @@ export const MainVideo: React.FC = () => {
             filter: "drop-shadow(0 14px 20px rgba(80,64,30,0.3))",
           }}
         >
-          {Array.from({ length: STRIPS }).map((_, i) => {
-            const order = STRIP_ORDER.indexOf(i);
-            const dir = i % 2 === 0 ? -1 : 1;
+          {/* soft focus-in ghosts: three layers converge into one crisp logo */}
+          {[0, 1, 2].map((i) => {
             const s = spring({
-              frame: frame - 4 - order * 2.6,
+              frame: frame - (4 + i * 9),
               fps,
-              config: { damping: 200, stiffness: 46, mass: 0.9 },
+              config: { damping: 200, stiffness: 24, mass: 1.15 },
             });
-            const py = interpolate(s, [0, 1], [dir * 260, 0]);
-            const px = interpolate(s, [0, 1], [dir * -34, 0]);
-            const rotX = interpolate(s, [0, 1], [dir * 55, 0]);
-            const blur = interpolate(s, [0, 0.7], [14, 0], {
+            const dir = i === 0 ? 0 : i === 1 ? -1 : 1;
+            const px = interpolate(s, [0, 1], [dir * 46, 0]);
+            const py = interpolate(s, [0, 1], [34 - i * 10, 0]);
+            const sc = interpolate(s, [0, 1], [1.1 - i * 0.03, 1]);
+            const blur = interpolate(s, [0, 0.9], [26 - i * 6, 0], {
               extrapolateRight: "clamp",
             });
-            // soft continuous wave so the logo keeps breathing
-            const wave =
-              Math.sin((frame - i * 3.2) / 26) * 3.2 * (1 - t) * s;
-            const left = (i * 100) / STRIPS;
-            const right = 100 - ((i + 1) * 100) / STRIPS;
+            const wave = Math.sin((frame - i * 12) / 38) * 2.6 * (1 - t) * s;
+            const base = i === 0 ? 1 : 0.45;
             return (
               <div
                 key={i}
                 style={{
                   position: "absolute",
                   inset: 0,
-                  clipPath: `inset(-2% ${right}% -2% ${left}%)`,
-                  transform: `perspective(1200px) translate(${px}px, ${py + wave}px) rotateX(${rotX}deg) scale(${interpolate(
-                    s,
-                    [0, 1],
-                    [1.06, 1],
-                  )})`,
-                  transformOrigin: "center bottom",
+                  transform: `translate(${px}px, ${py + wave}px) scale(${sc})`,
+                  transformOrigin: "center center",
                   filter: blur > 0.2 ? `blur(${blur}px)` : undefined,
-                  opacity: interpolate(s, [0, 0.3], [0, 1], {
-                    extrapolateRight: "clamp",
-                  }),
+                  opacity:
+                    interpolate(s, [0, 0.5], [0, base], {
+                      extrapolateRight: "clamp",
+                    }) * (i === 0 ? 1 : 1 - s * 0.85),
+                  mixBlendMode: i === 0 ? undefined : "multiply",
                 }}
               >
                 <Img
@@ -166,6 +157,34 @@ export const MainVideo: React.FC = () => {
               </div>
             );
           })}
+
+          {/* silky upward reveal edge */}
+          <div
+            style={{
+              position: "absolute",
+              left: -40,
+              right: -40,
+              height: 130,
+              top: interpolate(
+                spring({
+                  frame: frame - 6,
+                  fps,
+                  config: { damping: 200, stiffness: 22, mass: 1.2 },
+                }),
+                [0, 1],
+                [LOGO_H + 40, -170],
+              ),
+              background: `linear-gradient(180deg, transparent, ${GOLD}55, ${GOLD_DEEP}22, transparent)`,
+              filter: "blur(14px)",
+              opacity: interpolate(frame, [4, 14, 58, 74], [0, 0.9, 0.9, 0], {
+                extrapolateLeft: "clamp",
+                extrapolateRight: "clamp",
+              }),
+              pointerEvents: "none",
+            }}
+          />
+
+
           {/* gold shine sweep across the finished logo */}
           <div
             style={{
