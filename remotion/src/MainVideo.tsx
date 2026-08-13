@@ -28,17 +28,10 @@ const BOARD_W = 1190;
 const BOARD_H = (BOARD_W * 1024) / 1536;
 const BOARD_CY = 592;
 
-const PIECES = [
-  { x: 0, y: 0, w: 34, h: 40, from: [-520, -260], rot: -22 },
-  { x: 34, y: 0, w: 32, h: 40, from: [0, -520], rot: 14 },
-  { x: 66, y: 0, w: 34, h: 40, from: [520, -240], rot: 20 },
-  { x: 0, y: 40, w: 34, h: 32, from: [-560, 60], rot: 16 },
-  { x: 34, y: 40, w: 32, h: 32, from: [0, 300], rot: -10 },
-  { x: 66, y: 40, w: 34, h: 32, from: [560, 40], rot: -18 },
-  { x: 0, y: 72, w: 34, h: 28, from: [-420, 420], rot: 24 },
-  { x: 34, y: 72, w: 32, h: 28, from: [40, 560], rot: -12 },
-  { x: 66, y: 72, w: 34, h: 28, from: [440, 400], rot: -24 },
-];
+const STRIPS = 18;
+const STRIP_ORDER = Array.from({ length: STRIPS }, (_, i) => i).sort(
+  (a, b) => Math.abs(a - (STRIPS - 1) / 2) - Math.abs(b - (STRIPS - 1) / 2),
+);
 
 export const MainVideo: React.FC = () => {
   const frame = useCurrentFrame();
@@ -128,29 +121,40 @@ export const MainVideo: React.FC = () => {
             filter: "drop-shadow(0 14px 20px rgba(80,64,30,0.3))",
           }}
         >
-          {PIECES.map((p, i) => {
+          {Array.from({ length: STRIPS }).map((_, i) => {
+            const order = STRIP_ORDER.indexOf(i);
+            const dir = i % 2 === 0 ? -1 : 1;
             const s = spring({
-              frame: frame - 6 - i * 8,
+              frame: frame - 4 - order * 2.6,
               fps,
-              config: { damping: 18, stiffness: 70, mass: 1.1 },
+              config: { damping: 200, stiffness: 46, mass: 0.9 },
             });
-            const px = interpolate(s, [0, 1], [p.from[0], 0]);
-            const py = interpolate(s, [0, 1], [p.from[1], 0]);
-            const rot = interpolate(s, [0, 1], [p.rot, 0]);
-            // arc + breathing scale for a softer, more graceful settle
-            const arc = Math.sin(s * Math.PI) * -26;
-            const sc = interpolate(s, [0, 1], [1.12, 1]);
-            const settleWobble =
-              (1 - s) * 0 + Math.sin((frame - i * 7) / 30) * 1.1 * (1 - t);
+            const py = interpolate(s, [0, 1], [dir * 260, 0]);
+            const px = interpolate(s, [0, 1], [dir * -34, 0]);
+            const rotX = interpolate(s, [0, 1], [dir * 55, 0]);
+            const blur = interpolate(s, [0, 0.7], [14, 0], {
+              extrapolateRight: "clamp",
+            });
+            // soft continuous wave so the logo keeps breathing
+            const wave =
+              Math.sin((frame - i * 3.2) / 26) * 3.2 * (1 - t) * s;
+            const left = (i * 100) / STRIPS;
+            const right = 100 - ((i + 1) * 100) / STRIPS;
             return (
               <div
                 key={i}
                 style={{
                   position: "absolute",
                   inset: 0,
-                  clipPath: `inset(${p.y}% ${100 - (p.x + p.w)}% ${100 - (p.y + p.h)}% ${p.x}%)`,
-                  transform: `translate(${px}px, ${py + arc + settleWobble}px) rotate(${rot}deg) scale(${sc})`,
-                  opacity: interpolate(s, [0, 0.25], [0, 1], {
+                  clipPath: `inset(-2% ${right}% -2% ${left}%)`,
+                  transform: `perspective(1200px) translate(${px}px, ${py + wave}px) rotateX(${rotX}deg) scale(${interpolate(
+                    s,
+                    [0, 1],
+                    [1.06, 1],
+                  )})`,
+                  transformOrigin: "center bottom",
+                  filter: blur > 0.2 ? `blur(${blur}px)` : undefined,
+                  opacity: interpolate(s, [0, 0.3], [0, 1], {
                     extrapolateRight: "clamp",
                   }),
                 }}
@@ -162,6 +166,28 @@ export const MainVideo: React.FC = () => {
               </div>
             );
           })}
+          {/* gold shine sweep across the finished logo */}
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              opacity: interpolate(frame, [70, 84, 108, 122], [0, 0.5, 0.5, 0], {
+                extrapolateLeft: "clamp",
+                extrapolateRight: "clamp",
+              }),
+              background: `linear-gradient(105deg, transparent ${interpolate(
+                frame,
+                [70, 122],
+                [-40, 90],
+              )}%, ${GOLD}66 ${interpolate(frame, [70, 122], [-20, 110])}%, transparent ${interpolate(
+                frame,
+                [70, 122],
+                [5, 135],
+              )}%)`,
+              mixBlendMode: "screen",
+              pointerEvents: "none",
+            }}
+          />
         </div>
       </AbsoluteFill>
     </AbsoluteFill>
