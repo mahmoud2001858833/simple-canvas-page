@@ -366,8 +366,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         );
 
         // Signed out remotely: my session was deactivated, or another device took over
-        if ((mine && !mine.is_active) || (!mine && otherActive) || (mine?.is_active && otherActive)) {
-          if (mine?.is_active && !otherActive) return;
+        if ((mine && !mine.is_active) || (!mine && otherActive)) {
           console.log('Device session no longer valid - signing out');
           await forceSignOut();
         }
