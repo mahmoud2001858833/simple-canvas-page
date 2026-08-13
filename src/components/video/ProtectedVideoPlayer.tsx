@@ -23,6 +23,8 @@ interface ProtectedVideoPlayerProps {
   /** عنوان الدرس الذي يُكتب تلقائياً على مقدمة الفيديو */
   introTitle?: string;
   introSubtitle?: string;
+  /** اسم المعلم الذي يظهر على لوح المقدمة */
+  introInstructor?: string;
 }
 
 export interface ProtectedVideoPlayerRef {
@@ -46,6 +48,7 @@ export const ProtectedVideoPlayer = forwardRef<ProtectedVideoPlayerRef, Protecte
   className,
   introTitle,
   introSubtitle,
+  introInstructor,
 }, ref) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -314,6 +317,7 @@ export const ProtectedVideoPlayer = forwardRef<ProtectedVideoPlayerRef, Protecte
         <VideoIntro
           title={introTitle}
           subtitle={introSubtitle}
+          instructor={introInstructor}
           onFinish={() => {
             setShowIntro(false);
             videoRef.current?.play().catch(() => {});
