@@ -40,8 +40,7 @@ const PIECES = [
   { x: 66, y: 72, w: 34, h: 28, from: [440, 400], rot: -24 },
 ];
 
-export const MainVideo: React.FC<{
-  }> = () => {
+export const MainVideo: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
