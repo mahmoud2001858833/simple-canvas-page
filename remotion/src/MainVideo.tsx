@@ -133,40 +133,37 @@ export const MainVideo: React.FC = () => {
             filter: "drop-shadow(0 14px 20px rgba(80,64,30,0.3))",
           }}
         >
-          {Array.from({ length: STRIPS }).map((_, i) => {
-            const order = STRIP_ORDER.indexOf(i);
-            const dir = i % 2 === 0 ? -1 : 1;
+          {Array.from({ length: PIECES }).map((_, i) => {
+            // stagger clockwise but with irregular, organic delays
+            const delay = 6 + i * 3.4 + Math.sin(i * 2.1) * 2.2;
             const s = spring({
-              frame: frame - 4 - order * 2.6,
+              frame: frame - delay,
               fps,
-              config: { damping: 200, stiffness: 46, mass: 0.9 },
+              config: { damping: 200, stiffness: 26, mass: 1.1 },
             });
-            const py = interpolate(s, [0, 1], [dir * 260, 0]);
-            const px = interpolate(s, [0, 1], [dir * -34, 0]);
-            const rotX = interpolate(s, [0, 1], [dir * 55, 0]);
-            const blur = interpolate(s, [0, 0.7], [14, 0], {
+            const angle = i * PIECE_ANGLE - 90;
+            const rad = (angle * Math.PI) / 180;
+            const dist = 210 + (i % 3) * 42;
+            const px = interpolate(s, [0, 1], [Math.cos(rad) * dist, 0]);
+            const py = interpolate(s, [0, 1], [Math.sin(rad) * dist, 0]);
+            const rot = interpolate(s, [0, 1], [i % 2 === 0 ? -9 : 9, 0]);
+            const sc = interpolate(s, [0, 1], [1.14, 1]);
+            const blur = interpolate(s, [0, 0.85], [18, 0], {
               extrapolateRight: "clamp",
             });
-            // soft continuous wave so the logo keeps breathing
-            const wave =
-              Math.sin((frame - i * 3.2) / 26) * 3.2 * (1 - t) * s;
-            const left = (i * 100) / STRIPS;
-            const right = 100 - ((i + 1) * 100) / STRIPS;
+            // soft continuous breathing after settling
+            const wave = Math.sin((frame - i * 5) / 34) * 2.4 * (1 - t) * s;
             return (
               <div
                 key={i}
                 style={{
                   position: "absolute",
                   inset: 0,
-                  clipPath: `inset(-2% ${right}% -2% ${left}%)`,
-                  transform: `perspective(1200px) translate(${px}px, ${py + wave}px) rotateX(${rotX}deg) scale(${interpolate(
-                    s,
-                    [0, 1],
-                    [1.06, 1],
-                  )})`,
-                  transformOrigin: "center bottom",
+                  clipPath: wedge(i),
+                  transform: `translate(${px}px, ${py + wave}px) rotate(${rot}deg) scale(${sc})`,
+                  transformOrigin: "center center",
                   filter: blur > 0.2 ? `blur(${blur}px)` : undefined,
-                  opacity: interpolate(s, [0, 0.3], [0, 1], {
+                  opacity: interpolate(s, [0, 0.45], [0, 1], {
                     extrapolateRight: "clamp",
                   }),
                 }}
@@ -178,6 +175,7 @@ export const MainVideo: React.FC = () => {
               </div>
             );
           })}
+
           {/* gold shine sweep across the finished logo */}
           <div
             style={{
