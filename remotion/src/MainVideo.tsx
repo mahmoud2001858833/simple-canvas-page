@@ -41,9 +41,7 @@ const PIECES = [
 ];
 
 export const MainVideo: React.FC<{
-  courseTitle: string;
-  teacherName: string;
-}> = ({ courseTitle, teacherName }) => {
+  }> = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
@@ -140,8 +138,11 @@ export const MainVideo: React.FC<{
             const px = interpolate(s, [0, 1], [p.from[0], 0]);
             const py = interpolate(s, [0, 1], [p.from[1], 0]);
             const rot = interpolate(s, [0, 1], [p.rot, 0]);
+            // arc + breathing scale for a softer, more graceful settle
+            const arc = Math.sin(s * Math.PI) * -26;
+            const sc = interpolate(s, [0, 1], [1.12, 1]);
             const settleWobble =
-              (1 - s) * 0 + Math.sin((frame - i * 7) / 26) * 1.4 * (1 - t);
+              (1 - s) * 0 + Math.sin((frame - i * 7) / 30) * 1.1 * (1 - t);
             return (
               <div
                 key={i}
@@ -149,7 +150,7 @@ export const MainVideo: React.FC<{
                   position: "absolute",
                   inset: 0,
                   clipPath: `inset(${p.y}% ${100 - (p.x + p.w)}% ${100 - (p.y + p.h)}% ${p.x}%)`,
-                  transform: `translate(${px}px, ${py + settleWobble}px) rotate(${rot}deg)`,
+                  transform: `translate(${px}px, ${py + arc + settleWobble}px) rotate(${rot}deg) scale(${sc})`,
                   opacity: interpolate(s, [0, 0.25], [0, 1], {
                     extrapolateRight: "clamp",
                   }),
