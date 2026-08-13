@@ -85,7 +85,7 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const { error } = await signIn(email.trim(), password);
+      const { error, data } = await signIn(email.trim(), password);
 
       if (error) {
         // التحقق من عدم تأكيد الإيميل
@@ -116,6 +116,9 @@ const Login = () => {
       } else {
         toast.success(t.auth.loginSuccess);
         setRedirecting(true);
+        if (data?.role) {
+          navigate(getDashboardPath(data.role), { replace: true });
+        }
       }
     } catch (err) {
       toast.error(language === 'ar' ? 'حدث خطأ غير متوقع' : 'An unexpected error occurred');
