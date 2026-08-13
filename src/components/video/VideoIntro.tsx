@@ -34,7 +34,12 @@ export const VideoIntro = ({ title, subtitle, instructor, onFinish }: VideoIntro
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
-    v.play().catch(() => finish());
+    // نحاول التشغيل مع الصوت الهادئ، وإن منع المتصفح ذلك نعيد المحاولة صامتاً
+    v.volume = 0.55;
+    v.play().catch(() => {
+      v.muted = true;
+      v.play().catch(() => finish());
+    });
 
     const tick = () => {
       const t = v.currentTime;
