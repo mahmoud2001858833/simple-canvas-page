@@ -199,14 +199,18 @@ Deno.serve(async (req) => {
     const nationalId = profile?.national_id?.trim();
 
     if (!validNationalId(nationalId)) {
+      // Learner has no valid national ID yet: skip sending to NELC instead of
+      // failing the request, so learning flows are never blocked.
       return json(
         {
-          error:
+          skipped: true,
+          reason:
             "MISSING_NATIONAL_ID: يجب أن يكون رقم الهوية 10 أرقام ويبدأ بـ 1 أو 2 أو 4 قبل إرسال العبارات إلى المركز الوطني",
         },
-        400,
+        200,
       );
     }
+
 
     // NELC requires actor.name to be the learner's unique identifier (national ID / iqama)
     const actor = {
