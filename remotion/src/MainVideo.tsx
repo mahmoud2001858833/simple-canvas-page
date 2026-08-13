@@ -124,72 +124,6 @@ export const MainVideo: React.FC<{
             style={{ width: "100%", height: "100%" }}
           />
 
-          {/* text block on the board */}
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              paddingTop: BOARD_H * 0.26,
-              paddingLeft: BOARD_W * 0.1,
-              paddingRight: BOARD_W * 0.1,
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "flex-start",
-              direction: "rtl",
-            }}
-          >
-            <div
-              style={{
-                fontSize: 84,
-                fontWeight: 900,
-                lineHeight: 1.18,
-                color: GOLD,
-                textAlign: "center",
-                width: "100%",
-                textShadow: `0 2px 0 ${GOLD_DEEP}, 0 5px 10px rgba(0,0,0,0.45)`,
-                opacity: titleT,
-                transform: `translateY(${interpolate(titleT, [0, 1], [70, 0])}px) scale(${interpolate(
-                  titleT,
-                  [0, 1],
-                  [0.9, 1],
-                )})`,
-              }}
-            >
-              {courseTitle}
-            </div>
-
-            <div
-              style={{
-                marginTop: 34,
-                height: 6,
-                width: `${interpolate(dividerT, [0, 1], [0, 62])}%`,
-                borderRadius: 3,
-                background: `linear-gradient(90deg, rgba(228,190,99,0) 0%, ${GOLD} 18%, #F3DE9E 50%, ${GOLD} 82%, rgba(228,190,99,0) 100%)`,
-                boxShadow: "0 3px 6px rgba(0,0,0,0.4)",
-                opacity: dividerT,
-              }}
-            />
-
-            <div
-              style={{
-                marginTop: 34,
-                fontSize: 54,
-                fontWeight: 700,
-                color: "#F0DFAE",
-                textAlign: "center",
-                textShadow: `0 2px 0 ${GOLD_DEEP}, 0 4px 9px rgba(0,0,0,0.42)`,
-                opacity: nameT,
-                transform: `translateY(${interpolate(nameT, [0, 1], [60, 0])}px) scale(${interpolate(
-                  nameT,
-                  [0, 1],
-                  [0.92, 1],
-                )})`,
-              }}
-            >
-              {teacherName}
-            </div>
-          </div>
         </div>
 
         {/* logo pieces */}
@@ -207,9 +141,9 @@ export const MainVideo: React.FC<{
         >
           {PIECES.map((p, i) => {
             const s = spring({
-              frame: frame - 6 - i * 5,
+              frame: frame - 6 - i * 8,
               fps,
-              config: { damping: 12, stiffness: 130, mass: 1 },
+              config: { damping: 18, stiffness: 70, mass: 1.1 },
             });
             const px = interpolate(s, [0, 1], [p.from[0], 0]);
             const py = interpolate(s, [0, 1], [p.from[1], 0]);
