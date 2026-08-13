@@ -165,7 +165,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       if (fetchError) {
         console.error('Error fetching device sessions:', fetchError);
-        return { allowed: true }; // Allow on error to not block users
+        return { allowed: false, message: 'تعذر التحقق من جلسات الأجهزة' };
       }
       
       // Register/activate the new device first.
@@ -207,7 +207,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return { allowed: true };
     } catch (error) {
       console.error('Error checking device session:', error);
-      return { allowed: true }; // Allow on error
+      return { allowed: false, message: 'تعذر تسجيل الجهاز، يرجى المحاولة مرة أخرى' };
     }
   }, []);
 
