@@ -55,7 +55,7 @@ export const MainVideo: React.FC<{
   });
 
   const logoScale = interpolate(t, [0, 1], [1, 0.235]);
-  const logoY = interpolate(t, [0, 1], [468, 272]);
+  const logoY = interpolate(t, [0, 1], [468, 152]);
 
   const boardT = spring({
     frame: frame - TRANSITION_START - 4,
