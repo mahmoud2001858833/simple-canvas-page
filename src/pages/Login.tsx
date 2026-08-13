@@ -46,6 +46,23 @@ const Login = () => {
     }
   }, [redirecting, user, role, authLoading, authReady, navigate]);
 
+  // Never leave the form spinning forever if navigation is interrupted.
+  useEffect(() => {
+    if (!redirecting) return;
+
+    const timeout = window.setTimeout(() => {
+      setRedirecting(false);
+      setLoading(false);
+      toast.error(
+        language === 'ar'
+          ? 'تعذر فتح لوحة التحكم، يرجى المحاولة مرة أخرى'
+          : 'Could not open the dashboard. Please try again.'
+      );
+    }, 10000);
+
+    return () => window.clearTimeout(timeout);
+  }, [redirecting, language]);
+
   // Show device kicked message
   useEffect(() => {
     if (sessionStorage.getItem('device_kicked') === 'true') {
@@ -85,7 +102,7 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const { error } = await signIn(email.trim(), password);
+      const { error, data } = await signIn(email.trim(), password);
 
       if (error) {
         // التحقق من عدم تأكيد الإيميل
@@ -116,6 +133,9 @@ const Login = () => {
       } else {
         toast.success(t.auth.loginSuccess);
         setRedirecting(true);
+        if (data?.role) {
+          navigate(getDashboardPath(data.role), { replace: true });
+        }
       }
     } catch (err) {
       toast.error(language === 'ar' ? 'حدث خطأ غير متوقع' : 'An unexpected error occurred');

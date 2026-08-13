@@ -26,7 +26,7 @@ interface AuthContextType {
   authReady: boolean;
   authTimeout: boolean;
   signUp: (email: string, password: string, fullName: string, role: UserRole, phone?: string) => Promise<{ error: Error | null; selectedRole: UserRole | null }>;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null; data: { user: User | null } | null }>;
+  signIn: (email: string, password: string) => Promise<{ error: Error | null; data: { user: User; role: UserRole } | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -108,7 +108,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   
   const queryClient = useQueryClient();
 
-  const fetchUserData = async (userId: string) => {
+  const fetchUserData = async (userId: string): Promise<UserRole | null> => {
     try {
       const [profileResult, roleResult] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
@@ -120,10 +120,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       
       if (roleResult.data) {
-        setRole(roleResult.data.role as UserRole);
+        const resolvedRole = roleResult.data.role as UserRole;
+        setRole(resolvedRole);
+        return resolvedRole;
       }
+      return null;
     } catch (error) {
       console.error('Error fetching user data:', error);
+      return null;
     }
   };
 
@@ -161,7 +165,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       if (fetchError) {
         console.error('Error fetching device sessions:', fetchError);
-        return { allowed: true }; // Allow on error to not block users
+        return { allowed: false, message: 'تعذر التحقق من جلسات الأجهزة' };
       }
       
       // Register/activate the new device first.
@@ -203,7 +207,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return { allowed: true };
     } catch (error) {
       console.error('Error checking device session:', error);
-      return { allowed: true }; // Allow on error
+      return { allowed: false, message: 'تعذر تسجيل الجهاز، يرجى المحاولة مرة أخرى' };
     }
   }, []);
 
@@ -478,7 +482,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       // التحقق من تأكيد البريد الإلكتروني
       if (!data.user.email_confirmed_at) {
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: 'local' });
         return { 
           error: new Error('EMAIL_NOT_CONFIRMED'), 
           data: null 
@@ -493,7 +497,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .single();
       
       if (profileData?.is_banned) {
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: 'local' });
         const reason = profileData.banned_reason || 'تم حظر حسابك';
         return { 
           error: new Error(`تم حظر حسابك: ${reason}`), 
@@ -502,9 +506,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
       
       // Check device session - now deactivates old sessions instead of blocking
-      await checkDeviceSession(data.user.id);
-      
-      return { error: null, data: { user: data.user } };
+      const deviceResult = await checkDeviceSession(data.user.id);
+      if (!deviceResult.allowed) {
+        await supabase.auth.signOut({ scope: 'local' });
+        throw new Error(deviceResult.message || 'تعذر تسجيل هذا الجهاز، يرجى المحاولة مرة أخرى');
+      }
+
+      // Resolve the role before returning so the login page never waits on the
+      // asynchronous auth listener to decide where it should navigate.
+      const resolvedRole = await fetchUserData(data.user.id);
+      if (!resolvedRole) {
+        throw new Error('تعذر تحميل صلاحيات الحساب، يرجى المحاولة مرة أخرى');
+      }
+
+      return { error: null, data: { user: data.user, role: resolvedRole } };
     } catch (error) {
       return { error: error as Error, data: null };
     }
@@ -525,7 +540,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     }
     
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: 'local' });
     setUser(null);
     setSession(null);
     setProfile(null);
