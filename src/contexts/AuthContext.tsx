@@ -326,6 +326,70 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [user?.id, queryClient]);
 
+  // Fallback: periodic heartbeat check in case Realtime is unavailable
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+
+    const forceSignOut = async () => {
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+      setRole(null);
+      queryClient.clear();
+      try {
+        await supabase.auth.signOut();
+      } catch (e) {
+        console.log('Sign out failed (session may be invalid)');
+      }
+    };
+
+    const checkStillActive = async () => {
+      try {
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('allow_multiple_devices')
+          .eq('id', user.id)
+          .maybeSingle();
+        if (profileData?.allow_multiple_devices) return;
+
+        const fingerprint = await generateDeviceFingerprint();
+        const { data: sessions, error } = await supabase
+          .from('device_sessions')
+          .select('device_fingerprint, is_active')
+          .eq('user_id', user.id);
+        if (error || cancelled || !sessions) return;
+
+        const mine = sessions.find((s) => s.device_fingerprint === fingerprint);
+        const otherActive = sessions.some(
+          (s) => s.device_fingerprint !== fingerprint && s.is_active
+        );
+
+        // Signed out remotely: my session was deactivated, or another device took over
+        if ((mine && !mine.is_active) || (!mine && otherActive)) {
+          console.log('Device session no longer valid - signing out');
+          await forceSignOut();
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+
+    checkStillActive();
+    const interval = setInterval(checkStillActive, 20000);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') checkStillActive();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [user?.id, queryClient]);
+
+
   const signUp = async (email: string, password: string, fullName: string, selectedRole: UserRole, phone?: string) => {
     try {
       const { data, error } = await supabase.auth.signUp({
