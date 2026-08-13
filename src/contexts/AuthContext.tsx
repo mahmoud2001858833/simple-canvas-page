@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { User, Session } from '@supabase/supabase-js';
@@ -105,6 +105,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [authReady, setAuthReady] = useState(false);
   const [authTimeout, setAuthTimeout] = useState(false);
+  const deviceRegistrationInProgress = useRef(false);
   
   const queryClient = useQueryClient();
 
@@ -304,6 +305,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           filter: `user_id=eq.${user.id}`,
         },
         async (payload) => {
+          if (deviceRegistrationInProgress.current) return;
+
           const newData = payload.new as { device_fingerprint: string; is_active: boolean };
           
           // Check if this device's session was deactivated
@@ -359,6 +362,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const checkStillActive = async () => {
       try {
+        if (deviceRegistrationInProgress.current) return;
+
         const { data: profileData } = await supabase
           .from('profiles')
           .select('allow_multiple_devices')
@@ -472,6 +477,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signIn = async (email: string, password: string) => {
+    deviceRegistrationInProgress.current = true;
+
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -519,8 +526,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         throw new Error('تعذر تحميل صلاحيات الحساب، يرجى المحاولة مرة أخرى');
       }
 
+      deviceRegistrationInProgress.current = false;
       return { error: null, data: { user: data.user, role: resolvedRole } };
     } catch (error) {
+      deviceRegistrationInProgress.current = false;
       return { error: error as Error, data: null };
     }
   };
