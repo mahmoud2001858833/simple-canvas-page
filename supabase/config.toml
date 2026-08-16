@@ -71,3 +71,6 @@ verify_jwt = false
 
 [functions.xapi-track]
 verify_jwt = false
+
+[functions.nelc-diagnostics]
+verify_jwt = false
