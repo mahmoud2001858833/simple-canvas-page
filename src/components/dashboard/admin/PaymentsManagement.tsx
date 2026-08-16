@@ -87,13 +87,13 @@ export const PaymentsManagement = () => {
       let query = supabase
         .from('payments')
         .select(`*, course:courses(title, title_ar, instructor_id, instructor_commission)`)
+        // A gateway payment is internally pending only while the customer is
+        // still at the bank. Admins see completed outcomes only.
+        .neq('status', 'pending' as any)
         .order('created_at', { ascending: false });
 
 
-      if (statusFilter === 'abandoned') {
-        const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-        query = query.eq('status', 'pending' as any).lte('created_at', cutoff);
-      } else if (statusFilter !== 'all') {
+      if (statusFilter !== 'all') {
         query = query.eq('status', statusFilter as any);
       }
       if (dateFrom) {
@@ -363,7 +363,7 @@ export const PaymentsManagement = () => {
   };
 
   const totalRevenue = payments?.filter((p: any) => p.status === 'paid').reduce((sum: number, p: any) => sum + parseFloat(p.amount || 0), 0) || 0;
-  const pendingAmount = payments?.filter((p: any) => p.status === 'pending').reduce((sum: number, p: any) => sum + parseFloat(p.amount || 0), 0) || 0;
+  const failedAmount = payments?.filter((p: any) => p.status === 'failed').reduce((sum: number, p: any) => sum + parseFloat(p.amount || 0), 0) || 0;
   const refundedAmount = payments?.filter((p: any) => p.status === 'refunded').reduce((sum: number, p: any) => sum + parseFloat(p.amount || 0), 0) || 0;
 
   return (
@@ -472,7 +472,7 @@ export const PaymentsManagement = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid md:grid-cols-4 gap-4">
+      <div className="grid md:grid-cols-3 gap-4">
         <div className="card-premium p-6">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-success rounded-xl flex items-center justify-center">
@@ -486,12 +486,12 @@ export const PaymentsManagement = () => {
         </div>
         <div className="card-premium p-6">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-warning rounded-xl flex items-center justify-center">
-              <Clock className="w-6 h-6 text-white" />
+            <div className="w-12 h-12 bg-destructive rounded-xl flex items-center justify-center">
+              <XCircle className="w-6 h-6 text-white" />
             </div>
             <div>
-              <div className="text-2xl font-bold">{pendingAmount.toLocaleString()} ر.س</div>
-              <div className="text-sm text-muted-foreground">{language === 'ar' ? 'معلق' : 'Pending'}</div>
+              <div className="text-2xl font-bold">{failedAmount.toLocaleString()} ر.س</div>
+              <div className="text-sm text-muted-foreground">{language === 'ar' ? 'مرفوض' : 'Failed'}</div>
             </div>
           </div>
         </div>
@@ -532,11 +532,9 @@ export const PaymentsManagement = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">{language === 'ar' ? 'الكل' : 'All'}</SelectItem>
-            <SelectItem value="pending">{language === 'ar' ? 'معلق' : 'Pending'}</SelectItem>
             <SelectItem value="paid">{language === 'ar' ? 'مدفوع' : 'Paid'}</SelectItem>
-            <SelectItem value="failed">{language === 'ar' ? 'فشل' : 'Failed'}</SelectItem>
+            <SelectItem value="failed">{language === 'ar' ? 'مرفوض' : 'Failed'}</SelectItem>
             <SelectItem value="refunded">{language === 'ar' ? 'مسترد' : 'Refunded'}</SelectItem>
-            <SelectItem value="abandoned">{language === 'ar' ? 'مهجور (+24 ساعة)' : 'Abandoned (>24h)'}</SelectItem>
           </SelectContent>
         </Select>
         <div className="flex items-center gap-2">
