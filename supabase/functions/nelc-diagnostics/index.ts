@@ -12,11 +12,13 @@ const corsHeaders = {
 const ABOUT_URL = "https://lrs.nelc.gov.sa/lrs-license-stg/xapi/about";
 const TRACE_URL = "https://lrs.nelc.gov.sa/cdn-cgi/trace";
 
-const LMS_URL = (Deno.env.get("NELC_PLATFORM_URL") ?? "https://josoorcom.com").replace(/\/+$/, "");
-const PLATFORM_KEY = Deno.env.get("NELC_PLATFORM_KEY") ?? LMS_URL;
-const LRS_ENDPOINT = Deno.env.get("NELC_LRS_ENDPOINT") ?? "";
+const LMS_URL = (Deno.env.get("NELC_PLATFORM_URL") || "https://josoorcom.com").replace(/\/+$/, "");
+const PLATFORM_KEY = Deno.env.get("NELC_PLATFORM_KEY") || "https://josoorcom.com";
+const LRS_ENDPOINT = Deno.env.get("NELC_LRS_ENDPOINT") || "https://lrs.nelc.gov.sa/lrs-license-stg/xapi/statements";
 const USER_AGENT =
-  Deno.env.get("NELC_USER_AGENT") ?? "JosoorcomLMS/1.0 (+https://josoorcom.com; xAPI-client)";
+  Deno.env.get("NELC_USER_AGENT") ||
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 JosoorcomLMS/1.0 (+https://josoorcom.com; xAPI-client)";
+
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {

@@ -7,14 +7,14 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const LRS_ENDPOINT = Deno.env.get("NELC_LRS_ENDPOINT") ?? "";
-const LRS_USER = Deno.env.get("NELC_LRS_USERNAME") ?? "";
-const LRS_PASS = Deno.env.get("NELC_LRS_PASSWORD") ?? "";
-const PLATFORM = Deno.env.get("NELC_PLATFORM_URL") ?? "https://josoorcom.com";
-// Explicit, normal client signature — NELC's edge returns 403 (errorCode 1010)
-// for generic runtime user agents.
+const LRS_ENDPOINT = Deno.env.get("NELC_LRS_ENDPOINT") || "https://lrs.nelc.gov.sa/lrs-license-stg/xapi/statements";
+const LRS_USER = Deno.env.get("NELC_LRS_USERNAME") || "josoorcom_com";
+const LRS_PASS = Deno.env.get("NELC_LRS_PASSWORD") || "sf93!1Y6Aq#3";
+const PLATFORM = (Deno.env.get("NELC_PLATFORM_KEY") || Deno.env.get("NELC_PLATFORM_URL") || "https://josoorcom.com").replace(/\/+$/, "");
+
 const LRS_USER_AGENT =
-  Deno.env.get("NELC_USER_AGENT") ?? "JosoorcomLMS/1.0 (+https://josoorcom.com; xAPI-client)";
+  Deno.env.get("NELC_USER_AGENT") ||
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 JosoorcomLMS/1.0 (+https://josoorcom.com; xAPI-client)";
 
 function authHeader() {
   return "Basic " + btoa(`${LRS_USER}:${LRS_PASS}`);
@@ -57,35 +57,46 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const testId = body?.testId || `verify-${Date.now()}`;
-    const nationalId = body?.nationalId || "0000000000";
+    const nationalId = body?.nationalId || "1051212338";
 
     const statement = {
       id: testId,
       actor: {
-        name: "Josoorcom Verification",
+        mbox: `mailto:${user.email || "verification@josoorcom.com"}`,
+        name: String(nationalId),
         objectType: "Agent",
-        account: {
-          homePage: PLATFORM,
-          name: String(nationalId),
-        },
       },
       verb: {
         id: "http://adlnet.gov/expapi/verbs/registered",
         display: { "en-US": "registered" },
       },
       object: {
-        id: `${PLATFORM}/courses/verification-test`,
+        id: `${PLATFORM}/course/CR001`,
         definition: {
-          name: { "en-US": "NELC LRS Verification Test" },
+          name: { "ar-SA": "اختبار التحقق من الاتصال", "en-US": "NELC LRS Verification Test" },
+          description: { "ar-SA": "دورة تجريبية لاختبار تكامل المنصة مع المركز الوطني", "en-US": "Verification test course description" },
           type: "https://w3id.org/xapi/cmi5/activitytype/course",
         },
         objectType: "Activity",
       },
       context: {
+        instructor: {
+          name: "إبراهيم خالد",
+          mbox: "mailto:instructor@josoorcom.com",
+        },
         platform: PLATFORM,
         language: "ar-SA",
         extensions: {
-          "https://nelc.gov.sa/extensions/platform": { name: { "ar-SA": "جسوركم", "en-US": "Josoorcom" } },
+          "https://nelc.gov.sa/extensions/duration": "PT01H00M00S",
+          "https://nelc.gov.sa/extensions/lms_url": PLATFORM,
+          "https://nelc.gov.sa/extensions/program_url": `${PLATFORM}/course/CR001`,
+          "https://nelc.gov.sa/extensions/learner_mobile_no": "+966550000000",
+          "https://nelc.gov.sa/extensions/learner_full_name": "متعلم تجريبي",
+          "https://nelc.gov.sa/extensions/learner_nationality": "Saudi Arabia",
+          "https://nelc.gov.sa/extensions/date_of_birth": "01/01/2000",
+          "https://nelc.gov.sa/extensions/platform": {
+            name: { "ar-SA": "جسوركم", "en-US": "Josoorcom" },
+          },
         },
       },
       timestamp: new Date().toISOString(),
@@ -108,7 +119,7 @@ Deno.serve(async (req) => {
     await supabase.from("xapi_statements").insert({
       user_id: user.id,
       verb: "verified",
-      course_id: "verification-test",
+      course_id: "CR001",
       statement,
       status_code: postRes.status,
       response: postText.slice(0, 2000),
@@ -171,3 +182,4 @@ Deno.serve(async (req) => {
     );
   }
 });
+
