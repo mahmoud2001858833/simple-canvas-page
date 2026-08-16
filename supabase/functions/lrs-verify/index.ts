@@ -95,6 +95,8 @@ Deno.serve(async (req) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Accept: "application/json",
+        "User-Agent": LRS_USER_AGENT,
         "X-Experience-API-Version": "1.0.3",
         Authorization: authHeader(),
       },
