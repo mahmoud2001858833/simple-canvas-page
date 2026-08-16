@@ -30,10 +30,13 @@ function readBlockMarkers(text: string) {
   const rayId = text.match(/Ray ID:?\s*<?[^>]*>?\s*([a-f0-9]{10,})/i)?.[1] ?? null;
   const errorCode = text.match(/[Ee]rror\s*code:?\s*<?[^>]*>?\s*(\d{3,5})/)?.[1] ??
     text.match(/errorCode"?\s*[:=]\s*"?(\d{3,5})/)?.[1] ?? null;
-  const blockedIp = text.match(/\b(\d{1,3}(?:\.\d{1,3}){3})\b/)?.[1] ?? null;
+  // NELC's block page prints "Your IP: …" — it may be IPv4 or IPv6.
+  const blockedIp = text.match(/Your IP:?\s*<?[^>]*>?\s*([0-9a-f:.]{7,45})/i)?.[1] ??
+    text.match(/\b(\d{1,3}(?:\.\d{1,3}){3})\b/)?.[1] ?? null;
   const blocked = /you have been blocked/i.test(text);
   return { rayId, errorCode, blockedIp, blocked };
 }
+
 
 async function probe(url: string, userAgent?: string) {
   const headers: Record<string, string> = { Accept: "*/*" };
