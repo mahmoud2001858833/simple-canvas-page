@@ -14,10 +14,10 @@ const BOARD_READY_AT = 5.35;
 
 /**
  * مقدمة تلقائية تُعرض قبل تشغيل الفيديو الأصلي،
- * وتُكتب عليها بيانات الدرس (العنوان، الدورة، المعلم) فوق اللوح الأخضر
+ * وتُكتب عليها بيانات الدرس (اسم الدرس واسم الدورة) فوق اللوح الأخضر
  * مع حركة أنيقة تتناغم مع حركة اللوح.
  */
-export const VideoIntro = ({ title, subtitle, instructor, onFinish }: VideoIntroProps) => {
+export const VideoIntro = ({ title, subtitle, onFinish }: VideoIntroProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const { language } = useLanguage();
   const isRTL = language === 'ar';
@@ -136,21 +136,6 @@ export const VideoIntro = ({ title, subtitle, instructor, onFinish }: VideoIntro
                 </p>
               )}
 
-              {instructor && (
-                <p
-                  className="font-bold w-full"
-                  style={{
-                    marginTop: '2.5%',
-                    color: '#F3E3B4',
-                    fontSize: 'clamp(0.75rem, 2.2vw, 2rem)',
-                    opacity: Math.max(0, (eased - 0.45) / 0.55),
-                    transform: `translateY(${(1 - eased) * 10}px)`,
-                    textShadow: '0 2px 0 #8E6A1E, 0 5px 12px rgba(0,0,0,0.45)',
-                  }}
-                >
-                  {instructor}
-                </p>
-              )}
             </div>
           </div>
         </div>
