@@ -256,7 +256,34 @@ export const NelcIntegration = () => {
               {resending ? <Loader2 className="w-4 h-4 me-2 animate-spin" /> : <RefreshCw className="w-4 h-4 me-2" />}
               إعادة إرسال العبارات الفاشلة
             </Button>
+            <Button variant="secondary" onClick={runDiagnostics} disabled={diagnosing}>
+              {diagnosing ? <Loader2 className="w-4 h-4 me-2 animate-spin" /> : <Stethoscope className="w-4 h-4 me-2" />}
+              تشخيص الاتصال
+            </Button>
           </div>
+
+          {diagnostics && (
+            <div className="rounded-lg border bg-background p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold">تقرير التشخيص (جاهز للإرسال للمركز الوطني)</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    navigator.clipboard.writeText(diagnosticsReport);
+                    toast.success('تم نسخ التقرير');
+                  }}
+                >
+                  <Copy className="w-4 h-4 me-2" />
+                  نسخ
+                </Button>
+              </div>
+              <p className="text-sm">{diagnostics.verdict}</p>
+              <pre dir="ltr" className="whitespace-pre-wrap break-all rounded-md bg-muted p-3 text-xs leading-6">
+                {diagnosticsReport}
+              </pre>
+            </div>
+          )}
 
           <div className="rounded-lg border bg-muted/40 p-3 text-xs leading-6 text-muted-foreground">
             <p className="font-semibold text-foreground">كيف يعمل التكامل؟</p>
@@ -266,11 +293,15 @@ export const NelcIntegration = () => {
               الرد في السجل بالأسفل.
             </p>
             <p className="mt-2">
-              إذا ظهر رمز <strong>403</strong> في السجل فهذا يعني أن المركز الوطني يرفض الاتصال من عنوان خادم المنصة —
-              المطلوب من المركز إضافة عنوان الخادم إلى القائمة المسموح بها وتأكيد بيانات بيئة الاختبار، ثم اضغط
-              «إعادة إرسال العبارات الفاشلة».
+              عند ظهور <strong>403</strong>: اضغط «تشخيص الاتصال». إذا ظهر <strong>Error code 1010</strong> فالسبب توقيع
+              العميل (User-Agent) وقد تمّت معالجته من جهتنا. أما إذا ظهرت صفحة حجب تحمل <strong>Ray ID</strong> وعنوان IP
+              بدون رمز خطأ فالحجب على مستوى العنوان، وعندها أرسل التقرير المنسوخ إلى المركز الوطني.
+            </p>
+            <p className="mt-2">
+              بعد أي إصلاح اضغط «إعادة إرسال العبارات الفاشلة» وراقب رمز الرد في السجل بالأسفل.
             </p>
           </div>
+
         </CardContent>
       </Card>
 
