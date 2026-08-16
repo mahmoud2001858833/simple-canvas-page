@@ -19,7 +19,7 @@ import {
 import confetti from 'canvas-confetti';
 import { trackXapi } from '@/lib/xapi';
 
-const AUTO_REDIRECT_SECONDS = 3;
+const AUTO_REDIRECT_SECONDS = 1;
 
 const PaymentSuccess = () => {
   const [searchParams] = useSearchParams();
