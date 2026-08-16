@@ -174,6 +174,38 @@ export const NelcIntegration = () => {
     }
   };
 
+  /** Runs NELC's own connectivity checks from the sending server. */
+  const runDiagnostics = async () => {
+    setDiagnosing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('nelc-diagnostics', { body: {} });
+      if (error) throw error;
+      setDiagnostics(data);
+      toast.success('تم تشغيل التشخيص');
+    } catch (e: any) {
+      toast.error(e.message || 'فشل تشغيل التشخيص');
+    } finally {
+      setDiagnosing(false);
+    }
+  };
+
+  const diagnosticsReport = diagnostics
+    ? [
+        `1) رابط منصة التعلّم: ${diagnostics.platformUrl}`,
+        `   قيمة context.platform المرسلة: ${diagnostics.platformKey}`,
+        `2) عنوان IP العام الصادر عنه الإرسال (من cdn-cgi/trace داخل بيئة التشغيل): ${diagnostics.outgoingIp ?? 'غير متاح'}`,
+        `3) نتيجة GET ${diagnostics.about?.url}: HTTP ${diagnostics.about?.status}` +
+          `${diagnostics.about?.rayId ? ` | Ray ID: ${diagnostics.about.rayId}` : ''}` +
+          `${diagnostics.about?.errorCode ? ` | Error code: ${diagnostics.about.errorCode}` : ''}` +
+          `${diagnostics.about?.blockedIp ? ` | IP على صفحة الحجب: ${diagnostics.about.blockedIp}` : ''}`,
+        `   نفس الطلب بتوقيع العميل الافتراضي: HTTP ${diagnostics.aboutWithDefaultUserAgent?.status}` +
+          `${diagnostics.aboutWithDefaultUserAgent?.errorCode ? ` (Error code ${diagnostics.aboutWithDefaultUserAgent.errorCode})` : ''}`,
+        `4) قيمة User-Agent التي يرسلها عميلنا: ${diagnostics.userAgent}`,
+        `الخلاصة: ${diagnostics.verdict}`,
+        `وقت الفحص: ${diagnostics.checkedAt}`,
+      ].join('\n')
+    : '';
+
 
   return (
     <div className="space-y-6">
