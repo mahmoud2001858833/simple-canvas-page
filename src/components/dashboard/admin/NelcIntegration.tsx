@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, ShieldCheck, RefreshCw } from 'lucide-react';
+import { Loader2, ShieldCheck, RefreshCw, Stethoscope, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { trackXapi, XapiPayload, isValidNationalId } from '@/lib/xapi';
 
@@ -21,6 +21,8 @@ export const NelcIntegration = () => {
   const [courseId, setCourseId] = useState('');
   const [running, setRunning] = useState(false);
   const [resending, setResending] = useState(false);
+  const [diagnosing, setDiagnosing] = useState(false);
+  const [diagnostics, setDiagnostics] = useState<any>(null);
 
 
   const { data: courses = [] } = useQuery({
