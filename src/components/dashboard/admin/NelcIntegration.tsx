@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, ShieldCheck, RefreshCw } from 'lucide-react';
+import { Loader2, ShieldCheck, RefreshCw, Stethoscope, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { trackXapi, XapiPayload, isValidNationalId } from '@/lib/xapi';
 
@@ -21,6 +21,8 @@ export const NelcIntegration = () => {
   const [courseId, setCourseId] = useState('');
   const [running, setRunning] = useState(false);
   const [resending, setResending] = useState(false);
+  const [diagnosing, setDiagnosing] = useState(false);
+  const [diagnostics, setDiagnostics] = useState<any>(null);
 
 
   const { data: courses = [] } = useQuery({
@@ -172,6 +174,38 @@ export const NelcIntegration = () => {
     }
   };
 
+  /** Runs NELC's own connectivity checks from the sending server. */
+  const runDiagnostics = async () => {
+    setDiagnosing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('nelc-diagnostics', { body: {} });
+      if (error) throw error;
+      setDiagnostics(data);
+      toast.success('تم تشغيل التشخيص');
+    } catch (e: any) {
+      toast.error(e.message || 'فشل تشغيل التشخيص');
+    } finally {
+      setDiagnosing(false);
+    }
+  };
+
+  const diagnosticsReport = diagnostics
+    ? [
+        `1) رابط منصة التعلّم: ${diagnostics.platformUrl}`,
+        `   قيمة context.platform المرسلة: ${diagnostics.platformKey}`,
+        `2) عنوان IP العام الصادر عنه الإرسال (من cdn-cgi/trace داخل بيئة التشغيل): ${diagnostics.outgoingIp ?? 'غير متاح'}`,
+        `3) نتيجة GET ${diagnostics.about?.url}: HTTP ${diagnostics.about?.status}` +
+          `${diagnostics.about?.rayId ? ` | Ray ID: ${diagnostics.about.rayId}` : ''}` +
+          `${diagnostics.about?.errorCode ? ` | Error code: ${diagnostics.about.errorCode}` : ''}` +
+          `${diagnostics.about?.blockedIp ? ` | IP على صفحة الحجب: ${diagnostics.about.blockedIp}` : ''}`,
+        `   نفس الطلب بتوقيع العميل الافتراضي: HTTP ${diagnostics.aboutWithDefaultUserAgent?.status}` +
+          `${diagnostics.aboutWithDefaultUserAgent?.errorCode ? ` (Error code ${diagnostics.aboutWithDefaultUserAgent.errorCode})` : ''}`,
+        `4) قيمة User-Agent التي يرسلها عميلنا: ${diagnostics.userAgent}`,
+        `الخلاصة: ${diagnostics.verdict}`,
+        `وقت الفحص: ${diagnostics.checkedAt}`,
+      ].join('\n')
+    : '';
+
 
   return (
     <div className="space-y-6">
@@ -222,7 +256,34 @@ export const NelcIntegration = () => {
               {resending ? <Loader2 className="w-4 h-4 me-2 animate-spin" /> : <RefreshCw className="w-4 h-4 me-2" />}
               إعادة إرسال العبارات الفاشلة
             </Button>
+            <Button variant="secondary" onClick={runDiagnostics} disabled={diagnosing}>
+              {diagnosing ? <Loader2 className="w-4 h-4 me-2 animate-spin" /> : <Stethoscope className="w-4 h-4 me-2" />}
+              تشخيص الاتصال
+            </Button>
           </div>
+
+          {diagnostics && (
+            <div className="rounded-lg border bg-background p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold">تقرير التشخيص (جاهز للإرسال للمركز الوطني)</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    navigator.clipboard.writeText(diagnosticsReport);
+                    toast.success('تم نسخ التقرير');
+                  }}
+                >
+                  <Copy className="w-4 h-4 me-2" />
+                  نسخ
+                </Button>
+              </div>
+              <p className="text-sm">{diagnostics.verdict}</p>
+              <pre dir="ltr" className="whitespace-pre-wrap break-all rounded-md bg-muted p-3 text-xs leading-6">
+                {diagnosticsReport}
+              </pre>
+            </div>
+          )}
 
           <div className="rounded-lg border bg-muted/40 p-3 text-xs leading-6 text-muted-foreground">
             <p className="font-semibold text-foreground">كيف يعمل التكامل؟</p>
@@ -232,11 +293,15 @@ export const NelcIntegration = () => {
               الرد في السجل بالأسفل.
             </p>
             <p className="mt-2">
-              إذا ظهر رمز <strong>403</strong> في السجل فهذا يعني أن المركز الوطني يرفض الاتصال من عنوان خادم المنصة —
-              المطلوب من المركز إضافة عنوان الخادم إلى القائمة المسموح بها وتأكيد بيانات بيئة الاختبار، ثم اضغط
-              «إعادة إرسال العبارات الفاشلة».
+              عند ظهور <strong>403</strong>: اضغط «تشخيص الاتصال». إذا ظهر <strong>Error code 1010</strong> فالسبب توقيع
+              العميل (User-Agent) وقد تمّت معالجته من جهتنا. أما إذا ظهرت صفحة حجب تحمل <strong>Ray ID</strong> وعنوان IP
+              بدون رمز خطأ فالحجب على مستوى العنوان، وعندها أرسل التقرير المنسوخ إلى المركز الوطني.
+            </p>
+            <p className="mt-2">
+              بعد أي إصلاح اضغط «إعادة إرسال العبارات الفاشلة» وراقب رمز الرد في السجل بالأسفل.
             </p>
           </div>
+
         </CardContent>
       </Card>
 

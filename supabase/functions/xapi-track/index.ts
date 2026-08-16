@@ -13,9 +13,15 @@ const LRS_USER = Deno.env.get("NELC_LRS_USERNAME") ?? "";
 const LRS_PASS = Deno.env.get("NELC_LRS_PASSWORD") ?? "";
 // LMS base URL used to build every object id
 const LMS_URL = (Deno.env.get("NELC_PLATFORM_URL") ?? "https://josoorcom.com").replace(/\/+$/, "");
-// The platform key issued by NELC, format PROV-NUM (e.g. JSOR-001).
-// Validation is impossible if this is missing or mistyped.
-const PLATFORM_KEY = Deno.env.get("NELC_PLATFORM_KEY") ?? "JSOR-001";
+// The platform key registered with NELC. NELC confirmed that PROV-NUM is only an
+// illustrative example and that for most integrated providers the value is the
+// platform URL exactly as entered in the integration request form.
+const PLATFORM_KEY = Deno.env.get("NELC_PLATFORM_KEY") ?? LMS_URL;
+
+// NELC's edge blocks generic client signatures (Python-urllib, libwww-perl…) with
+// HTTP 403 / errorCode 1010. An explicit, normal User-Agent is required.
+export const LRS_USER_AGENT =
+  Deno.env.get("NELC_USER_AGENT") ?? "JosoorcomLMS/1.0 (+https://josoorcom.com; xAPI-client)";
 
 const PLATFORM_NAME = {
   "ar-SA": "جسوركم",
@@ -96,6 +102,8 @@ function postStatement(statement: unknown) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      Accept: "application/json",
+      "User-Agent": LRS_USER_AGENT,
       "X-Experience-API-Version": "1.0.3",
       Authorization: "Basic " + btoa(`${LRS_USER}:${LRS_PASS}`),
     },
