@@ -136,6 +136,8 @@ Deno.serve(async (req) => {
     const getRes = await fetch(getUrl.toString(), {
       method: "GET",
       headers: {
+        Accept: "application/json",
+        "User-Agent": LRS_USER_AGENT,
         "X-Experience-API-Version": "1.0.3",
         Authorization: authHeader(),
       },
