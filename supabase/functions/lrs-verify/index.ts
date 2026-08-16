@@ -11,6 +11,10 @@ const LRS_ENDPOINT = Deno.env.get("NELC_LRS_ENDPOINT") ?? "";
 const LRS_USER = Deno.env.get("NELC_LRS_USERNAME") ?? "";
 const LRS_PASS = Deno.env.get("NELC_LRS_PASSWORD") ?? "";
 const PLATFORM = Deno.env.get("NELC_PLATFORM_URL") ?? "https://josoorcom.com";
+// Explicit, normal client signature — NELC's edge returns 403 (errorCode 1010)
+// for generic runtime user agents.
+const LRS_USER_AGENT =
+  Deno.env.get("NELC_USER_AGENT") ?? "JosoorcomLMS/1.0 (+https://josoorcom.com; xAPI-client)";
 
 function authHeader() {
   return "Basic " + btoa(`${LRS_USER}:${LRS_PASS}`);
