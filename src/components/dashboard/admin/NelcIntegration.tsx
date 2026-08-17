@@ -23,7 +23,8 @@ export const NelcIntegration = () => {
   const [platformKey, setPlatformKey] = useState('https://josoorcom.com');
   const [lrsEndpoint, setLrsEndpoint] = useState('https://lrs.nelc.gov.sa/lrs-license-stg/xapi/statements');
   const [lrsUsername, setLrsUsername] = useState('josoorcom_com');
-  const [lrsPassword, setLrsPassword] = useState('sf93!1Y6Aq#3');
+  const [lrsPassword, setLrsPassword] = useState('u8V%ly718L7!');
+
   const [showConfig, setShowConfig] = useState(false);
 
   const [running, setRunning] = useState(false);

@@ -5,7 +5,8 @@
 
 const LRS_ENDPOINT = process.env.NELC_LRS_ENDPOINT || "https://lrs.nelc.gov.sa/lrs-license-stg/xapi/statements";
 const LRS_USER = process.env.NELC_LRS_USERNAME || "josoorcom_com";
-const LRS_PASS = process.env.NELC_LRS_PASSWORD || "sf93!1Y6Aq#3";
+const LRS_PASS = process.env.NELC_LRS_PASSWORD || "u8V%ly718L7!";
+
 const PLATFORM = (process.env.NELC_PLATFORM_KEY || "https://josoorcom.com").replace(/\/+$/, "");
 
 const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 JosoorcomLMS/1.0 (+https://josoorcom.com; xAPI-client)";

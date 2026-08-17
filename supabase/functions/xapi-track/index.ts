@@ -10,7 +10,8 @@ const corsHeaders = {
 
 const LRS_ENDPOINT = Deno.env.get("NELC_LRS_ENDPOINT") || "https://lrs.nelc.gov.sa/lrs-license-stg/xapi/statements";
 const LRS_USER = Deno.env.get("NELC_LRS_USERNAME") || "josoorcom_com";
-const LRS_PASS = Deno.env.get("NELC_LRS_PASSWORD") || "sf93!1Y6Aq#3";
+const LRS_PASS = Deno.env.get("NELC_LRS_PASSWORD") || "u8V%ly718L7!";
+
 // LMS base URL used to build every object id
 const LMS_URL = (Deno.env.get("NELC_PLATFORM_URL") || "https://josoorcom.com").replace(/\/+$/, "");
 // The platform key registered with NELC. Must match registered platform URL character-by-character.
