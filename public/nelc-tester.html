@@ -37,17 +37,18 @@
     </h1>
 
     <div class="info-card">
-      📌 <strong>طريقة العمل:</strong> تُرسل هذه الأداة العبارات الـ 23 <strong>مباشرة من المتصفح والـ IP الخاص بجهازك</strong> دون المرور بأي خوادم وسيطة، مما يضمن وصولها فوراً إلى مستودع المركز الوطني برمز <strong>HTTP 200</strong>.
+      📌 <strong>تنبيه المركز الوطني:</strong> «يرجى القيام برحلة تعليمية جديدة برقم هوية مختلف».<br>
+      تقوم هذه الأداة تلقائياً بتوليد <strong>رقم هوية وطنية جديد غير مستخدم</strong> في كل فحص، وإرسال العبارات الـ 23 النظيفة مباشرة.
     </div>
 
     <div class="grid">
       <div class="field">
-        <label>رقم الهوية الوطنية / الإقامة (10 أرقام):</label>
-        <input type="text" id="nationalId" value="1051212339" maxlength="10">
+        <label>رقم الهوية الوطنية (10 أرقام - جديد لكل فحص):</label>
+        <input type="text" id="nationalId" value="" maxlength="10">
       </div>
       <div class="field">
         <label>بريد المتدرب:</label>
-        <input type="email" id="email" value="learner_val2@josoorcom.com">
+        <input type="email" id="email" value="">
       </div>
       <div class="field">
         <label>معرّف المنصة (platform):</label>
@@ -55,9 +56,16 @@
       </div>
       <div class="field">
         <label>رمز الدورة التدريبية (Course ID):</label>
-        <input type="text" id="courseCode" value="COURSE_VAL_02">
+        <input type="text" id="courseCode" value="">
       </div>
     </div>
+
+    <div style="margin-bottom: 16px;">
+      <button type="button" onclick="generateFresh()" style="background:#4f46e5; color:white; border:none; padding:8px 16px; border-radius:6px; font-size:13px; cursor:pointer;">
+        🔄 توليد رقم هوية ودورة جديدة
+      </button>
+    </div>
+
 
 
 
@@ -90,7 +98,17 @@
   </div>
 
   <script>
+    function generateFresh() {
+      const rnd = Math.floor(10000000 + Math.random() * 90000000);
+      const newId = "10" + String(rnd).slice(0, 8);
+      document.getElementById("nationalId").value = newId;
+      document.getElementById("email").value = `learner_${newId}@josoorcom.com`;
+      document.getElementById("courseCode").value = `CR_${Date.now().toString().slice(-6)}`;
+    }
+    window.addEventListener("DOMContentLoaded", generateFresh);
+
     const TYPES = {
+
       course: "https://w3id.org/xapi/cmi5/activitytype/course",
       module: "http://adlnet.gov/expapi/activities/module",
       lesson: "http://adlnet.gov/expapi/activities/lesson",
