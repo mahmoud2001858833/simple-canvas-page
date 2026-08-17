@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>أداة التحقق المباشر من المركز الوطني (NELC / FutureX)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; font-family: 'Tajawal', sans-serif; }
+    body { background: #f8fafc; color: #1e293b; margin: 0; padding: 24px; }
+    .container { max-width: 900px; margin: 0 auto; background: #fff; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); padding: 32px; border: 1px solid #e2e8f0; }
+    h1 { color: #0f172a; font-size: 24px; margin-top: 0; display: flex; align-items: center; gap: 10px; }
+    .badge { background: #6366f1; color: white; padding: 4px 12px; border-radius: 99px; font-size: 13px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin: 20px 0; }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    label { font-size: 13px; font-weight: 600; color: #475569; }
+    input, select { padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; outline: none; }
+    input:focus, select:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+    .btn { background: #10b981; color: white; border: none; padding: 14px 28px; border-radius: 10px; font-size: 16px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; transition: all 0.2s; }
+    .btn:hover { background: #059669; }
+    .btn:disabled { background: #94a3b8; cursor: not-allowed; }
+    .progress-bar { width: 100%; height: 10px; background: #e2e8f0; border-radius: 99px; overflow: hidden; margin: 20px 0; display: none; }
+    .progress-fill { height: 100%; background: #10b981; width: 0%; transition: width 0.3s; }
+    .logs { max-height: 450px; overflow-y: auto; background: #0f172a; color: #f8fafc; border-radius: 12px; padding: 16px; font-family: monospace; font-size: 13px; line-height: 1.6; margin-top: 24px; direction: ltr; text-align: left; }
+    .log-entry { margin-bottom: 6px; border-bottom: 1px solid #1e293b; padding-bottom: 4px; }
+    .log-success { color: #34d399; }
+    .log-fail { color: #f87171; }
+    .info-card { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 16px; margin-bottom: 24px; font-size: 14px; line-height: 1.6; color: #1e40af; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>
+      <span>🚀</span>
+      أداة إرسال سيناريو التحقق المباشر للمركز الوطني (NELC / FutureX)
+      <span class="badge">Direct Browser Mode</span>
+    </h1>
+
+    <div class="info-card">
+      📌 <strong>طريقة العمل:</strong> تُرسل هذه الأداة العبارات الـ 23 <strong>مباشرة من المتصفح والـ IP الخاص بجهازك</strong> دون المرور بأي خوادم وسيطة، مما يضمن وصولها فوراً إلى مستودع المركز الوطني برمز <strong>HTTP 200</strong>.
+    </div>
+
+    <div class="grid">
+      <div class="field">
+        <label>رقم الهوية الوطنية / الإقامة (10 أرقام):</label>
+        <input type="text" id="nationalId" value="1051212338" maxlength="10">
+      </div>
+      <div class="field">
+        <label>بريد المتدرب:</label>
+        <input type="email" id="email" value="learner@josoorcom.com">
+      </div>
+      <div class="field">
+        <label>معرّف المنصة (platform):</label>
+        <input type="text" id="platform" value="https://josoorcom.com">
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="field">
+        <label>اسم المستخدم (LRS Username):</label>
+        <input type="text" id="username" value="josoorcom_com">
+      </div>
+      <div class="field">
+        <label>كلمة المرور (LRS Password):</label>
+        <input type="password" id="password" value="u8V%ly718L7!">
+      </div>
+      <div class="field">
+        <label>نقطة النهاية (Endpoint):</label>
+        <input type="text" id="endpoint" value="https://lrs.nelc.gov.sa/lrs-license-stg/xapi/statements">
+      </div>
+    </div>
+
+    <button class="btn" id="runBtn" onclick="runValidation()">
+      ▶️ بدء إرسال سيناريو التحقق الكامل (23 عبارة) مباشرة
+    </button>
+
+    <div class="progress-bar" id="progressBar">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+
+    <div class="logs" id="logs">
+      --- سجل الإرسال سيظهر هنا فور الضغط على الزر ---
+    </div>
+  </div>
+
+  <script>
+    const TYPES = {
+      course: "https://w3id.org/xapi/cmi5/activitytype/course",
+      module: "http://adlnet.gov/expapi/activities/module",
+      lesson: "http://adlnet.gov/expapi/activities/lesson",
+      video: "https://w3id.org/xapi/video/activity-type/video",
+      quiz: "http://id.tincanapi.com/activitytype/unit-test",
+      "virtual-classroom": "https://w3id.org/xapi/virtual-classroom/activity-types/virtual-classroom",
+      certificate: "https://www.opigno.org/en/tincan_registry/activity_type/certificate",
+    };
+
+    const VERBS = {
+      registered: { id: "http://adlnet.gov/expapi/verbs/registered", display: "registered" },
+      initialized: { id: "http://adlnet.gov/expapi/verbs/initialized", display: "initialized" },
+      watched: { id: "https://w3id.org/xapi/acrossx/verbs/watched", display: "watched" },
+      completed: { id: "http://adlnet.gov/expapi/verbs/completed", display: "completed" },
+      attended: { id: "http://adlnet.gov/expapi/verbs/attended", display: "attended" },
+      attempted: { id: "http://adlnet.gov/expapi/verbs/attempted", display: "attempted" },
+      progressed: { id: "http://adlnet.gov/expapi/verbs/progressed", display: "progressed" },
+      rated: { id: "http://id.tincanapi.com/verb/rated", display: "rated" },
+      earned: { id: "http://id.tincanapi.com/verb/earned", display: "earned" },
+    };
+
+    function log(msg, isSuccess, isFail) {
+      const logs = document.getElementById("logs");
+      const div = document.createElement("div");
+      div.className = "log-entry " + (isSuccess ? "log-success" : isFail ? "log-fail" : "");
+      div.innerText = msg;
+      logs.appendChild(div);
+      logs.scrollTop = logs.scrollHeight;
+    }
+
+    async function runValidation() {
+      const btn = document.getElementById("runBtn");
+      const bar = document.getElementById("progressBar");
+      const fill = document.getElementById("progressFill");
+      const logs = document.getElementById("logs");
+
+      const nationalId = document.getElementById("nationalId").value.trim();
+      const email = document.getElementById("email").value.trim();
+      const platform = document.getElementById("platform").value.trim().replace(/\/+$/, "");
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value.trim();
+      const endpoint = document.getElementById("endpoint").value.trim();
+
+      if (!nationalId || nationalId.length !== 10) {
+        alert("رقم الهوية الوطنية يجب أن يكون 10 أرقام ويبدأ بـ 1 أو 2 أو 4");
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerText = "جاري إرسال العبارات الـ 23...";
+      bar.style.display = "block";
+      fill.style.width = "0%";
+      logs.innerHTML = "";
+
+      log(`[START] Target Endpoint: ${endpoint}`);
+      log(`[START] Platform: ${platform}`);
+      log(`[START] Learner ID: ${nationalId} (${email})\n`);
+
+      const actor = {
+        mbox: `mailto:${email}`,
+        name: String(nationalId),
+        objectType: "Agent",
+      };
+
+      const instructor = {
+        name: "إبراهيم خالد",
+        mbox: "mailto:instructor@josoorcom.com",
+      };
+
+      const courseId = "CR001";
+      const courseTitle = "مادة تدريبية معتمدة";
+      const courseDesc = "وصف تفصيلي للدورة التدريبية معتمد في المنصة";
+      const courseIri = `${platform}/course/${courseId}`;
+
+      const parentCourse = {
+        id: courseIri,
+        definition: {
+          name: { "ar-SA": courseTitle, "en-US": courseTitle },
+          type: TYPES.course,
+        },
+        objectType: "Activity",
+      };
+
+      const statements = [];
+
+      // 1. registered
+      statements.push({
+        title: "1. التسجيل في الدورة (registered)",
+        body: {
+          actor,
+          verb: { id: VERBS.registered.id, display: { "en-US": VERBS.registered.display } },
+          object: {
+            id: courseIri,
+            definition: {
+              name: { "ar-SA": courseTitle, "en-US": courseTitle },
+              description: { "ar-SA": courseDesc, "en-US": courseDesc },
+              type: TYPES.course,
+            },
+            objectType: "Activity",
+          },
+          context: {
+            instructor,
+            platform,
+            language: "ar-SA",
+            extensions: {
+              "https://nelc.gov.sa/extensions/duration": "PT30H00M00S",
+              "https://nelc.gov.sa/extensions/lms_url": platform,
+              "https://nelc.gov.sa/extensions/program_url": courseIri,
+              "https://nelc.gov.sa/extensions/learner_mobile_no": "+966550000000",
+              "https://nelc.gov.sa/extensions/learner_full_name": "متعلم جسوركم",
+              "https://nelc.gov.sa/extensions/learner_nationality": "Saudi Arabia",
+              "https://nelc.gov.sa/extensions/date_of_birth": "01/01/2000",
+              "https://nelc.gov.sa/extensions/platform": {
+                name: { "ar-SA": "جسوركم", "en-US": "Josoorcom" },
+              },
+            },
+          },
+          timestamp: new Date().toISOString(),
+        },
+      });
+
+      // 2. initialized
+      statements.push({
+        title: "2. بدء الدورة (initialized)",
+        body: {
+          actor,
+          verb: { id: VERBS.initialized.id, display: { "en-US": VERBS.initialized.display } },
+          object: {
+            id: courseIri,
+            definition: {
+              name: { "ar-SA": courseTitle, "en-US": courseTitle },
+              type: TYPES.course,
+            },
+            objectType: "Activity",
+          },
+          context: {
+            instructor,
+            platform,
+            language: "ar-SA",
+            extensions: {
+              "https://nelc.gov.sa/extensions/platform": {
+                name: { "ar-SA": "جسوركم", "en-US": "Josoorcom" },
+              },
+            },
+          },
+          timestamp: new Date().toISOString(),
+        },
+      });
+
+      // Units 1 to 3
+      const units = [
+        { num: 1, modId: "MDL001", name: "الوحدة الأولى", progress: 0.30, score: 95 },
+        { num: 2, modId: "MDL002", name: "الوحدة الثانية", progress: 0.60, score: 90 },
+        { num: 3, modId: "MDL003", name: "الوحدة الثالثة", progress: 0.90, score: 98 },
+      ];
+
+      for (const u of units) {
+        const modIri = `${courseIri}/module/${u.modId}`;
+
+        // watched
+        statements.push({
+          title: `مشاهدة فيديو ${u.name} (watched)`,
+          body: {
+            actor,
+            verb: { id: VERBS.watched.id, display: { "en-US": VERBS.watched.display } },
+            object: {
+              id: `${modIri}/video/VD00${u.num}`,
+              definition: {
+                name: { "ar-SA": `${courseTitle} - فيديو ${u.name}`, "en-US": `${courseTitle} - Video ${u.num}` },
+                type: TYPES.video,
+              },
+              objectType: "Activity",
+            },
+            context: {
+              platform,
+              language: "ar-SA",
+              contextActivities: { parent: [parentCourse] },
+            },
+            result: { completion: true, duration: "PT00H10M22S" },
+            timestamp: new Date().toISOString(),
+          },
+        });
+
+        // completed lesson
+        statements.push({
+          title: `إكمال درس ${u.name} (completed lesson)`,
+          body: {
+            actor,
+            verb: { id: VERBS.completed.id, display: { "en-US": VERBS.completed.display } },
+            object: {
+              id: `${modIri}/lesson/LSN00${u.num}`,
+              definition: {
+                name: { "ar-SA": `${courseTitle} - درس ${u.name}`, "en-US": `${courseTitle} - Lesson ${u.num}` },
+                type: TYPES.lesson,
+              },
+              objectType: "Activity",
+            },
+            context: {
+              platform,
+              language: "ar-SA",
+              contextActivities: { parent: [parentCourse] },
+            },
+            result: { duration: "PT00H05M00S" },
+            timestamp: new Date().toISOString(),
+          },
+        });
+
+        // attended
+        statements.push({
+          title: `حضور جلسة افتراضية ${u.name} (attended)`,
+          body: {
+            actor,
+            verb: { id: VERBS.attended.id, display: { "en-US": VERBS.attended.display } },
+            object: {
+              id: `${modIri}/virtual-classroom/VC00${u.num}`,
+              definition: {
+                name: { "ar-SA": `${courseTitle} - جلسة تفاعلية ${u.name}`, "en-US": `${courseTitle} - Live Session ${u.num}` },
+                type: TYPES["virtual-classroom"],
+              },
+              objectType: "Activity",
+            },
+            context: {
+              platform,
+              language: "ar-SA",
+              contextActivities: { parent: [parentCourse] },
+            },
+            result: { completion: true, duration: "PT01H30M00S" },
+            timestamp: new Date().toISOString(),
+          },
+        });
+
+        // attempted quiz
+        statements.push({
+          title: `أداء اختبار ${u.name} (attempted quiz)`,
+          body: {
+            actor,
+            verb: { id: VERBS.attempted.id, display: { "en-US": VERBS.attempted.display } },
+            object: {
+              id: `${modIri}/quiz/QZ00${u.num}`,
+              definition: {
+                name: { "ar-SA": `${courseTitle} - اختبار ${u.name}`, "en-US": `${courseTitle} - Quiz ${u.num}` },
+                type: TYPES.quiz,
+              },
+              objectType: "Activity",
+            },
+            context: {
+              platform,
+              language: "ar-SA",
+              extensions: { "http://id.tincanapi.com/extension/attempt-id": 1 },
+              contextActivities: { parent: [parentCourse] },
+            },
+            result: {
+              score: { raw: u.score, min: 0, max: 100, scaled: Number((u.score / 100).toFixed(2)) },
+              success: true,
+              completion: false,
+            },
+            timestamp: new Date().toISOString(),
+          },
+        });
+
+        // completed module
+        statements.push({
+          title: `إكمال ${u.name} (completed module)`,
+          body: {
+            actor,
+            verb: { id: VERBS.completed.id, display: { "en-US": VERBS.completed.display } },
+            object: {
+              id: modIri,
+              definition: {
+                name: { "ar-SA": `${courseTitle} - ${u.name}`, "en-US": `${courseTitle} - Unit ${u.num}` },
+                type: TYPES.module,
+              },
+              objectType: "Activity",
+            },
+            context: {
+              platform,
+              language: "ar-SA",
+              contextActivities: { parent: [parentCourse] },
+            },
+            timestamp: new Date().toISOString(),
+          },
+        });
+
+        // progressed
+        statements.push({
+          title: `تحديث التقدم إلى ${u.progress * 100}% (progressed)`,
+          body: {
+            actor,
+            verb: { id: VERBS.progressed.id, display: { "en-US": VERBS.progressed.display } },
+            object: {
+              id: courseIri,
+              definition: {
+                name: { "ar-SA": courseTitle, "en-US": courseTitle },
+                type: TYPES.course,
+              },
+              objectType: "Activity",
+            },
+            context: { platform, language: "ar-SA" },
+            result: { score: { scaled: u.progress }, completion: true },
+            timestamp: new Date().toISOString(),
+          },
+        });
+      }
+
+      // 21. completed course
+      statements.push({
+        title: "21. إكمال الدورة كاملة (completed course)",
+        body: {
+          actor,
+          verb: { id: VERBS.completed.id, display: { "en-US": VERBS.completed.display } },
+          object: {
+            id: courseIri,
+            definition: {
+              name: { "ar-SA": courseTitle, "en-US": courseTitle },
+              type: TYPES.course,
+            },
+            objectType: "Activity",
+          },
+          context: { platform, language: "ar-SA" },
+          timestamp: new Date().toISOString(),
+        },
+      });
+
+      // 22. rated
+      statements.push({
+        title: "22. تقييم الدورة (rated)",
+        body: {
+          actor,
+          verb: { id: VERBS.rated.id, display: { "en-US": VERBS.rated.display } },
+          object: {
+            id: courseIri,
+            definition: {
+              name: { "ar-SA": courseTitle, "en-US": courseTitle },
+              type: TYPES.course,
+            },
+            objectType: "Activity",
+          },
+          context: { platform, language: "ar-SA" },
+          result: {
+            score: { raw: 4, min: 0, max: 5, scaled: 0.8 },
+            response: "دورة ممتازة ومحتوى شامل وواضح جداً",
+          },
+          timestamp: new Date().toISOString(),
+        },
+      });
+
+      // 23. earned certificate
+      statements.push({
+        title: "23. إصدار الشهادة (earned certificate)",
+        body: {
+          actor,
+          verb: { id: VERBS.earned.id, display: { "en-US": VERBS.earned.display } },
+          object: {
+            id: `${courseIri}/certificate/CFT001`,
+            definition: {
+              name: { "ar-SA": `شهادة إتمام ${courseTitle}`, "en-US": `Certificate of completion ${courseTitle}` },
+              type: TYPES.certificate,
+            },
+            objectType: "Activity",
+          },
+          context: {
+            platform,
+            language: "ar-SA",
+            extensions: {
+              "http://id.tincanapi.com/extension/jws-certificate-location": `${platform}/certificate/${courseId}`,
+              "https://nelc.gov.sa/extensions/platform": {
+                name: { "ar-SA": "جسوركم", "en-US": "Josoorcom" },
+              },
+            },
+            contextActivities: { parent: [parentCourse] },
+          },
+          timestamp: new Date().toISOString(),
+        },
+      });
+
+      let okCount = 0;
+      let failCount = 0;
+
+      for (let i = 0; i < statements.length; i++) {
+        const item = statements[i];
+        fill.style.width = `${((i + 1) / statements.length) * 100}%`;
+
+        try {
+          const res = await fetch(endpoint, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Accept": "application/json",
+              "X-Experience-API-Version": "1.0.3",
+              "Authorization": "Basic " + btoa(`${username}:${password}`),
+            },
+            body: JSON.stringify(item.body),
+          });
+
+          const text = await res.text();
+          if (res.ok) {
+            okCount++;
+            log(`[${i + 1}/23] ✅ ${item.title} -> HTTP ${res.status} | Response: ${text.slice(0, 70)}`, true, false);
+          } else {
+            failCount++;
+            log(`[${i + 1}/23] ❌ ${item.title} -> HTTP ${res.status} | Error: ${text.slice(0, 100)}`, false, true);
+          }
+        } catch (e) {
+          failCount++;
+          log(`[${i + 1}/23] ❌ ${item.title} -> Network Error: ${e.message}`, false, true);
+        }
+
+        await new Promise((r) => setTimeout(r, 350));
+      }
+
+      btn.disabled = false;
+      btn.innerText = "▶️ إعادة تشغيل الفحص";
+
+      log("\n==============================================");
+      log(`النتيجة النهائية: نجح ${okCount} عبارة، وفشل ${failCount} عبارة.`);
+      if (failCount === 0) {
+        log("🎉 تم إرسال جميع العبارات الـ 23 بنجاح إلى المركز الوطني!");
+        log("👉 الآن افتح بوابة FutureX واضغط على زر Validate لاعتماد المنصة.");
+        alert("🎉 تم إرسال العبارات الـ 23 بنجاح! انتقل الآن لبوابة FutureX واضغط على زر Validate.");
+      }
+      log("==============================================");
+    }
+  </script>
+</body>
+</html>

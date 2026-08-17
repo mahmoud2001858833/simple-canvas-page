@@ -301,12 +301,154 @@ export const NelcIntegration = () => {
       let okCount = 0;
       let failCount = 0;
 
+      const actor = {
+        mbox: `mailto:${email.trim()}`,
+        name: String(nationalId.trim()),
+        objectType: "Agent",
+      };
+      const courseIri = `${platformKey.trim().replace(/\/+$/, '')}/course/${courseId || 'CR001'}`;
+
       for (let i = 0; i < scenarioSteps.length; i++) {
         const step = scenarioSteps[i];
         setCurrentStep(i + 1);
         setStepStatus(`إرسال الخطوة (${i + 1}/23): ${step.title}...`);
 
-        const res: any = await trackXapi(step.payload);
+        let res: any = null;
+        try {
+          // Direct browser dispatch (From User's Saudi IP)
+          const p = step.payload;
+          const kind = p.objectKind || 'course';
+          const modIri = p.moduleId ? `${courseIri}/module/${p.moduleId}` : courseIri;
+          let objIri = courseIri;
+          if (kind === 'module') objIri = modIri;
+          else if (kind === 'video') objIri = `${modIri}/video/${p.lessonId || 'VD001'}`;
+          else if (kind === 'lesson') objIri = `${modIri}/lesson/${p.lessonId || 'LSN001'}`;
+          else if (kind === 'virtual-classroom') objIri = `${modIri}/virtual-classroom/${p.lessonId || 'VC001'}`;
+          else if (kind === 'quiz') objIri = `${modIri}/quiz/${p.quizId || 'QZ001'}`;
+          else if (kind === 'certificate') objIri = `${courseIri}/certificate/CFT001`;
+
+          const TYPES: any = {
+            course: "https://w3id.org/xapi/cmi5/activitytype/course",
+            module: "http://adlnet.gov/expapi/activities/module",
+            lesson: "http://adlnet.gov/expapi/activities/lesson",
+            video: "https://w3id.org/xapi/video/activity-type/video",
+            quiz: "http://id.tincanapi.com/activitytype/unit-test",
+            "virtual-classroom": "https://w3id.org/xapi/virtual-classroom/activity-types/virtual-classroom",
+            certificate: "https://www.opigno.org/en/tincan_registry/activity_type/certificate",
+          };
+          const VERBS: any = {
+            registered: "http://adlnet.gov/expapi/verbs/registered",
+            initialized: "http://adlnet.gov/expapi/verbs/initialized",
+            watched: "https://w3id.org/xapi/acrossx/verbs/watched",
+            completed: "http://adlnet.gov/expapi/verbs/completed",
+            attended: "http://adlnet.gov/expapi/verbs/attended",
+            attempted: "http://adlnet.gov/expapi/verbs/attempted",
+            progressed: "http://adlnet.gov/expapi/verbs/progressed",
+            rated: "http://id.tincanapi.com/verb/rated",
+            earned: "http://id.tincanapi.com/verb/earned",
+          };
+
+          const parentCourse = {
+            id: courseIri,
+            definition: { name: { "ar-SA": courseTitle, "en-US": courseTitle }, type: TYPES.course },
+            objectType: "Activity",
+          };
+
+          const context: any = {
+            platform: platformKey.trim(),
+            language: "ar-SA",
+          };
+
+          if (p.verb === 'registered') {
+            context.instructor = { name: "إبراهيم خالد", mbox: "mailto:instructor@josoorcom.com" };
+            context.extensions = {
+              "https://nelc.gov.sa/extensions/duration": "PT30H00M00S",
+              "https://nelc.gov.sa/extensions/lms_url": platformKey.trim(),
+              "https://nelc.gov.sa/extensions/program_url": courseIri,
+              "https://nelc.gov.sa/extensions/learner_mobile_no": "+966550000000",
+              "https://nelc.gov.sa/extensions/learner_full_name": "متعلم جسوركم",
+              "https://nelc.gov.sa/extensions/learner_nationality": "Saudi Arabia",
+              "https://nelc.gov.sa/extensions/date_of_birth": "01/01/2000",
+              "https://nelc.gov.sa/extensions/platform": { name: { "ar-SA": "جسوركم", "en-US": "Josoorcom" } },
+            };
+          } else if (p.verb === 'initialized') {
+            context.instructor = { name: "إبراهيم خالد", mbox: "mailto:instructor@josoorcom.com" };
+            context.extensions = {
+              "https://nelc.gov.sa/extensions/platform": { name: { "ar-SA": "جسوركم", "en-US": "Josoorcom" } },
+            };
+          } else if (p.verb === 'attempted') {
+            context.extensions = { "http://id.tincanapi.com/extension/attempt-id": 1 };
+            context.contextActivities = { parent: [parentCourse] };
+          } else if (p.verb === 'earned') {
+            context.extensions = {
+              "http://id.tincanapi.com/extension/jws-certificate-location": `${platformKey.trim()}/certificate/${courseId || 'CR001'}`,
+              "https://nelc.gov.sa/extensions/platform": { name: { "ar-SA": "جسوركم", "en-US": "Josoorcom" } },
+            };
+            context.contextActivities = { parent: [parentCourse] };
+          } else if (kind !== 'course') {
+            context.contextActivities = { parent: [parentCourse] };
+          }
+
+          let result: any = undefined;
+          if (p.durationSeconds) {
+            const s = p.durationSeconds;
+            const h = Math.floor(s / 3600);
+            const m = Math.floor((s % 3600) / 60);
+            const sec = s % 60;
+            const pad = (n: number) => String(n).padStart(2, "0");
+            result = { duration: `PT${pad(h)}H${pad(m)}M${pad(sec)}S` };
+          }
+          if (p.completion !== undefined) result = { ...(result || {}), completion: p.completion };
+          if (p.score) result = { ...(result || {}), score: p.score };
+          if (p.response) result = { ...(result || {}), response: p.response };
+
+          const statement: any = {
+            actor,
+            verb: { id: VERBS[p.verb], display: { "en-US": p.verb } },
+            object: {
+              id: objIri,
+              definition: {
+                name: { "ar-SA": p.objectName || courseTitle, "en-US": p.objectName || courseTitle },
+                type: TYPES[kind] || TYPES.course,
+                ...(p.verb === 'registered' || kind === 'course' ? { description: { "ar-SA": "دورة تدريبية معتمدة", "en-US": "Accredited training course" } } : {}),
+              },
+              objectType: "Activity",
+            },
+            context,
+            timestamp: new Date().toISOString(),
+          };
+          if (result) statement.result = result;
+
+          // Direct browser POST
+          const directRes = await fetch(lrsEndpoint.trim(), {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Accept": "application/json",
+              "X-Experience-API-Version": "1.0.3",
+              "Authorization": "Basic " + btoa(`${lrsUsername.trim()}:${lrsPassword.trim()}`),
+            },
+            body: JSON.stringify(statement),
+          });
+
+          const directText = await directRes.text();
+          res = { ok: directRes.ok, status: directRes.status, response: directText };
+
+          // Log statement in database
+          await supabase.from("xapi_statements").insert({
+            user_id: targetUserId,
+            verb: p.verb,
+            course_id: courseId || null,
+            statement,
+            status_code: directRes.status,
+            response: directText.slice(0, 2000),
+            success: directRes.ok,
+          });
+        } catch (err: any) {
+          // If browser fetch encounters network error, fallback to Edge Function
+          res = await trackXapi(step.payload);
+        }
+
         if (res?.ok) {
           okCount++;
         } else {
@@ -314,8 +456,9 @@ export const NelcIntegration = () => {
         }
 
         // Delay between statements to allow clean LRS indexing
-        await new Promise((r) => setTimeout(r, 400));
+        await new Promise((r) => setTimeout(r, 350));
       }
+
 
       if (failCount === 0) {
         toast.success(`تم بنجاح إرسال جميع خطوات التحقق الـ 23 (${okCount} نجحت). يمكنك الآن فحص النتيجة على بوابة FutureX!`);
