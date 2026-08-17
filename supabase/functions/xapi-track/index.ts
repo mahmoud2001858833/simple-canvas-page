@@ -339,13 +339,14 @@ Deno.serve(async (req) => {
       type: TYPES[kind],
     };
 
-    // The registration statement must carry the full, clean course description
-    if (verb === "registered" || kind === "course") {
+    // The registration statement must carry the full, clean course description (NELC rule: other course statements MUST NOT have description)
+    if (verb === "registered") {
       const description = clean(objectDescription) || courseDescription;
       if (description) {
         definition.description = { "ar-SA": description, "en-US": description };
       }
     }
+
 
     const object = { id: objectIri, definition, objectType: "Activity" };
 

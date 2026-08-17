@@ -410,13 +410,14 @@ export const NelcIntegration = () => {
               definition: {
                 name: { "ar-SA": p.objectName || courseTitle, "en-US": p.objectName || courseTitle },
                 type: TYPES[kind] || TYPES.course,
-                ...(p.verb === 'registered' || kind === 'course' ? { description: { "ar-SA": "دورة تدريبية معتمدة", "en-US": "Accredited training course" } } : {}),
+                ...(p.verb === 'registered' ? { description: { "ar-SA": "دورة تدريبية معتمدة وشاملة", "en-US": "Accredited training course" } } : {}),
               },
               objectType: "Activity",
             },
             context,
             timestamp: new Date().toISOString(),
           };
+
           if (result) statement.result = result;
 
           // ---- Direct browser dispatch (uses the admin's own Saudi IP) ----
