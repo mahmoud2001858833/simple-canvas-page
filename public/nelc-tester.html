@@ -43,17 +43,23 @@
     <div class="grid">
       <div class="field">
         <label>رقم الهوية الوطنية / الإقامة (10 أرقام):</label>
-        <input type="text" id="nationalId" value="1051212338" maxlength="10">
+        <input type="text" id="nationalId" value="1051212339" maxlength="10">
       </div>
       <div class="field">
         <label>بريد المتدرب:</label>
-        <input type="email" id="email" value="learner@josoorcom.com">
+        <input type="email" id="email" value="learner_val2@josoorcom.com">
       </div>
       <div class="field">
         <label>معرّف المنصة (platform):</label>
         <input type="text" id="platform" value="https://josoorcom.com">
       </div>
+      <div class="field">
+        <label>رمز الدورة التدريبية (Course ID):</label>
+        <input type="text" id="courseCode" value="COURSE_VAL_02">
+      </div>
     </div>
+
+
 
     <div class="grid">
       <div class="field">
@@ -154,10 +160,11 @@
         mbox: "mailto:instructor@josoorcom.com",
       };
 
-      const courseId = "CR001";
+      const courseId = document.getElementById("courseCode")?.value.trim() || "CR002";
       const courseTitle = "مادة تدريبية معتمدة";
-      const courseDesc = "وصف تفصيلي للدورة التدريبية معتمد في المنصة";
+      const courseDesc = "دورة تدريبية شاملة ومعتمدة في المنصة";
       const courseIri = `${platform}/course/${courseId}`;
+
 
       const parentCourse = {
         id: courseIri,
