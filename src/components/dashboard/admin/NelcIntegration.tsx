@@ -685,8 +685,10 @@ export const NelcIntegration = () => {
             لوحة اختبار التحقق والتكامل مع المركز الوطني (Validation Checklist)
           </CardTitle>
           <CardDescription>
-            تُرسل هذه الأداة سيناريو التعلم الكامل (23 عبارة xAPI) المعتمد رسمياً من المركز الوطني لاجتياز الفحص الآلي
+            تُرسل هذه الأداة سيناريو التعلم الكامل (23 عبارة xAPI) المعتمد رسمياً من المركز الوطني لاجتياز الفحص الآلي.
+            الإرسال يتم <strong>مباشرة من متصفحك</strong> (عنوان IP الخاص بك داخل السعودية) وليس من الخادم، لتفادي حجب 403.
           </CardDescription>
+
         </CardHeader>
         <CardContent className="space-y-5">
           <div className="grid gap-4 md:grid-cols-3">
