@@ -40,7 +40,12 @@ export interface XapiPayload {
   certificateUrl?: string;
   targetUserId?: string;
   allowDuplicate?: boolean;
+  platformKey?: string;
+  lrsEndpoint?: string;
+  lrsUsername?: string;
+  lrsPassword?: string;
 }
+
 
 /** National ID must be 10 digits and start with 1, 2 or 4 (NELC rule). */
 export function isValidNationalId(value: string) {

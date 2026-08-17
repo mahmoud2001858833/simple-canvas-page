@@ -24,13 +24,6 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    if (!LRS_ENDPOINT || !LRS_USER || !LRS_PASS) {
-      return new Response(
-        JSON.stringify({ verified: false, error: "LRS credentials are not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -59,6 +52,18 @@ Deno.serve(async (req) => {
     const testId = body?.testId || `verify-${Date.now()}`;
     const nationalId = body?.nationalId || "1051212338";
 
+    const effectiveEndpoint = body?.lrsEndpoint || LRS_ENDPOINT;
+    const effectiveUser = body?.lrsUsername || LRS_USER;
+    const effectivePass = body?.lrsPassword || LRS_PASS;
+    const effectivePlatform = (body?.platformKey || PLATFORM).replace(/\/+$/, "");
+
+    if (!effectiveEndpoint || !effectiveUser || !effectivePass) {
+      return new Response(
+        JSON.stringify({ verified: false, error: "LRS credentials are not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     const statement = {
       id: testId,
       actor: {
@@ -71,7 +76,7 @@ Deno.serve(async (req) => {
         display: { "en-US": "registered" },
       },
       object: {
-        id: `${PLATFORM}/course/CR001`,
+        id: `${effectivePlatform}/course/CR001`,
         definition: {
           name: { "ar-SA": "اختبار التحقق من الاتصال", "en-US": "NELC LRS Verification Test" },
           description: { "ar-SA": "دورة تجريبية لاختبار تكامل المنصة مع المركز الوطني", "en-US": "Verification test course description" },
@@ -84,12 +89,12 @@ Deno.serve(async (req) => {
           name: "إبراهيم خالد",
           mbox: "mailto:instructor@josoorcom.com",
         },
-        platform: PLATFORM,
+        platform: effectivePlatform,
         language: "ar-SA",
         extensions: {
           "https://nelc.gov.sa/extensions/duration": "PT01H00M00S",
-          "https://nelc.gov.sa/extensions/lms_url": PLATFORM,
-          "https://nelc.gov.sa/extensions/program_url": `${PLATFORM}/course/CR001`,
+          "https://nelc.gov.sa/extensions/lms_url": effectivePlatform,
+          "https://nelc.gov.sa/extensions/program_url": `${effectivePlatform}/course/CR001`,
           "https://nelc.gov.sa/extensions/learner_mobile_no": "+966550000000",
           "https://nelc.gov.sa/extensions/learner_full_name": "متعلم تجريبي",
           "https://nelc.gov.sa/extensions/learner_nationality": "Saudi Arabia",
@@ -102,14 +107,14 @@ Deno.serve(async (req) => {
       timestamp: new Date().toISOString(),
     };
 
-    const postRes = await fetch(LRS_ENDPOINT, {
+    const postRes = await fetch(effectiveEndpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json",
         "User-Agent": LRS_USER_AGENT,
         "X-Experience-API-Version": "1.0.3",
-        Authorization: authHeader(),
+        Authorization: "Basic " + btoa(`${effectiveUser}:${effectivePass}`),
       },
       body: JSON.stringify(statement),
     });
@@ -141,7 +146,7 @@ Deno.serve(async (req) => {
     // Give NELC a moment to index the statement, then query it back.
     await new Promise((r) => setTimeout(r, 1500));
 
-    const getUrl = new URL(LRS_ENDPOINT);
+    const getUrl = new URL(effectiveEndpoint);
     getUrl.searchParams.set("statementId", testId);
 
     const getRes = await fetch(getUrl.toString(), {
@@ -150,9 +155,10 @@ Deno.serve(async (req) => {
         Accept: "application/json",
         "User-Agent": LRS_USER_AGENT,
         "X-Experience-API-Version": "1.0.3",
-        Authorization: authHeader(),
+        Authorization: "Basic " + btoa(`${effectiveUser}:${effectivePass}`),
       },
     });
+
 
     const getText = await getRes.text();
     let retrievedStatement = null;

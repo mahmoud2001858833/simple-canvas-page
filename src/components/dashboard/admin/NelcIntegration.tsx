@@ -20,6 +20,12 @@ export const NelcIntegration = () => {
   const [email, setEmail] = useState('');
   const [nationalId, setNationalId] = useState('');
   const [courseId, setCourseId] = useState('');
+  const [platformKey, setPlatformKey] = useState('https://josoorcom.com');
+  const [lrsEndpoint, setLrsEndpoint] = useState('https://lrs.nelc.gov.sa/lrs-license-stg/xapi/statements');
+  const [lrsUsername, setLrsUsername] = useState('josoorcom_com');
+  const [lrsPassword, setLrsPassword] = useState('sf93!1Y6Aq#3');
+  const [showConfig, setShowConfig] = useState(false);
+
   const [running, setRunning] = useState(false);
   const [currentStep, setCurrentStep] = useState<number>(0);
   const [totalSteps, setTotalSteps] = useState<number>(23);
@@ -96,6 +102,13 @@ export const NelcIntegration = () => {
       const selectedCourse = courses.find((c: any) => c.id === courseId);
       const courseTitle = selectedCourse?.title_ar || selectedCourse?.title || 'دورة تدريبية معتمدة';
 
+      const commonOverrides = {
+        platformKey: platformKey.trim(),
+        lrsEndpoint: lrsEndpoint.trim(),
+        lrsUsername: lrsUsername.trim(),
+        lrsPassword: lrsPassword.trim(),
+      };
+
       // 23 Official Steps according to NELC Learner Engagement Scenario:
       const scenarioSteps: { title: string; payload: XapiPayload }[] = [
         // 1. Registered (Course)
@@ -108,6 +121,7 @@ export const NelcIntegration = () => {
             objectName: courseTitle,
             targetUserId,
             allowDuplicate: true,
+            ...commonOverrides,
           },
         },
         // 2. Initialized (Course)
@@ -120,6 +134,7 @@ export const NelcIntegration = () => {
             objectName: courseTitle,
             targetUserId,
             allowDuplicate: true,
+            ...commonOverrides,
           },
         },
       ];
@@ -147,6 +162,7 @@ export const NelcIntegration = () => {
               completion: true,
               targetUserId,
               allowDuplicate: true,
+              ...commonOverrides,
             },
           },
           // Completed Lesson
@@ -162,6 +178,7 @@ export const NelcIntegration = () => {
               durationSeconds: 300,
               targetUserId,
               allowDuplicate: true,
+              ...commonOverrides,
             },
           },
           // Attended Virtual Classroom
@@ -178,6 +195,7 @@ export const NelcIntegration = () => {
               completion: true,
               targetUserId,
               allowDuplicate: true,
+              ...commonOverrides,
             },
           },
           // Attempted Quiz
@@ -196,6 +214,7 @@ export const NelcIntegration = () => {
               completion: false,
               targetUserId,
               allowDuplicate: true,
+              ...commonOverrides,
             },
           },
           // Completed Module
@@ -209,6 +228,7 @@ export const NelcIntegration = () => {
               objectName: `${courseTitle} - ${u.name}`,
               targetUserId,
               allowDuplicate: true,
+              ...commonOverrides,
             },
           },
           // Progressed Course
@@ -223,6 +243,7 @@ export const NelcIntegration = () => {
               completion: true,
               targetUserId,
               allowDuplicate: true,
+              ...commonOverrides,
             },
           },
         );
@@ -239,6 +260,7 @@ export const NelcIntegration = () => {
           objectName: courseTitle,
           targetUserId,
           allowDuplicate: true,
+          ...commonOverrides,
         },
       });
 
@@ -254,6 +276,7 @@ export const NelcIntegration = () => {
           response: 'دورة ممتازة ومحتوى شامل وواضح جداً',
           targetUserId,
           allowDuplicate: true,
+          ...commonOverrides,
         },
       });
 
@@ -269,8 +292,10 @@ export const NelcIntegration = () => {
           certificateUrl: `${window.location.origin}/certificate/${courseId}`,
           targetUserId,
           allowDuplicate: true,
+          ...commonOverrides,
         },
       });
+
 
       let okCount = 0;
       let failCount = 0;
@@ -314,7 +339,13 @@ export const NelcIntegration = () => {
     setLrsVerifyResult(null);
     try {
       const { data, error } = await supabase.functions.invoke('lrs-verify', {
-        body: { nationalId: nationalId.trim() || '1051212338' },
+        body: {
+          nationalId: nationalId.trim() || '1051212338',
+          platformKey: platformKey.trim(),
+          lrsEndpoint: lrsEndpoint.trim(),
+          lrsUsername: lrsUsername.trim(),
+          lrsPassword: lrsPassword.trim(),
+        },
       });
       if (error) throw error;
       setLrsVerifyResult(data);
@@ -337,7 +368,13 @@ export const NelcIntegration = () => {
     setResending(true);
     try {
       const { data, error } = await supabase.functions.invoke('xapi-track', {
-        body: { resendFailed: true },
+        body: {
+          resendFailed: true,
+          platformKey: platformKey.trim(),
+          lrsEndpoint: lrsEndpoint.trim(),
+          lrsUsername: lrsUsername.trim(),
+          lrsPassword: lrsPassword.trim(),
+        },
       });
       if (error) throw error;
       const d = data as any;
@@ -389,35 +426,93 @@ export const NelcIntegration = () => {
       {/* Credentials Banner */}
       <Card className="border-primary/20 bg-primary/5">
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <KeyRound className="w-5 h-5 text-primary" />
-            بيانات الاعتماد المسجلة مع المركز الوطني (NELC Staging)
-          </CardTitle>
-          <CardDescription>
-            بيانات البيئة التجريبية المعتمدة للربط مع بوابة FutureX
-          </CardDescription>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <KeyRound className="w-5 h-5 text-primary" />
+                بيانات الاعتماد المسجلة مع المركز الوطني (NELC Staging)
+              </CardTitle>
+              <CardDescription>
+                بيانات البيئة التجريبية المعتمدة للربط مع بوابة FutureX
+              </CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowConfig(!showConfig)}
+            >
+              {showConfig ? 'إخفاء الإعدادات المتقدمة' : 'تعديل بيانات الربط / مفتاح المنصة'}
+            </Button>
+          </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 text-xs font-mono">
             <div className="rounded-md border bg-background p-2.5">
               <span className="text-muted-foreground block font-sans text-xs">معرّف المنصة (platform):</span>
-              <span className="font-semibold text-foreground break-all">https://josoorcom.com</span>
+              <span className="font-semibold text-foreground break-all">{platformKey}</span>
             </div>
             <div className="rounded-md border bg-background p-2.5">
               <span className="text-muted-foreground block font-sans text-xs">نقطة النهاية (Endpoint):</span>
-              <span className="text-foreground break-all">https://lrs.nelc.gov.sa/.../statements</span>
+              <span className="text-foreground break-all">{lrsEndpoint.slice(0, 32)}...</span>
             </div>
             <div className="rounded-md border bg-background p-2.5">
               <span className="text-muted-foreground block font-sans text-xs">اسم المستخدم (Username):</span>
-              <span className="text-foreground font-semibold">josoorcom_com</span>
+              <span className="text-foreground font-semibold">{lrsUsername}</span>
             </div>
             <div className="rounded-md border bg-background p-2.5">
               <span className="text-muted-foreground block font-sans text-xs">نوع المصادقة:</span>
               <span className="text-foreground font-semibold">Basic Auth (xAPI 1.0.3)</span>
             </div>
           </div>
+
+          {/* Collapsible Config Editor */}
+          {showConfig && (
+            <div className="rounded-lg border bg-background p-4 space-y-3 pt-3">
+              <p className="text-xs font-semibold text-foreground">
+                تعديل بيانات الاعتماد الصادرة من بوابة FutureX (تُستخدم فوراً عند تشغيل الفحص):
+              </p>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">معرّف المنصة (context.platform)</Label>
+                  <Input
+                    className="h-8 text-xs font-mono"
+                    value={platformKey}
+                    onChange={(e) => setPlatformKey(e.target.value)}
+                    placeholder="https://josoorcom.com"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">رابط نقطة النهاية (LRS Endpoint)</Label>
+                  <Input
+                    className="h-8 text-xs font-mono"
+                    value={lrsEndpoint}
+                    onChange={(e) => setLrsEndpoint(e.target.value)}
+                    placeholder="https://lrs.nelc.gov.sa/.../statements"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">اسم المستخدم (Username)</Label>
+                  <Input
+                    className="h-8 text-xs font-mono"
+                    value={lrsUsername}
+                    onChange={(e) => setLrsUsername(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">كلمة المرور (Password)</Label>
+                  <Input
+                    type="password"
+                    className="h-8 text-xs font-mono"
+                    value={lrsPassword}
+                    onChange={(e) => setLrsPassword(e.target.value)}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
+
 
       {/* Main Validation Suite */}
       <Card>

@@ -95,15 +95,20 @@ function json(body: unknown, status = 200) {
   });
 }
 
-function postStatement(statement: unknown) {
-  return fetch(LRS_ENDPOINT, {
+function postStatement(
+  statement: unknown,
+  endpoint = LRS_ENDPOINT,
+  username = LRS_USER,
+  password = LRS_PASS,
+) {
+  return fetch(endpoint, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",
       "User-Agent": LRS_USER_AGENT,
       "X-Experience-API-Version": "1.0.3",
-      Authorization: "Basic " + btoa(`${LRS_USER}:${LRS_PASS}`),
+      Authorization: "Basic " + btoa(`${username}:${password}`),
     },
     body: JSON.stringify(statement),
   });
@@ -113,10 +118,6 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    if (!LRS_ENDPOINT || !LRS_USER || !LRS_PASS) {
-      return json({ error: "LRS not configured" }, 500);
-    }
-
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -129,6 +130,15 @@ Deno.serve(async (req) => {
     if (!user) return json({ error: "Unauthorized" }, 401);
 
     const body = await req.json();
+
+    const effectiveEndpoint = body?.lrsEndpoint || LRS_ENDPOINT;
+    const effectiveUser = body?.lrsUsername || LRS_USER;
+    const effectivePass = body?.lrsPassword || LRS_PASS;
+    const effectivePlatformKey = body?.platformKey || PLATFORM_KEY;
+
+    if (!effectiveEndpoint || !effectiveUser || !effectivePass) {
+      return json({ error: "LRS credentials not configured" }, 500);
+    }
 
     // Admin-only: re-send previously failed statements exactly as stored
     if (body?.resendFailed === true) {
@@ -148,7 +158,7 @@ Deno.serve(async (req) => {
       let lastResponse = "";
 
       for (const row of failed ?? []) {
-        const r = await postStatement(row.statement);
+        const r = await postStatement(row.statement, effectiveEndpoint, effectiveUser, effectivePass);
         const t = await r.text();
         lastStatus = r.status;
         lastResponse = t.slice(0, 500);
@@ -192,6 +202,7 @@ Deno.serve(async (req) => {
       if (!isAdmin) return json({ error: "Forbidden" }, 403);
       actorUserId = targetUserId;
     }
+
 
     const { data: profile } = await supabase
       .from("profiles")
@@ -354,9 +365,10 @@ Deno.serve(async (req) => {
 
     // Strict context formatting per NELC verb profiles
     const context: Record<string, unknown> = {
-      platform: PLATFORM_KEY,
+      platform: effectivePlatformKey,
       language,
     };
+
 
     if (verb === "registered") {
       context.instructor = instructor;
