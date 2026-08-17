@@ -10,7 +10,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
 import { Loader2, ShieldCheck, RefreshCw, Stethoscope, Copy, CheckCircle2, AlertCircle, PlayCircle, KeyRound, Server } from 'lucide-react';
 import { toast } from 'sonner';
-import { trackXapi, XapiPayload, isValidNationalId } from '@/lib/xapi';
+import { XapiPayload, isValidNationalId } from '@/lib/xapi';
 
 /**
  * NELC / FutureX technical integration control panel.
