@@ -133,28 +133,37 @@ const PaymentSuccess = () => {
     };
   }, [paymentId, payment?.status, refetch, navigate]);
 
-  // Create enrollment client-side as fallback when payment is confirmed
-  useEffect(() => {
-    if (!isPaid || !resolvedCourseId || !user) return;
+  // Instant activation: as soon as the payment is confirmed paid, make sure the
+  // enrollment exists and jump straight into the course (no countdown).
+  const redirectedRef = useRef(false);
 
-    const ensureEnrollment = async () => {
-      try {
-        const { error } = await supabase
-          .from('enrollments')
-          .upsert(
-            { user_id: user.id, course_id: resolvedCourseId, status: 'active' },
-            { onConflict: 'user_id,course_id', ignoreDuplicates: true },
-          );
-        if (error) console.log('Enrollment fallback skipped:', error.message);
-        // NELC xAPI: learner registered in the course
-        trackXapi({ verb: 'registered', courseId: resolvedCourseId });
-      } catch (err) {
-        console.log('Enrollment fallback skipped (may already exist):', err);
+  useEffect(() => {
+    if (!isPaid || redirectedRef.current) return;
+    redirectedRef.current = true;
+
+    const activateAndGo = async () => {
+      if (resolvedCourseId && user) {
+        try {
+          await supabase
+            .from('enrollments')
+            .upsert(
+              { user_id: user.id, course_id: resolvedCourseId, status: 'active' },
+              { onConflict: 'user_id,course_id', ignoreDuplicates: true },
+            );
+        } catch (err) {
+          console.log('Enrollment upsert skipped:', err);
+        }
+        try {
+          trackXapi({ verb: 'registered', courseId: resolvedCourseId });
+        } catch { /* non-blocking */ }
+      }
+      if (resolvedCourseId) {
+        navigate(`/courses/${resolvedCourseId}`, { replace: true });
       }
     };
 
-    ensureEnrollment();
-  }, [isPaid, resolvedCourseId, user]);
+    activateAndGo();
+  }, [isPaid, resolvedCourseId, user, navigate]);
 
   // Any non-paid final status sends the student to the failure page
   useEffect(() => {
@@ -163,26 +172,8 @@ const PaymentSuccess = () => {
     navigate(`/payment/failed?payment_id=${paymentId}`, { replace: true });
   }, [payment, paymentId, navigate]);
 
-
-
   const shouldRedirect = !!resolvedCourseId && isPaid;
 
-  useEffect(() => {
-    if (!shouldRedirect) return;
-    
-    const interval = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          navigate(`/courses/${resolvedCourseId}`);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [shouldRedirect, resolvedCourseId, navigate]);
 
   const isPending = payment?.status === 'pending';
 
