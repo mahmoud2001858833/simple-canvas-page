@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -19,7 +19,6 @@ import {
 import confetti from 'canvas-confetti';
 import { trackXapi } from '@/lib/xapi';
 
-const AUTO_REDIRECT_SECONDS = 1;
 
 const PaymentSuccess = () => {
   const [searchParams] = useSearchParams();
@@ -32,7 +31,6 @@ const PaymentSuccess = () => {
   const transactionId = searchParams.get('transaction_id');
   const courseIdParam = searchParams.get('course_id');
 
-  const [countdown, setCountdown] = useState(AUTO_REDIRECT_SECONDS);
 
   // Fetch payment details
   const { data: payment, isLoading, refetch } = useQuery({
@@ -133,28 +131,37 @@ const PaymentSuccess = () => {
     };
   }, [paymentId, payment?.status, refetch, navigate]);
 
-  // Create enrollment client-side as fallback when payment is confirmed
-  useEffect(() => {
-    if (!isPaid || !resolvedCourseId || !user) return;
+  // Instant activation: as soon as the payment is confirmed paid, make sure the
+  // enrollment exists and jump straight into the course (no countdown).
+  const redirectedRef = useRef(false);
 
-    const ensureEnrollment = async () => {
-      try {
-        const { error } = await supabase
-          .from('enrollments')
-          .upsert(
-            { user_id: user.id, course_id: resolvedCourseId, status: 'active' },
-            { onConflict: 'user_id,course_id', ignoreDuplicates: true },
-          );
-        if (error) console.log('Enrollment fallback skipped:', error.message);
-        // NELC xAPI: learner registered in the course
-        trackXapi({ verb: 'registered', courseId: resolvedCourseId });
-      } catch (err) {
-        console.log('Enrollment fallback skipped (may already exist):', err);
+  useEffect(() => {
+    if (!isPaid || redirectedRef.current) return;
+    redirectedRef.current = true;
+
+    const activateAndGo = async () => {
+      if (resolvedCourseId && user) {
+        try {
+          await supabase
+            .from('enrollments')
+            .upsert(
+              { user_id: user.id, course_id: resolvedCourseId, status: 'active' },
+              { onConflict: 'user_id,course_id', ignoreDuplicates: true },
+            );
+        } catch (err) {
+          console.log('Enrollment upsert skipped:', err);
+        }
+        try {
+          trackXapi({ verb: 'registered', courseId: resolvedCourseId });
+        } catch { /* non-blocking */ }
+      }
+      if (resolvedCourseId) {
+        navigate(`/courses/${resolvedCourseId}`, { replace: true });
       }
     };
 
-    ensureEnrollment();
-  }, [isPaid, resolvedCourseId, user]);
+    activateAndGo();
+  }, [isPaid, resolvedCourseId, user, navigate]);
 
   // Any non-paid final status sends the student to the failure page
   useEffect(() => {
@@ -163,26 +170,8 @@ const PaymentSuccess = () => {
     navigate(`/payment/failed?payment_id=${paymentId}`, { replace: true });
   }, [payment, paymentId, navigate]);
 
-
-
   const shouldRedirect = !!resolvedCourseId && isPaid;
 
-  useEffect(() => {
-    if (!shouldRedirect) return;
-    
-    const interval = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          navigate(`/courses/${resolvedCourseId}`);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [shouldRedirect, resolvedCourseId, navigate]);
 
   const isPending = payment?.status === 'pending';
 
@@ -226,15 +215,13 @@ const PaymentSuccess = () => {
                 }
               </p>
               
-              {/* Auto-redirect countdown */}
+              {/* Instant redirect notice */}
               {shouldRedirect && (
                 <p className="text-sm text-primary mt-3 font-medium">
-                  {isRTL 
-                    ? `سيتم توجيهك للدورة خلال ${countdown} ثوان...`
-                    : `Redirecting to your course in ${countdown} seconds...`
-                  }
+                  {isRTL ? 'جاري فتح الدورة الآن...' : 'Opening your course now...'}
                 </p>
               )}
+
             </motion.div>
           </motion.div>
 
