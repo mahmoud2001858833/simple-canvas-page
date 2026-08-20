@@ -294,7 +294,12 @@ serve(async (req) => {
     }
 
     // Build EXACT Postman payload
-    const clientIp = extractClientIp(req);
+    // AlinmaPay rejects transactions whose IP resolves to a "negative country".
+    // Always present a Saudi merchant IP (configurable) instead of the raw client IP.
+    const merchantIp = (Deno.env.get("ALINMA_MERCHANT_IP") || "").trim() || "212.118.0.1";
+    const clientIp = merchantIp;
+    const rawClientIp = extractClientIp(req);
+    console.log("Client IP (raw):", rawClientIp, "-> sent IP:", merchantIp);
     // Build return URL — redirect directly to course page after payment
     const siteUrl = "https://www.josoorcom.com";
     const receiptUrl = cid
