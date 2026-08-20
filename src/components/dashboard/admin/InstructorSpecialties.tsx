@@ -9,18 +9,19 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { ScrollArea } from '@/components/ui/scroll-area';
+
 import { Search, Edit2, BookOpen, Users, DollarSign, GraduationCap, Eye, User, Briefcase, Phone, Mail, Calendar, Globe, FlaskConical } from 'lucide-react';
 import { toast } from 'sonner';
 
 const InfoRow = ({ label, value }: { label: string; value?: any }) => (
   <div className="flex items-start justify-between gap-4 py-2 border-b border-border/50 last:border-0">
     <span className="text-xs text-muted-foreground shrink-0">{label}</span>
-    <span className="text-sm font-medium text-end break-words">
+    <span className="text-sm font-medium text-end break-words whitespace-pre-line">
       {value === true ? '✓' : value === false ? '✕' : value !== null && value !== undefined && value !== '' ? String(value) : '—'}
     </span>
   </div>
 );
+
 
 const Section = ({ title, icon: Icon, children }: { title: string; icon: any; children: React.ReactNode }) => (
   <div className="rounded-xl border border-border p-4 space-y-1">
@@ -265,14 +266,14 @@ export const InstructorSpecialties = () => {
 
       {/* Full details dialog */}
       <Dialog open={!!viewingInstructor} onOpenChange={() => setViewingInstructor(null)}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>
               {language === 'ar' ? 'ملف المعلم الكامل' : 'Full Instructor Profile'}
             </DialogTitle>
           </DialogHeader>
           {viewingInstructor && (
-            <ScrollArea className="max-h-[70vh] pe-3">
+            <div className="flex-1 overflow-y-auto pe-3">
               <div className="grid md:grid-cols-2 gap-4">
                 <Section title={language === 'ar' ? 'البيانات الشخصية' : 'Personal Info'} icon={User}>
                   <InfoRow label={language === 'ar' ? 'الاسم' : 'Name'} value={viewingInstructor.full_name} />
@@ -281,6 +282,7 @@ export const InstructorSpecialties = () => {
                   <InfoRow label={language === 'ar' ? 'الجوال' : 'Phone'} value={viewingInstructor.phone} />
                   <InfoRow label={language === 'ar' ? 'الجنس' : 'Gender'} value={viewingInstructor.gender} />
                   <InfoRow label={language === 'ar' ? 'تاريخ الميلاد' : 'Date of Birth'} value={viewingInstructor.date_of_birth} />
+                  <InfoRow label={language === 'ar' ? 'رقم الهوية' : 'National ID'} value={(viewingInstructor as any).national_id} />
                 </Section>
 
                 <Section title={language === 'ar' ? 'الإقامة والجنسية' : 'Residence & Nationality'} icon={Globe}>
@@ -288,6 +290,8 @@ export const InstructorSpecialties = () => {
                   <InfoRow label={language === 'ar' ? 'الجنسية' : 'Nationality'} value={viewingInstructor.nationality} />
                   <InfoRow label={language === 'ar' ? 'لغة الواجهة' : 'Preferred Language'} value={viewingInstructor.preferred_language} />
                   <InfoRow label={language === 'ar' ? 'كيف عرف عن المنصة' : 'Referral Source'} value={viewingInstructor.referral_source} />
+                  <InfoRow label={language === 'ar' ? 'أجهزة متعددة' : 'Multiple Devices'} value={(viewingInstructor as any).allow_multiple_devices} />
+                  <InfoRow label={language === 'ar' ? 'محظور' : 'Banned'} value={(viewingInstructor as any).is_banned} />
                 </Section>
 
                 <Section title={language === 'ar' ? 'البيانات الأكاديمية' : 'Academic Info'} icon={GraduationCap}>
@@ -297,11 +301,11 @@ export const InstructorSpecialties = () => {
                   <InfoRow label={language === 'ar' ? 'السنة الأكاديمية' : 'Academic Year'} value={viewingInstructor.academic_year} />
                   <InfoRow label={language === 'ar' ? 'الحالة التعليمية' : 'Education Status'} value={viewingInstructor.education_status} />
                   <InfoRow label={language === 'ar' ? 'سنة التدريس' : 'Teaching Year'} value={viewingInstructor.teaching_year} />
+                  <InfoRow label={language === 'ar' ? 'سنة الدراسة' : 'Study Year'} value={(viewingInstructor as any).study_year} />
                 </Section>
 
                 <Section title={language === 'ar' ? 'الخبرة المهنية' : 'Professional Experience'} icon={Briefcase}>
                   <InfoRow label={language === 'ar' ? 'سنوات الخبرة' : 'Years of Experience'} value={viewingInstructor.teaching_experience_years} />
-                  <InfoRow label={language === 'ar' ? 'تفاصيل الخبرة' : 'Experience Details'} value={viewingInstructor.teaching_experience_details} />
                   <InfoRow label={language === 'ar' ? 'الجاهزية للبدء' : 'Availability to Start'} value={viewingInstructor.availability_to_start} />
                   <InfoRow label={language === 'ar' ? 'عدد الطلاب المتوقع' : 'Expected Students'} value={viewingInstructor.expected_students_count} />
                 </Section>
@@ -325,8 +329,17 @@ export const InstructorSpecialties = () => {
                   />
                 </Section>
               </div>
-            </ScrollArea>
+
+              <div className="mt-4">
+                <Section title={language === 'ar' ? 'تفاصيل الخبرة' : 'Experience Details'} icon={Briefcase}>
+                  <p className="text-sm leading-7 whitespace-pre-line break-words">
+                    {viewingInstructor.teaching_experience_details || '—'}
+                  </p>
+                </Section>
+              </div>
+            </div>
           )}
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setViewingInstructor(null)}>
               {language === 'ar' ? 'إغلاق' : 'Close'}
