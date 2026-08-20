@@ -19,7 +19,6 @@ import {
 import confetti from 'canvas-confetti';
 import { trackXapi } from '@/lib/xapi';
 
-const AUTO_REDIRECT_SECONDS = 1;
 
 const PaymentSuccess = () => {
   const [searchParams] = useSearchParams();
@@ -32,7 +31,6 @@ const PaymentSuccess = () => {
   const transactionId = searchParams.get('transaction_id');
   const courseIdParam = searchParams.get('course_id');
 
-  const [countdown, setCountdown] = useState(AUTO_REDIRECT_SECONDS);
 
   // Fetch payment details
   const { data: payment, isLoading, refetch } = useQuery({
