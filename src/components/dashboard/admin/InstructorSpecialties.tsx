@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { ScrollArea } from '@/components/ui/scroll-area';
+
 import { Search, Edit2, BookOpen, Users, DollarSign, GraduationCap, Eye, User, Briefcase, Phone, Mail, Calendar, Globe, FlaskConical } from 'lucide-react';
 import { toast } from 'sonner';
 
