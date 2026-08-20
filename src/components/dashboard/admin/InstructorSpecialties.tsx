@@ -16,11 +16,12 @@ import { toast } from 'sonner';
 const InfoRow = ({ label, value }: { label: string; value?: any }) => (
   <div className="flex items-start justify-between gap-4 py-2 border-b border-border/50 last:border-0">
     <span className="text-xs text-muted-foreground shrink-0">{label}</span>
-    <span className="text-sm font-medium text-end break-words">
+    <span className="text-sm font-medium text-end break-words whitespace-pre-line">
       {value === true ? '✓' : value === false ? '✕' : value !== null && value !== undefined && value !== '' ? String(value) : '—'}
     </span>
   </div>
 );
+
 
 const Section = ({ title, icon: Icon, children }: { title: string; icon: any; children: React.ReactNode }) => (
   <div className="rounded-xl border border-border p-4 space-y-1">
