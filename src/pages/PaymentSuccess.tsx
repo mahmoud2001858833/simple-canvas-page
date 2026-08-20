@@ -217,15 +217,13 @@ const PaymentSuccess = () => {
                 }
               </p>
               
-              {/* Auto-redirect countdown */}
+              {/* Instant redirect notice */}
               {shouldRedirect && (
                 <p className="text-sm text-primary mt-3 font-medium">
-                  {isRTL 
-                    ? `سيتم توجيهك للدورة خلال ${countdown} ثوان...`
-                    : `Redirecting to your course in ${countdown} seconds...`
-                  }
+                  {isRTL ? 'جاري فتح الدورة الآن...' : 'Opening your course now...'}
                 </p>
               )}
+
             </motion.div>
           </motion.div>
 
