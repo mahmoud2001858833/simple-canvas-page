@@ -20,6 +20,7 @@ import { Search, Clock, Users, Star, Filter, GraduationCap, ChevronLeft, Chevron
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { OnboardingTooltip } from "@/components/onboarding/OnboardingTooltip";
 import { useWishlist } from "@/hooks/useWishlist";
+import { Helmet } from "react-helmet-async";
 
 // Onboarding steps for Courses page
 const coursesOnboardingSteps = [
@@ -291,6 +292,14 @@ const Courses = () => {
 
   return (
     <>
+    <Helmet>
+      <title>{isRTL ? "تصفح الدورات الأكاديمية | جسوركم" : "Explore Academic Courses | Josoorkom"}</title>
+      <meta name="description" content={isRTL ? "تصفح مئات الدورات الأكاديمية على منصة جسوركم واختر ما يناسب تخصصك ومستواك الدراسي." : "Browse hundreds of academic courses on Josoorkom and pick the one that matches your major and study level."} />
+      <link rel="canonical" href="https://josoorcom.com/courses" />
+      <meta property="og:title" content={isRTL ? "تصفح الدورات الأكاديمية | جسوركم" : "Explore Academic Courses | Josoorkom"} />
+      <meta property="og:description" content={isRTL ? "مئات الدورات الأكاديمية بإشراف معلمين متميزين على منصة جسوركم." : "Hundreds of academic courses taught by top instructors on Josoorkom."} />
+      <meta property="og:url" content="https://josoorcom.com/courses" />
+    </Helmet>
     <OnboardingTooltip />
     <div className={`min-h-screen bg-background ${isRTL ? "rtl" : "ltr"}`} dir={isRTL ? "rtl" : "ltr"}>
       {/* Back to Home Button */}

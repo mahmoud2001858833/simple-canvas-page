@@ -5,6 +5,7 @@ import Footer from '@/components/landing/Footer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { GraduationCap, Users, PlayCircle } from 'lucide-react';
+import { Helmet } from 'react-helmet-async';
 
 import studentSignup from '@/assets/tutorials/student-signup.mov.asset.json';
 import buyCourses from '@/assets/tutorials/buy-courses.mov.asset.json';
@@ -105,6 +106,14 @@ const Tutorials = () => {
 
   return (
     <div className="min-h-screen bg-background" dir={dir}>
+      <Helmet>
+        <title>{language === 'ar' ? 'فيديوهات توضيحية للطلاب والمعلمين | جسوركم' : 'Video Tutorials for Students & Instructors | Josoorkom'}</title>
+        <meta name="description" content={language === 'ar' ? 'شروحات بالفيديو خطوة بخطوة لتسجيل الطلاب والمعلمين، شراء الدورات، رفع المحتوى وسحب الأرباح على منصة جسوركم.' : 'Step-by-step video tutorials for student and instructor signup, buying courses, uploading content and withdrawing earnings on Josoorkom.'} />
+        <link rel="canonical" href="https://josoorcom.com/tutorials" />
+        <meta property="og:title" content={language === 'ar' ? 'فيديوهات توضيحية | جسوركم' : 'Video Tutorials | Josoorkom'} />
+        <meta property="og:description" content={language === 'ar' ? 'شروحات بالفيديو لاستخدام منصة جسوركم للطلاب والمعلمين.' : 'Video walkthroughs of Josoorkom for students and instructors.'} />
+        <meta property="og:url" content="https://josoorcom.com/tutorials" />
+      </Helmet>
       <Navbar />
       <main className="pt-32 pb-20 container mx-auto px-4">
         <div className="text-center max-w-3xl mx-auto mb-12">
