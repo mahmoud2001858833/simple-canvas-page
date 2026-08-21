@@ -9,7 +9,7 @@ import heroStudent from '@/assets/hero-student.png';
 import logo from '@/assets/logo.png';
 import { usePlatformStats } from '@/hooks/usePlatformStats';
 const HeroSection = () => {
-  const { t, dir } = useLanguage();
+  const { t, dir, language } = useLanguage();
   const { scrollToElement } = useSmoothScroll();
   const stats = usePlatformStats();
 
@@ -69,6 +69,7 @@ const HeroSection = () => {
               className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-white mb-6 leading-tight"
             >
               <span className="text-gradient-gold">{t.hero.title}</span>
+              <span className="block text-2xl md:text-3xl lg:text-4xl mt-3 text-white/90 font-semibold">{language === 'ar' ? 'منصة التعليم الإلكتروني للطلاب في السعودية' : 'The e-learning platform for students in Saudi Arabia'}</span>
             </motion.h1>
 
             {/* Subtitle */}
@@ -144,7 +145,7 @@ const HeroSection = () => {
                 <div className="rounded-[1.75rem] overflow-hidden">
                   <img 
                     src={heroStudent} 
-                    alt="Student learning"
+                    alt={language === 'ar' ? "طالب يدرس على منصة جسوركم التعليمية" : "Student learning on the Josoorkom e-learning platform"}
                     className="w-full max-w-sm xl:max-w-md object-cover"
                     loading="eager"
                   />
@@ -161,7 +162,7 @@ const HeroSection = () => {
                 <div className="bg-white rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] p-3 border border-accent/20 ring-1 ring-accent/10">
                   <img 
                     src={logo} 
-                    alt="Platform Logo"
+                    alt={language === 'ar' ? "شعار جسوركم" : "Josoorkom Logo"}
                     className="w-16 h-16 md:w-20 md:h-20 object-contain"
                   />
                 </div>

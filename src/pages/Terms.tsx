@@ -34,11 +34,23 @@ const Terms = () => {
     ? (language === 'ar' ? 'سياسة الخصوصية' : 'Privacy Policy')
     : (language === 'ar' ? 'سياسات وشروط استخدام المنصة' : 'Platform Terms & Policies');
 
+  const description = isPrivacy
+    ? (language === 'ar'
+        ? 'تعرّف على كيفية جمع منصة جسوركم لبياناتك الشخصية واستخدامها وحمايتها أثناء استخدامك للمنصة التعليمية.'
+        : 'Learn how Josoorkom collects, uses and protects your personal data while you use the learning platform.')
+    : (language === 'ar'
+        ? 'شروط وأحكام استخدام منصة جسوركم للطلاب والمعلمين: الحقوق والالتزامات وسياسات المحتوى والدفع.'
+        : 'Josoorkom terms of use for students and instructors: rights, obligations, content and payment policies.');
+
   return (
     <div dir={dir} className="min-h-screen bg-background flex flex-col">
       <Helmet>
-        <title>{title}</title>
-        <meta name="description" content={title} />
+        <title>{`${title} | ${language === 'ar' ? 'جسوركم' : 'Josoorkom'}`}</title>
+        <meta name="description" content={description} />
+        <link rel="canonical" href={isPrivacy ? 'https://josoorcom.com/privacy' : 'https://josoorcom.com/terms'} />
+        <meta property="og:title" content={`${title} | ${language === 'ar' ? 'جسوركم' : 'Josoorkom'}`} />
+        <meta property="og:description" content={description} />
+        <meta property="og:url" content={isPrivacy ? 'https://josoorcom.com/privacy' : 'https://josoorcom.com/terms'} />
       </Helmet>
       <Navbar />
       <main className="flex-1 container mx-auto px-4 py-16 max-w-4xl">

@@ -41,7 +41,9 @@ const CertificateVerify = () => {
   return (
     <div className={`min-h-screen bg-background flex items-center justify-center p-4 ${isRTL ? 'rtl' : 'ltr'}`} dir={isRTL ? 'rtl' : 'ltr'}>
       <Helmet>
-        <title>{isRTL ? 'التحقق من الشهادة - جسوركم' : 'Certificate Verification - Josoorcom'}</title>
+        <title>{isRTL ? 'التحقق من صحة الشهادة | جسوركم' : 'Verify a Certificate | Josoorkom'}</title>
+        <meta name="description" content={isRTL ? 'تحقق من صحة شهادات إتمام الدورات الصادرة عن منصة جسوركم باستخدام رمز الشهادة.' : 'Verify the authenticity of course completion certificates issued by Josoorkom using the certificate code.'} />
+        <meta name="robots" content="noindex, follow" />
       </Helmet>
 
       <Card className="w-full max-w-lg overflow-hidden">

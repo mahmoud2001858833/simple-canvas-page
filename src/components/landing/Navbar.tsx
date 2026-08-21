@@ -93,7 +93,7 @@ const Navbar = () => {
           <Link to="/" className="flex items-center gap-3 group">
             <motion.img
               src={logo}
-              alt="Logo"
+              alt="Josoorkom - جسوركم"
               className="w-16 h-16 md:w-20 md:h-20 rounded-2xl object-contain bg-white/10 p-1.5 shadow-lg"
               whileHover={{ scale: 1.05, rotate: 5 }}
               transition={{ type: 'spring', stiffness: 300 }}

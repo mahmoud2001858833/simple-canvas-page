@@ -147,8 +147,8 @@ const About = () => {
     "@context": "https://schema.org",
     "@type": "Organization",
     "name": "جسوركم - Jasorkom",
-    "url": "https://xbuild.lovable.app",
-    "logo": "https://xbuild.lovable.app/favicon.png",
+    "url": "https://josoorcom.com",
+    "logo": "https://josoorcom.com/favicon.png",
     "description": isArabic 
       ? "منصة جسوركم للتعليم الإلكتروني - نعزز نرتقي نتفوق"
       : "Jasorkom e-learning platform - Enhance, Rise, Excel",
@@ -171,7 +171,7 @@ const About = () => {
         <meta name="description" content={t.pageDescription} />
         <meta property="og:title" content={t.pageTitle} />
         <meta property="og:description" content={t.pageDescription} />
-        <link rel="canonical" href="https://xbuild.lovable.app/about" />
+        <link rel="canonical" href="https://josoorcom.com/about" />
         <script type="application/ld+json">
           {JSON.stringify(structuredData)}
         </script>
