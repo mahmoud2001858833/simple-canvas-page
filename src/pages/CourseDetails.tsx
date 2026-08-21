@@ -486,7 +486,7 @@ const CourseDetails = () => {
     name: seoTitle,
     description: seoDescription,
     url: courseUrl,
-    image: (course as any)?.thumbnail_url || undefined,
+    image: ((course as any)?.thumbnail_url || (course as any)?.image_url) || undefined,
     provider: { "@type": "EducationalOrganization", name: "جسوركم - Josoorkom", url: "https://josoorcom.com" },
     ...(instructor ? { instructor: { "@type": "Person", name: (instructor as any)?.full_name || (instructor as any)?.full_name_ar } } : {}),
   } : null;
@@ -501,7 +501,7 @@ const CourseDetails = () => {
       <meta property="og:title" content={`${seoTitle} | ${isRTL ? "جسوركم" : "Josoorkom"}`} />
       <meta property="og:description" content={seoDescription} />
       <meta property="og:url" content={courseUrl} />
-      {(course as any)?.thumbnail_url && <meta property="og:image" content={(course as any).thumbnail_url} />}
+      {((course as any)?.thumbnail_url || (course as any)?.image_url) && <meta property="og:image" content={((course as any).thumbnail_url || (course as any).image_url)} />}
       {courseJsonLd && <script type="application/ld+json">{JSON.stringify(courseJsonLd)}</script>}
     </Helmet>
     <OnboardingTooltip />
