@@ -60,6 +60,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MessageSquare, Share2, Link2, QrCode, Send, Mail } from "lucide-react";
+import { Helmet } from "react-helmet-async";
 
 // Onboarding steps for Course Details page
 const courseDetailsOnboardingSteps = [
@@ -476,8 +477,33 @@ const CourseDetails = () => {
 
   const groups = groupedContent();
 
+  const seoTitle = shareTitle || (isRTL ? "تفاصيل الدورة" : "Course details");
+  const seoDescription = ((isRTL ? (course as any)?.description_ar : (course as any)?.description) || (course as any)?.description || (isRTL ? `تعرّف على دورة ${seoTitle} على منصة جسوركم.` : `Learn more about ${seoTitle} on Josoorkom.`)).toString().slice(0, 155);
+  const courseUrl = `https://josoorcom.com/courses/${(course as any)?.slug || (course as any)?.id || ""}`;
+  const courseJsonLd = course ? {
+    "@context": "https://schema.org",
+    "@type": "Course",
+    name: seoTitle,
+    description: seoDescription,
+    url: courseUrl,
+    image: (course as any)?.thumbnail_url || undefined,
+    provider: { "@type": "EducationalOrganization", name: "جسوركم - Josoorkom", url: "https://josoorcom.com" },
+    ...(instructor ? { instructor: { "@type": "Person", name: (instructor as any)?.full_name || (instructor as any)?.full_name_ar } } : {}),
+  } : null;
+
   return (
     <>
+    <Helmet>
+      <title>{`${seoTitle} | ${isRTL ? "جسوركم" : "Josoorkom"}`}</title>
+      <meta name="description" content={seoDescription} />
+      <link rel="canonical" href={courseUrl} />
+      <meta property="og:type" content="website" />
+      <meta property="og:title" content={`${seoTitle} | ${isRTL ? "جسوركم" : "Josoorkom"}`} />
+      <meta property="og:description" content={seoDescription} />
+      <meta property="og:url" content={courseUrl} />
+      {(course as any)?.thumbnail_url && <meta property="og:image" content={(course as any).thumbnail_url} />}
+      {courseJsonLd && <script type="application/ld+json">{JSON.stringify(courseJsonLd)}</script>}
+    </Helmet>
     <OnboardingTooltip />
     <div className={`min-h-screen bg-background ${isRTL ? "rtl" : "ltr"}`} dir={isRTL ? "rtl" : "ltr"}>
       {/* Header */}
