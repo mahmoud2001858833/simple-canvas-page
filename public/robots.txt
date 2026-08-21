@@ -25,7 +25,7 @@ User-agent: *
 Allow: /
 
 # Sitemap location
-Sitemap: https://xbuild.lovable.app/sitemap.xml
+Sitemap: https://josoorcom.com/sitemap.xml
 
 # Block sensitive paths
 Disallow: /admin
