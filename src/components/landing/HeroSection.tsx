@@ -9,7 +9,7 @@ import heroStudent from '@/assets/hero-student.png';
 import logo from '@/assets/logo.png';
 import { usePlatformStats } from '@/hooks/usePlatformStats';
 const HeroSection = () => {
-  const { t, dir } = useLanguage();
+  const { t, dir, language } = useLanguage();
   const { scrollToElement } = useSmoothScroll();
   const stats = usePlatformStats();
 
@@ -69,7 +69,7 @@ const HeroSection = () => {
               className="text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-white mb-6 leading-tight"
             >
               <span className="text-gradient-gold">{t.hero.title}</span>
-              <span className="block text-2xl md:text-3xl lg:text-4xl mt-3 text-white/90 font-semibold">{t.hero.subtitle}</span>
+              <span className="block text-2xl md:text-3xl lg:text-4xl mt-3 text-white/90 font-semibold">{language === 'ar' ? 'منصة التعليم الإلكتروني للطلاب في السعودية' : 'The e-learning platform for students in Saudi Arabia'}</span>
             </motion.h1>
 
             {/* Subtitle */}
