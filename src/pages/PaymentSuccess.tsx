@@ -167,7 +167,11 @@ const PaymentSuccess = () => {
           return;
         }
 
-        await queryClient.invalidateQueries({ queryKey: ['my-enrollments'] });
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['my-enrollments'] }),
+          queryClient.invalidateQueries({ queryKey: ['enrollment'] }),
+          queryClient.invalidateQueries({ queryKey: ['enrollments'] }),
+        ]);
         try {
           trackXapi({ verb: 'registered', courseId: resolvedCourseId });
         } catch { /* non-blocking */ }
