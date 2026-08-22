@@ -438,7 +438,9 @@ const CourseDetails = () => {
     if (hasStaffFreeAccess) return true;
     if (!enrollment || enrollment.status !== 'active') return false;
     if (enrollmentExpired) return false;
+    if (!paidAccess) return false;
     if (paidPercentage >= 100) return true;
+
     return isChapterAccessible(lesson.chapter_id);
   };
 
