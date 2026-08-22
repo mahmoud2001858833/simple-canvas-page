@@ -546,6 +546,8 @@ const LessonViewer = () => {
     if (hasStaffFreeAccess) return true;
     if (!enrollment || enrollment.status !== 'active') return false;
     if (enrollmentExpired) return false;
+    if (!paidAccess) return false;
+
     if (paidPercentage >= 100) return true;
     const chapterId = (lesson as any).chapter_id;
     if (!chapterId) return true;
