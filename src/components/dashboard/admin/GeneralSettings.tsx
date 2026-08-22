@@ -11,6 +11,8 @@ import { Settings, Globe, Bell, Shield, Database, Save, RefreshCw, Video, Loader
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { FinancialControls } from './FinancialControls';
+import { SocialLinksSettings } from './SocialLinksSettings';
+
 
 
 // Settings keys for database
@@ -457,7 +459,10 @@ export const GeneralSettings = () => {
           </CardContent>
         </Card>
 
+        <SocialLinksSettings />
+
         <FinancialControls />
+
 
         {/* System Actions */}
 
