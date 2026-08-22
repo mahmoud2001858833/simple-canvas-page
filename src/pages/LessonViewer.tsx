@@ -219,6 +219,22 @@ const LessonViewer = () => {
     enabled: !!courseId && !!user,
   });
 
+  // Server-side authorization: active enrollment + successful payment
+  const { data: paidAccess = false } = useQuery({
+    queryKey: ["course-access", courseId, user?.id],
+    queryFn: async () => {
+      if (!user || !courseId) return false;
+      const { data, error } = await supabase.rpc("user_has_course_access", {
+        _user_id: user.id,
+        _course_id: courseId,
+      });
+      if (error) throw error;
+      return !!data;
+    },
+    enabled: !!courseId && !!user,
+  });
+
+
   // Chapter-based installment access logic
   // Monthly installment: access expires at the end of each paid month
   const enrollmentExpired = !!(enrollment as any)?.expires_at
