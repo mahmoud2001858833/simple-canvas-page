@@ -275,6 +275,22 @@ const CourseDetails = () => {
     enabled: !!courseUUID && !!user,
   });
 
+  // Server-side authorization: active enrollment + successful payment
+  const { data: paidAccess = false } = useQuery({
+    queryKey: ["course-access", courseUUID, user?.id],
+    queryFn: async () => {
+      if (!user || !courseUUID) return false;
+      const { data, error } = await supabase.rpc("user_has_course_access", {
+        _user_id: user.id,
+        _course_id: courseUUID,
+      });
+      if (error) throw error;
+      return !!data;
+    },
+    enabled: !!courseUUID && !!user,
+  });
+
+
   // Fetch lesson progress
   const { data: lessonProgress = [] } = useQuery({
     queryKey: ["lesson-progress", courseUUID, user?.id],
