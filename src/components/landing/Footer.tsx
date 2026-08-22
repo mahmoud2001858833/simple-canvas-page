@@ -24,12 +24,8 @@ const Footer = () => {
     { label: language === 'ar' ? 'تواصل معنا' : 'Contact Us', href: '#', isChat: true },
   ];
 
-  const socialLinks = [
-    { icon: Facebook, href: '#', label: 'Facebook' },
-    { icon: Twitter, href: '#', label: 'Twitter' },
-    { icon: Instagram, href: '#', label: 'Instagram' },
-    { icon: Youtube, href: '#', label: 'Youtube' },
-  ];
+  const { links: socialLinks } = useSocialLinks();
+
 
   return (
     <footer className="bg-gradient-to-br from-emerald-950 via-teal-900 to-green-950 text-white">
