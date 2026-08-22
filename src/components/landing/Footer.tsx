@@ -44,17 +44,29 @@ const Footer = () => {
                 : 'A digital educational platform specialized in providing academic courses for university students in Saudi Arabia.'}
             </p>
             {/* Social Links */}
-            <div className="flex gap-3">
-              {socialLinks.map((social, index) => (
-                <a
-                  key={index}
-                  href={social.href}
-                  aria-label={social.label}
-                  className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center hover:bg-accent hover:text-foreground transition-colors"
-                >
-                  <social.icon className="w-5 h-5" />
-                </a>
-              ))}
+            {socialLinks.length > 0 && (
+              <div className="flex flex-wrap gap-3">
+                {socialLinks.map((social) => {
+                  const platform = getPlatform(social.id);
+                  if (!platform) return null;
+                  const Icon = platform.icon;
+                  return (
+                    <a
+                      key={social.id}
+                      href={social.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={language === 'ar' ? platform.labelAr : platform.label}
+                      title={language === 'ar' ? platform.labelAr : platform.label}
+                      className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center hover:bg-accent hover:text-foreground transition-colors"
+                    >
+                      <Icon className="w-5 h-5" />
+                    </a>
+                  );
+                })}
+              </div>
+            )}
+
             </div>
           </div>
 
