@@ -1,8 +1,11 @@
 import { Link } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Mail, Phone, MapPin, Facebook, Twitter, Instagram, Youtube } from 'lucide-react';
+import { Mail, Phone, MapPin } from 'lucide-react';
 import logo from '@/assets/logo.png';
 import { openChatWidget } from '@/components/ai-assistant/ChatWidget';
+import { useSocialLinks } from '@/hooks/useSocialLinks';
+import { getPlatform } from '@/lib/socialPlatforms';
+
 
 const Footer = () => {
   const { language, t } = useLanguage();
