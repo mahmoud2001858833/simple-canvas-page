@@ -88,22 +88,29 @@ serve(async (req) => {
     if (!isAdminOrInstructor) {
       // Check if lesson is preview
       if (!lesson.is_preview) {
-        // Check enrollment
-        const { data: enrollment } = await supabaseAdmin
-          .from("enrollments")
-          .select("status")
-          .eq("user_id", userId)
-          .eq("course_id", lesson.course_id)
-          .single();
+        // Verify paid + active access via the central authorization function
+        const { data: hasAccess, error: accessError } = await supabaseAdmin.rpc(
+          "user_has_course_access",
+          { _user_id: userId, _course_id: lesson.course_id },
+        );
 
-        if (!enrollment || enrollment.status !== "active") {
+        if (accessError) {
+          console.error("Access check error:", accessError);
           return new Response(
-            JSON.stringify({ error: "Access denied. Please enroll in the course." }),
+            JSON.stringify({ error: "Failed to verify course access" }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        if (!hasAccess) {
+          return new Response(
+            JSON.stringify({ error: "Access denied. Please complete your payment to unlock this course." }),
             { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
       }
     }
+
 
     // Parse video URL to get storage path
     let videoPath = lesson.video_url;
