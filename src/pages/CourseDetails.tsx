@@ -426,6 +426,8 @@ const CourseDetails = () => {
     if (hasStaffFreeAccess) return true;
     if (!enrollment || enrollment.status !== 'active') return false;
     if (enrollmentExpired) return false;
+    if (!paidAccess) return false;
+
     if (paidPercentage >= 100) return true;
     if (!chapterId) return true; // lessons without chapters are always accessible
     return accessibleChapterIds.has(chapterId);
