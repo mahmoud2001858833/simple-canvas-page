@@ -5,6 +5,7 @@ import { useOnboarding } from '@/contexts/OnboardingContext';
 import { DashboardSidebar } from '@/components/dashboard/DashboardSidebar';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useSearchParams } from 'react-router-dom';
 
 // Lazy load heavy components for better initial load performance
 const MyCourses = lazy(() => import('@/components/dashboard/student/MyCourses').then(m => ({ default: m.MyCourses })));
@@ -21,6 +22,8 @@ const StudyPlanner = lazy(() => import('@/components/dashboard/student/StudyPlan
 const MyAssignments = lazy(() => import('@/components/dashboard/student/MyAssignments').then(m => ({ default: m.MyAssignments })));
 
 type TabType = 'overview' | 'courses' | 'assignments' | 'progress' | 'certificates' | 'payments' | 'request' | 'my-requests' | 'achievements' | 'planner' | 'settings';
+
+const dashboardTabs: TabType[] = ['overview', 'courses', 'assignments', 'progress', 'certificates', 'payments', 'request', 'my-requests', 'achievements', 'planner', 'settings'];
 
 // Loading skeleton for dashboard content
 const DashboardSkeleton = () => (
@@ -70,8 +73,28 @@ const StudentDashboard = () => {
   const { dir } = useLanguage();
   const { profile } = useAuth();
   const { startOnboarding, state } = useOnboarding();
-  const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get('tab');
+  const initialTab = requestedTab && dashboardTabs.includes(requestedTab as TabType)
+    ? requestedTab as TabType
+    : 'overview';
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  const handleTabChange = (tab: TabType) => {
+    setActiveTab(tab);
+    if (tab === 'overview') {
+      setSearchParams({}, { replace: true });
+    } else {
+      setSearchParams({ tab }, { replace: true });
+    }
+  };
+
+  useEffect(() => {
+    if (requestedTab && dashboardTabs.includes(requestedTab as TabType)) {
+      setActiveTab(requestedTab as TabType);
+    }
+  }, [requestedTab]);
 
   // Start onboarding when dashboard loads (if not completed)
   useEffect(() => {
@@ -94,7 +117,7 @@ const StudentDashboard = () => {
               <DashboardStats />
             </div>
             <div data-onboarding="courses">
-              <MyCourses limit={3} showViewAll onViewAll={() => setActiveTab('courses')} />
+              <MyCourses limit={3} showViewAll onViewAll={() => handleTabChange('courses')} />
             </div>
             <RecentActivity />
             <ProgressOverview limit={4} />
@@ -135,7 +158,7 @@ const StudentDashboard = () => {
 
       <DashboardSidebar
         activeTab={activeTab}
-        onTabChange={setActiveTab}
+        onTabChange={handleTabChange}
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen(!sidebarOpen)}
         userRole="student"
