@@ -457,7 +457,10 @@ export const GeneralSettings = () => {
           </CardContent>
         </Card>
 
+        <SocialLinksSettings />
+
         <FinancialControls />
+
 
         {/* System Actions */}
 
