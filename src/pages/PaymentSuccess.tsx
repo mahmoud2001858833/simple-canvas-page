@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -23,6 +23,7 @@ import { trackXapi } from '@/lib/xapi';
 const PaymentSuccess = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { language } = useLanguage();
   const { user } = useAuth();
   const isRTL = language === 'ar';
@@ -131,8 +132,8 @@ const PaymentSuccess = () => {
     };
   }, [paymentId, payment?.status, refetch, navigate]);
 
-  // Instant activation: as soon as the payment is confirmed paid, make sure the
-  // enrollment exists and jump straight into the course (no countdown).
+  // Instant activation: as soon as payment is confirmed, wait until the active
+  // enrollment is readable, refresh the dashboard cache, then open My Courses.
   const redirectedRef = useRef(false);
 
   useEffect(() => {
@@ -141,27 +142,47 @@ const PaymentSuccess = () => {
 
     const activateAndGo = async () => {
       if (resolvedCourseId && user) {
-        try {
-          await supabase
+        let enrollmentReady = false;
+
+        for (let attempt = 0; attempt < 5; attempt += 1) {
+          const { data: activeEnrollment, error } = await supabase
             .from('enrollments')
-            .upsert(
-              { user_id: user.id, course_id: resolvedCourseId, status: 'active' },
-              { onConflict: 'user_id,course_id', ignoreDuplicates: true },
-            );
-        } catch (err) {
-          console.log('Enrollment upsert skipped:', err);
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('course_id', resolvedCourseId)
+            .eq('status', 'active')
+            .maybeSingle();
+
+          if (!error && activeEnrollment) {
+            enrollmentReady = true;
+            break;
+          }
+
+          await new Promise((resolve) => setTimeout(resolve, 500));
         }
+
+        if (!enrollmentReady) {
+          redirectedRef.current = false;
+          await refetch();
+          return;
+        }
+
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['my-enrollments'] }),
+          queryClient.invalidateQueries({ queryKey: ['enrollment'] }),
+          queryClient.invalidateQueries({ queryKey: ['enrollments'] }),
+        ]);
         try {
           trackXapi({ verb: 'registered', courseId: resolvedCourseId });
         } catch { /* non-blocking */ }
       }
       if (resolvedCourseId) {
-        navigate(`/courses/${resolvedCourseId}`, { replace: true });
+        navigate('/dashboard?tab=courses', { replace: true });
       }
     };
 
     activateAndGo();
-  }, [isPaid, resolvedCourseId, user, navigate]);
+  }, [isPaid, resolvedCourseId, user, navigate, queryClient, refetch]);
 
   // Any non-paid final status sends the student to the failure page
   useEffect(() => {
@@ -294,14 +315,14 @@ const PaymentSuccess = () => {
 
                 {/* Actions */}
                 <div className="space-y-3 pt-4">
-                  {resolvedCourseId ? (
+                   {resolvedCourseId ? (
                     <Button 
                       className="w-full" 
                       size="lg"
-                      onClick={() => navigate(`/courses/${resolvedCourseId}`)}
+                       onClick={() => navigate('/dashboard?tab=courses')}
                     >
                       <GraduationCap className="h-4 w-4 mr-2" />
-                      {isRTL ? 'ابدأ التعلم الآن' : 'Start Learning Now'}
+                       {isRTL ? 'عرض دوراتي' : 'View My Courses'}
                     </Button>
                   ) : (
                     <Button asChild className="w-full" size="lg">
