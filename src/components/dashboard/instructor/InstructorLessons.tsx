@@ -507,7 +507,21 @@ export const InstructorLessons = ({ courseId, courseTitle, chapterId, chapterTit
       )}
 
       {/* Add/Edit Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
+      <Dialog open={isDialogOpen} onOpenChange={async (open) => {
+        setIsDialogOpen(open);
+        if (!open) {
+          if (draftLessonId) {
+            const { data: draft } = await supabase.from('lessons').select('title, title_ar, video_url').eq('id', draftLessonId).maybeSingle();
+            if (draft && !draft.title?.trim() && !draft.title_ar?.trim() && !draft.video_url) {
+              await supabase.from('lessons').delete().eq('id', draftLessonId);
+              queryClient.invalidateQueries({ queryKey: ['instructor-lessons', courseId, chapterId] });
+              queryClient.invalidateQueries({ queryKey: ['chapter-lesson-counts', courseId] });
+            }
+            setDraftLessonId(null);
+          }
+          resetForm();
+        }
+      }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingLesson ? t.editLesson : t.newLesson}</DialogTitle>
