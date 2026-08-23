@@ -44,6 +44,7 @@ import {
   ClipboardList,
   Download,
 } from "lucide-react";
+import { getLessonFileUrl } from "@/lib/lessonFiles";
 import { toast } from "sonner";
 import { OnboardingTooltip } from "@/components/onboarding/OnboardingTooltip";
 import { CourseReviews } from "@/components/course/CourseReviews";
