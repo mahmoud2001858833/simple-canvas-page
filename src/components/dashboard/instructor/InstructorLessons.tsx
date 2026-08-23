@@ -56,6 +56,7 @@ export const InstructorLessons = ({ courseId, courseTitle, chapterId, chapterTit
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLesson, setEditingLesson] = useState<any>(null);
+  const [draftLessonId, setDraftLessonId] = useState<string | null>(null);
   const [showFileUploader, setShowFileUploader] = useState(false);
   const [showQuizPdf, setShowQuizPdf] = useState(false);
   const [showQuizEditor, setShowQuizEditor] = useState(false);
