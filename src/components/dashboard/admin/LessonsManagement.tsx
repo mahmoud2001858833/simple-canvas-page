@@ -431,8 +431,9 @@ export const LessonsManagement = ({ courseId, courseTitle, chapterId, onBack }: 
               return;
             }
             queryClient.invalidateQueries({ queryKey: ['admin-lessons', courseId] });
-            setEditingLesson(created);
             resetForm();
+            setEditingLesson(created);
+            setDraftLessonId(created.id);
             setIsDialogOpen(true);
           }}>
             <Plus className="w-4 h-4 me-2" />
