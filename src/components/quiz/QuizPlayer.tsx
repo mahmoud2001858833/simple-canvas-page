@@ -70,17 +70,34 @@ export const QuizPlayer = ({ quizId, onBack }: QuizPlayerProps) => {
     },
   });
 
-  // Fetch questions WITHOUT is_correct — only option text for display
+  // Fetch questions via a security-definer RPC that never returns the answer key
   const { data: questions = [], isLoading: questionsLoading } = useQuery({
     queryKey: ['quiz-questions', quizId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('quiz_questions')
-        .select('id, question, question_ar, sort_order, quiz_options(id, option_text, option_text_ar, sort_order)')
-        .eq('quiz_id', quizId)
-        .order('sort_order');
+      const { data, error } = await supabase.rpc('get_quiz_questions_for_student', { _quiz_id: quizId });
       if (error) throw error;
-      return data || [];
+
+      const map = new Map<string, { id: string; question: string; question_ar: string; sort_order: number; quiz_options: any[] }>();
+      for (const row of (data || []) as any[]) {
+        if (!map.has(row.question_id)) {
+          map.set(row.question_id, {
+            id: row.question_id,
+            question: row.question,
+            question_ar: row.question_ar,
+            sort_order: row.question_sort_order,
+            quiz_options: [],
+          });
+        }
+        if (row.option_id) {
+          map.get(row.question_id)!.quiz_options.push({
+            id: row.option_id,
+            option_text: row.option_text,
+            option_text_ar: row.option_text_ar,
+            sort_order: row.option_sort_order,
+          });
+        }
+      }
+      return Array.from(map.values()).sort((a, b) => a.sort_order - b.sort_order);
     },
   });
 
