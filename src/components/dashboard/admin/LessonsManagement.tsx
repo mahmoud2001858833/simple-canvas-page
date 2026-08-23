@@ -396,6 +396,30 @@ export const LessonsManagement = ({ courseId, courseTitle, chapterId, onBack }: 
     setIsDialogOpen(true);
   };
 
+  const persistOrder = async (ordered: any[]) => {
+    queryClient.setQueryData(['admin-lessons', courseId], ordered);
+    const results = await Promise.all(
+      ordered.map((l, i) => supabase.from('lessons').update({ sort_order: i + 1 }).eq('id', l.id))
+    );
+    if (results.some(r => r.error)) {
+      toast.error(language === 'ar' ? 'تعذر حفظ الترتيب' : 'Failed to save order');
+    } else {
+      toast.success(language === 'ar' ? 'تم حفظ الترتيب' : 'Order saved');
+    }
+    queryClient.invalidateQueries({ queryKey: ['admin-lessons', courseId] });
+  };
+
+  const handleDropOn = (targetIndex: number) => {
+    const list = [...(lessons || [])];
+    if (dragIndex === null || dragIndex === targetIndex || !list.length) {
+      setDragIndex(null); setOverIndex(null); return;
+    }
+    const [moved] = list.splice(dragIndex, 1);
+    list.splice(targetIndex, 0, moved);
+    setDragIndex(null); setOverIndex(null);
+    persistOrder(list);
+  };
+
   const handleSubmit = () => {
     if (editingLesson) {
       updateMutation.mutate({ id: editingLesson.id, data: formData });
