@@ -152,7 +152,7 @@ const PaymentSuccess = () => {
       if (resolvedCourseId && user) {
         let enrollmentReady = false;
 
-        for (let attempt = 0; attempt < 5; attempt += 1) {
+        for (let attempt = 0; attempt < 10; attempt += 1) {
           const { data: activeEnrollment, error } = await supabase
             .from('enrollments')
             .select('id')
@@ -166,14 +166,25 @@ const PaymentSuccess = () => {
             break;
           }
 
-          await new Promise((resolve) => setTimeout(resolve, 500));
+          await new Promise((resolve) => setTimeout(resolve, 700));
         }
 
         if (!enrollmentReady) {
-          redirectedRef.current = false;
-          await refetch();
-          return;
+          // The payment is confirmed, so never strand the student here:
+          // create the enrollment client-side, then continue to the dashboard.
+          await supabase
+            .from('enrollments')
+            .upsert(
+              {
+                user_id: user.id,
+                course_id: resolvedCourseId,
+                status: 'active',
+                paid_percentage: 100,
+              },
+              { onConflict: 'user_id,course_id' },
+            );
         }
+
 
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ['my-enrollments'] }),
