@@ -1,3 +1,4 @@
+import { MathMarkdown } from "@/components/ai/MathMarkdown";
 import { motion } from "framer-motion";
 import { Bot, User, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
