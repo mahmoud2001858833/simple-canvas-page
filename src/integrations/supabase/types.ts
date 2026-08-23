@@ -2850,6 +2850,19 @@ export type Database = {
           course_id: string
         }[]
       }
+      get_quiz_questions_for_student: {
+        Args: { _quiz_id: string }
+        Returns: {
+          option_id: string
+          option_sort_order: number
+          option_text: string
+          option_text_ar: string
+          question: string
+          question_ar: string
+          question_id: string
+          question_sort_order: number
+        }[]
+      }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["user_role"]
