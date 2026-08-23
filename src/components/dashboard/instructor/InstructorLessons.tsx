@@ -56,6 +56,7 @@ export const InstructorLessons = ({ courseId, courseTitle, chapterId, chapterTit
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLesson, setEditingLesson] = useState<any>(null);
+  const [draftLessonId, setDraftLessonId] = useState<string | null>(null);
   const [showFileUploader, setShowFileUploader] = useState(false);
   const [showQuizPdf, setShowQuizPdf] = useState(false);
   const [showQuizEditor, setShowQuizEditor] = useState(false);
@@ -395,6 +396,7 @@ export const InstructorLessons = ({ courseId, courseTitle, chapterId, chapterTit
             }
             queryClient.invalidateQueries({ queryKey: ['instructor-lessons', courseId, chapterId] });
             setEditingLesson(created);
+            setDraftLessonId(created.id);
             setFormData({
               title: '', title_ar: '', description: '', duration_minutes: '',
               video_url: '', video_url_480p: '', video_url_720p: '', video_url_1080p: '',
@@ -505,7 +507,21 @@ export const InstructorLessons = ({ courseId, courseTitle, chapterId, chapterTit
       )}
 
       {/* Add/Edit Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
+      <Dialog open={isDialogOpen} onOpenChange={async (open) => {
+        setIsDialogOpen(open);
+        if (!open) {
+          if (draftLessonId) {
+            const { data: draft } = await supabase.from('lessons').select('title, title_ar, video_url').eq('id', draftLessonId).maybeSingle();
+            if (draft && !draft.title?.trim() && !draft.title_ar?.trim() && !draft.video_url) {
+              await supabase.from('lessons').delete().eq('id', draftLessonId);
+              queryClient.invalidateQueries({ queryKey: ['instructor-lessons', courseId, chapterId] });
+              queryClient.invalidateQueries({ queryKey: ['chapter-lesson-counts', courseId] });
+            }
+            setDraftLessonId(null);
+          }
+          resetForm();
+        }
+      }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingLesson ? t.editLesson : t.newLesson}</DialogTitle>

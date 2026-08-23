@@ -70,6 +70,7 @@ export const LessonsManagement = ({ courseId, courseTitle, chapterId, onBack }: 
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLesson, setEditingLesson] = useState<any>(null);
+  const [draftLessonId, setDraftLessonId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -431,8 +432,9 @@ export const LessonsManagement = ({ courseId, courseTitle, chapterId, onBack }: 
               return;
             }
             queryClient.invalidateQueries({ queryKey: ['admin-lessons', courseId] });
-            setEditingLesson(created);
             resetForm();
+            setEditingLesson(created);
+            setDraftLessonId(created.id);
             setIsDialogOpen(true);
           }}>
             <Plus className="w-4 h-4 me-2" />
@@ -659,7 +661,21 @@ export const LessonsManagement = ({ courseId, courseTitle, chapterId, onBack }: 
         </div>
       )}
 
-      <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if (!open) resetForm(); }}>
+      <Dialog open={isDialogOpen} onOpenChange={async (open) => {
+        setIsDialogOpen(open);
+        if (!open) {
+          if (draftLessonId) {
+            // Remove the empty placeholder lesson if it was never filled in
+            const { data: draft } = await supabase.from('lessons').select('title, title_ar, video_url').eq('id', draftLessonId).maybeSingle();
+            if (draft && !draft.title?.trim() && !draft.title_ar?.trim() && !draft.video_url) {
+              await supabase.from('lessons').delete().eq('id', draftLessonId);
+              queryClient.invalidateQueries({ queryKey: ['admin-lessons', courseId] });
+            }
+            setDraftLessonId(null);
+          }
+          resetForm();
+        }
+      }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
