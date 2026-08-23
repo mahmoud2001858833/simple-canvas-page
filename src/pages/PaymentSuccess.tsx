@@ -87,7 +87,14 @@ const PaymentSuccess = () => {
 
     let cancelled = false;
     let attempts = 0;
-    const MAX_ATTEMPTS = 10; // ~25 seconds
+    const MAX_ATTEMPTS = 16; // ~40 seconds
+
+    // Everything the gateway appended to the return URL is forwarded so the
+    // server can confirm the transaction even if the inquiry API is silent.
+    const gatewayParams: Record<string, string> = {};
+    searchParams.forEach((value, key) => {
+      gatewayParams[key] = value;
+    });
 
     const finishAsFailed = async () => {
       try {
@@ -102,9 +109,10 @@ const PaymentSuccess = () => {
       attempts += 1;
       try {
         const { data, error } = await supabase.functions.invoke('verify-alinma-payment', {
-          body: { paymentId },
+          body: { paymentId, gatewayParams },
         });
         if (error) console.warn('verify-alinma-payment error', error.message);
+
         const status = (data as any)?.status;
         if (cancelled) return;
         if (status === 'paid') {
