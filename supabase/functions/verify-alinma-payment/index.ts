@@ -57,6 +57,67 @@ function classify(parsed: Record<string, unknown>): Outcome {
   return { status: "unknown", description: description || "No conclusive gateway status", raw: parsed };
 }
 
+// Classifies the query/body parameters AlinmaPay appends to the receipt (return)
+// URL after the customer finishes the hosted payment page. This is the primary
+// confirmation channel when the server-to-server inquiry API is unavailable.
+async function classifyReturnParams(
+  params: Record<string, unknown>,
+  payment: { transaction_id?: string | null; tabby_payment_id?: string | null; amount: number },
+): Promise<Outcome> {
+  const get = (...keys: string[]) => {
+    for (const k of Object.keys(params)) {
+      if (keys.some((key) => key.toLowerCase() === k.toLowerCase())) {
+        const v = params[k];
+        if (v !== undefined && v !== null && String(v).length > 0) return String(v);
+      }
+    }
+    return "";
+  };
+
+  const result = get("result", "status", "paymentStatus").toUpperCase();
+  const code = get("responseCode", "response_code", "respCode", "code").trim();
+  const description = get("responseDescription", "reason", "message") || result || code;
+  const trackId = get("trackId", "trackid", "orderId", "order_id", "merchantOrderId");
+  const gatewayTxn = get("transactionId", "paymentId", "tranId");
+  const signature = get("signature", "hash");
+
+  if (!result && !code) return { status: "unknown", description: "No return parameters" };
+
+  // The return must belong to this payment.
+  const belongs =
+    (!!trackId && !!payment.transaction_id && trackId === String(payment.transaction_id)) ||
+    (!!gatewayTxn && !!payment.tabby_payment_id && gatewayTxn === String(payment.tabby_payment_id));
+
+  if (!belongs) {
+    return { status: "unknown", description: "Return parameters do not match this payment" };
+  }
+
+  const success =
+    result === "SUCCESS" || result === "SUCCESSFUL" || result === "PAID" || result === "CAPTURED" ||
+    ["0", "00", "000", "1", "001"].includes(code);
+  const failure =
+    result === "FAILURE" || result === "UNSUCCESSFUL" || result === "TIMEOUT" ||
+    result === "DECLINED" || result === "CANCELED" || result === "CANCELLED" ||
+    (!!code && FAILURE_CODES.has(code));
+
+  if (failure) return { status: "failed", description: description || "Payment declined" };
+  if (!success) return { status: "unknown", description: description || "Inconclusive return status" };
+
+  // When the gateway signs the return, the signature must verify.
+  const merchantKey = (Deno.env.get("ALINMA_MERCHANT_KEY") || "").trim();
+  if (signature && merchantKey && (gatewayTxn || trackId)) {
+    const expected = await sha256Hex(
+      `${gatewayTxn || trackId}|${merchantKey}|${code}|${Number(payment.amount).toFixed(2)}`,
+    );
+    if (expected.toLowerCase() !== signature.toLowerCase()) {
+      console.warn("Return signature mismatch — ignoring return params");
+      return { status: "unknown", description: "Return signature mismatch" };
+    }
+  }
+
+  return { status: "paid", description: description || "Payment successful (gateway return)" };
+}
+
 async function inquire(
   orderId: string,
   transactionId: string | null,
@@ -198,11 +259,25 @@ serve(async (req) => {
       return json({ success: true, status: payment.status, already_processed: true });
     }
 
-    const outcome = await inquire(
+    let outcome = await inquire(
       String(payment.transaction_id || ""),
       payment.tabby_payment_id ? String(payment.tabby_payment_id) : null,
       Number(payment.amount).toFixed(2),
     );
+
+    // Fallback: use the parameters AlinmaPay appended to the return (receipt) URL.
+    if (outcome.status === "unknown") {
+      const returnParams = (body.gatewayParams && typeof body.gatewayParams === "object")
+        ? body.gatewayParams as Record<string, unknown>
+        : {};
+      if (Object.keys(returnParams).length > 0) {
+        console.log("return params:", JSON.stringify(returnParams));
+        const fromReturn = await classifyReturnParams(returnParams, payment);
+        console.log("return classification:", fromReturn.status, fromReturn.description);
+        if (fromReturn.status !== "unknown") outcome = fromReturn;
+      }
+    }
+
 
     if (outcome.status === "unknown") {
       // Online payments must never stay pending: expire stale ones as failed.
@@ -213,7 +288,7 @@ serve(async (req) => {
         .maybeSingle();
       const createdAt = createdRow?.created_at ? new Date(createdRow.created_at).getTime() : Date.now();
       const ageMinutes = (Date.now() - createdAt) / 60000;
-      if (ageMinutes >= 3) {
+      if (ageMinutes >= 8) {
         await admin
           .from("payments")
           .update({

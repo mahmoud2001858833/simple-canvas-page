@@ -87,7 +87,14 @@ const PaymentSuccess = () => {
 
     let cancelled = false;
     let attempts = 0;
-    const MAX_ATTEMPTS = 10; // ~25 seconds
+    const MAX_ATTEMPTS = 16; // ~40 seconds
+
+    // Everything the gateway appended to the return URL is forwarded so the
+    // server can confirm the transaction even if the inquiry API is silent.
+    const gatewayParams: Record<string, string> = {};
+    searchParams.forEach((value, key) => {
+      gatewayParams[key] = value;
+    });
 
     const finishAsFailed = async () => {
       try {
@@ -102,9 +109,10 @@ const PaymentSuccess = () => {
       attempts += 1;
       try {
         const { data, error } = await supabase.functions.invoke('verify-alinma-payment', {
-          body: { paymentId },
+          body: { paymentId, gatewayParams },
         });
         if (error) console.warn('verify-alinma-payment error', error.message);
+
         const status = (data as any)?.status;
         if (cancelled) return;
         if (status === 'paid') {
@@ -130,7 +138,7 @@ const PaymentSuccess = () => {
     return () => {
       cancelled = true;
     };
-  }, [paymentId, payment?.status, refetch, navigate]);
+  }, [paymentId, payment?.status, refetch, navigate, searchParams]);
 
   // Instant activation: as soon as payment is confirmed, wait until the active
   // enrollment is readable, refresh the dashboard cache, then open My Courses.
@@ -144,7 +152,7 @@ const PaymentSuccess = () => {
       if (resolvedCourseId && user) {
         let enrollmentReady = false;
 
-        for (let attempt = 0; attempt < 5; attempt += 1) {
+        for (let attempt = 0; attempt < 10; attempt += 1) {
           const { data: activeEnrollment, error } = await supabase
             .from('enrollments')
             .select('id')
@@ -158,14 +166,25 @@ const PaymentSuccess = () => {
             break;
           }
 
-          await new Promise((resolve) => setTimeout(resolve, 500));
+          await new Promise((resolve) => setTimeout(resolve, 700));
         }
 
         if (!enrollmentReady) {
-          redirectedRef.current = false;
-          await refetch();
-          return;
+          // The payment is confirmed, so never strand the student here:
+          // create the enrollment client-side, then continue to the dashboard.
+          await supabase
+            .from('enrollments')
+            .upsert(
+              {
+                user_id: user.id,
+                course_id: resolvedCourseId,
+                status: 'active',
+                paid_percentage: 100,
+              },
+              { onConflict: 'user_id,course_id' },
+            );
         }
+
 
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ['my-enrollments'] }),
