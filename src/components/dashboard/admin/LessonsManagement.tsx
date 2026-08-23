@@ -492,9 +492,15 @@ export const LessonsManagement = ({ courseId, courseTitle, chapterId, onBack }: 
           lessons?.map((lesson, index) => (
             <div
               key={lesson.id}
-              className="card-premium p-4 flex items-center gap-4 group"
+              draggable
+              onDragStart={() => setDragIndex(index)}
+              onDragOver={(e) => { e.preventDefault(); setOverIndex(index); }}
+              onDragLeave={() => setOverIndex((cur) => (cur === index ? null : cur))}
+              onDrop={(e) => { e.preventDefault(); handleDropOn(index); }}
+              onDragEnd={() => { setDragIndex(null); setOverIndex(null); }}
+              className={`card-premium p-4 flex items-center gap-4 group transition-all ${dragIndex === index ? 'opacity-50' : ''} ${overIndex === index && dragIndex !== null && dragIndex !== index ? 'ring-2 ring-primary' : ''}`}
             >
-              <GripVertical className="w-5 h-5 text-muted-foreground cursor-grab opacity-50 group-hover:opacity-100" />
+              <GripVertical className="w-5 h-5 text-muted-foreground cursor-grab active:cursor-grabbing opacity-50 group-hover:opacity-100" />
               
               <span className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium text-primary">
                 {index + 1}
