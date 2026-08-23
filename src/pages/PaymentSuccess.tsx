@@ -138,7 +138,7 @@ const PaymentSuccess = () => {
     return () => {
       cancelled = true;
     };
-  }, [paymentId, payment?.status, refetch, navigate]);
+  }, [paymentId, payment?.status, refetch, navigate, searchParams]);
 
   // Instant activation: as soon as payment is confirmed, wait until the active
   // enrollment is readable, refresh the dashboard cache, then open My Courses.
