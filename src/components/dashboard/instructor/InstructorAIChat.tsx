@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Send, Bot, User, ImagePlus, X, Loader2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
-import ReactMarkdown from 'react-markdown';
+import { MathMarkdown } from "@/components/ai/MathMarkdown";
 
 type Message = { role: 'user' | 'assistant'; content: string; image?: string };
 
@@ -174,7 +174,7 @@ export const InstructorAIChat = () => {
                 )}
                 {msg.role === 'assistant' ? (
                   <div className="prose prose-sm dark:prose-invert max-w-none">
-                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    <MathMarkdown content={msg.content} />
                   </div>
                 ) : (
                   <p className="text-sm whitespace-pre-wrap">{msg.content}</p>

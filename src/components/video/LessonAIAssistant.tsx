@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import ReactMarkdown from "react-markdown";
+import { MathMarkdown } from "@/components/ai/MathMarkdown";
 
 interface Message {
   role: "user" | "assistant";
@@ -332,7 +332,7 @@ export function LessonAIAssistant({ lessonId, lessonTitle, isRTL, externalOpen, 
                     }`}>
                       {msg.role === "assistant" ? (
                         <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:mb-1 [&>ul]:mb-1 [&>ol]:mb-1 [&>h1]:text-base [&>h2]:text-sm [&>h3]:text-sm">
-                          <ReactMarkdown>{msg.content}</ReactMarkdown>
+                          <MathMarkdown content={msg.content} />
                         </div>
                       ) : (
                         <p>{msg.content}</p>
