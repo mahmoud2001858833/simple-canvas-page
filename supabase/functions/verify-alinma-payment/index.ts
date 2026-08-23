@@ -259,11 +259,25 @@ serve(async (req) => {
       return json({ success: true, status: payment.status, already_processed: true });
     }
 
-    const outcome = await inquire(
+    let outcome = await inquire(
       String(payment.transaction_id || ""),
       payment.tabby_payment_id ? String(payment.tabby_payment_id) : null,
       Number(payment.amount).toFixed(2),
     );
+
+    // Fallback: use the parameters AlinmaPay appended to the return (receipt) URL.
+    if (outcome.status === "unknown") {
+      const returnParams = (body.gatewayParams && typeof body.gatewayParams === "object")
+        ? body.gatewayParams as Record<string, unknown>
+        : {};
+      if (Object.keys(returnParams).length > 0) {
+        console.log("return params:", JSON.stringify(returnParams));
+        const fromReturn = await classifyReturnParams(returnParams, payment);
+        console.log("return classification:", fromReturn.status, fromReturn.description);
+        if (fromReturn.status !== "unknown") outcome = fromReturn;
+      }
+    }
+
 
     if (outcome.status === "unknown") {
       // Online payments must never stay pending: expire stale ones as failed.
