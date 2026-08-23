@@ -1,3 +1,4 @@
+import { MathMarkdown } from "@/components/ai/MathMarkdown";
 import { motion } from "framer-motion";
 import { Bot, User, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -88,12 +89,13 @@ export function ChatMessage({ role, content, isStreaming, suggestedPath, courses
               : "bg-primary text-primary-foreground rounded-tr-sm"
           )}
         >
-          <p className="text-sm leading-relaxed whitespace-pre-wrap">
-            {content}
+          <div className="text-sm leading-relaxed">
+            <MathMarkdown content={content} />
             {isStreaming && (
               <span className="inline-block w-2 h-4 bg-current animate-pulse ml-1" />
             )}
-          </p>
+          </div>
+
         </div>
         
         {/* Course Cards */}
