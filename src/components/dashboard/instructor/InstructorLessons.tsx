@@ -307,9 +307,45 @@ export const InstructorLessons = ({ courseId, courseTitle, chapterId, chapterTit
   };
 
 
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [overIndex, setOverIndex] = useState<number | null>(null);
+
+  const persistOrder = async (ordered: any[]) => {
+    queryClient.setQueryData(['instructor-lessons', courseId, chapterId], ordered);
+    const results = await Promise.all(
+      ordered.map((l, i) => supabase.from('lessons').update({ sort_order: i + 1 }).eq('id', l.id))
+    );
+    if (results.some(r => r.error)) {
+      toast.error(language === 'ar' ? 'تعذر حفظ الترتيب' : 'Failed to save order');
+    } else {
+      toast.success(language === 'ar' ? 'تم حفظ الترتيب' : 'Order saved');
+    }
+    queryClient.invalidateQueries({ queryKey: ['instructor-lessons', courseId, chapterId] });
+  };
+
+  const handleDropOn = (targetIndex: number) => {
+    const list = [...(lessons || [])];
+    if (dragIndex === null || dragIndex === targetIndex || !list.length) {
+      setDragIndex(null); setOverIndex(null); return;
+    }
+    const [moved] = list.splice(dragIndex, 1);
+    list.splice(targetIndex, 0, moved);
+    setDragIndex(null); setOverIndex(null);
+    persistOrder(list);
+  };
+
   const renderLessonItem = (lesson: any, index: number) => (
-    <div key={lesson.id} className="card-premium p-4 flex items-center gap-4 group">
-      <GripVertical className="w-5 h-5 text-muted-foreground cursor-grab opacity-50 group-hover:opacity-100" />
+    <div
+      key={lesson.id}
+      draggable
+      onDragStart={() => setDragIndex(index)}
+      onDragOver={(e) => { e.preventDefault(); setOverIndex(index); }}
+      onDragLeave={() => setOverIndex((cur) => (cur === index ? null : cur))}
+      onDrop={(e) => { e.preventDefault(); handleDropOn(index); }}
+      onDragEnd={() => { setDragIndex(null); setOverIndex(null); }}
+      className={`card-premium p-4 flex items-center gap-4 group transition-all ${dragIndex === index ? 'opacity-50' : ''} ${overIndex === index && dragIndex !== null && dragIndex !== index ? 'ring-2 ring-primary' : ''}`}
+    >
+      <GripVertical className="w-5 h-5 text-muted-foreground cursor-grab active:cursor-grabbing opacity-50 group-hover:opacity-100" />
       <span className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium text-primary">
         {index + 1}
       </span>
