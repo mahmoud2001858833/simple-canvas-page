@@ -3,6 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { FileText, HelpCircle, Download, Eye, Lock } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
+import { getLessonFileUrl } from '@/lib/lessonFiles';
+import { toast } from 'sonner';
 
 interface LessonAttachmentsProps {
   lessonId: string;
@@ -38,14 +40,24 @@ export const LessonAttachments = ({ lessonId, isRTL, isEnrolled = false }: Lesso
     return `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}&embedded=true`;
   };
 
-  const handlePreview = (fileUrl: string, fileName: string) => {
-    const url = getPreviewUrl(fileUrl, fileName);
+  const handlePreview = async (fileUrl: string, fileName: string) => {
+    const signed = await getLessonFileUrl(fileUrl);
+    if (!signed) {
+      toast.error(isRTL ? 'لا تملك صلاحية الوصول لهذا الملف' : 'You do not have access to this file');
+      return;
+    }
+    const url = getPreviewUrl(signed, fileName);
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
   const handleDownload = async (fileUrl: string, fileName: string) => {
+    const signedUrl = await getLessonFileUrl(fileUrl);
+    if (!signedUrl) {
+      toast.error(isRTL ? 'لا تملك صلاحية الوصول لهذا الملف' : 'You do not have access to this file');
+      return;
+    }
     try {
-      const response = await fetch(fileUrl);
+      const response = await fetch(signedUrl);
       const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -56,7 +68,7 @@ export const LessonAttachments = ({ lessonId, isRTL, isEnrolled = false }: Lesso
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch {
-      window.open(fileUrl, '_blank');
+      window.open(signedUrl, '_blank');
     }
   };
 

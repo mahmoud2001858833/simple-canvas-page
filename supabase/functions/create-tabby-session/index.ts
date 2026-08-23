@@ -37,6 +37,23 @@ serve(async (req) => {
       );
     }
 
+    // Verify the caller's JWT matches the supplied userId
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+    const authClient = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } } },
+    );
+    const { data: authData, error: authError } = await authClient.auth.getUser();
+    if (authError || !authData?.user || authData.user.id !== userId) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
     const TABBY_SECRET_KEY = Deno.env.get('TABBY_SECRET_KEY');
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
 

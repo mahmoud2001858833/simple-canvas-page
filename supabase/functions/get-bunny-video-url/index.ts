@@ -372,10 +372,20 @@ serve(async (req) => {
       .eq("user_id", userData.user.id)
       .single();
 
-    const isAdminOrInstructor = roleData?.role === "admin" || roleData?.role === "instructor";
+    // Admins always allowed. Instructors only for courses they own.
+    let isPrivileged = roleData?.role === "admin";
+    if (!isPrivileged && roleData?.role === "instructor") {
+      const { data: ownedCourse } = await supabase
+        .from("courses")
+        .select("id")
+        .eq("id", lesson.course_id)
+        .eq("instructor_id", userData.user.id)
+        .maybeSingle();
+      isPrivileged = !!ownedCourse;
+    }
 
-    // If not admin/instructor and not preview, check enrollment
-    if (!isAdminOrInstructor && !lesson.is_preview) {
+    // If not privileged and not preview, check enrollment
+    if (!isPrivileged && !lesson.is_preview) {
       const { data: enrollment } = await supabase
         .from("enrollments")
         .select("status")

@@ -82,10 +82,19 @@ serve(async (req) => {
       .eq("user_id", userId)
       .single();
 
-    const isAdminOrInstructor = userRole?.role === "admin" || userRole?.role === "instructor";
-    
-    // If admin or instructor, allow access
-    if (!isAdminOrInstructor) {
+    // Admins always allowed. Instructors only for courses they own.
+    let isPrivileged = userRole?.role === "admin";
+    if (!isPrivileged && userRole?.role === "instructor") {
+      const { data: ownedCourse } = await supabaseAdmin
+        .from("courses")
+        .select("id")
+        .eq("id", lesson.course_id)
+        .eq("instructor_id", userId)
+        .maybeSingle();
+      isPrivileged = !!ownedCourse;
+    }
+
+    if (!isPrivileged) {
       // Check if lesson is preview
       if (!lesson.is_preview) {
         // Verify paid + active access via the central authorization function

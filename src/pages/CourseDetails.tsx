@@ -44,6 +44,7 @@ import {
   ClipboardList,
   Download,
 } from "lucide-react";
+import { getLessonFileUrl } from "@/lib/lessonFiles";
 import { toast } from "sonner";
 import { OnboardingTooltip } from "@/components/onboarding/OnboardingTooltip";
 import { CourseReviews } from "@/components/course/CourseReviews";
@@ -891,9 +892,19 @@ const CourseDetails = () => {
                                       </div>
                                      </div>
                                     {fileAccessible ? (
-                                      <a href={file.file_url} target="_blank" rel="noopener noreferrer">
+                                      <button
+                                        type="button"
+                                        onClick={async () => {
+                                          const signed = await getLessonFileUrl(file.file_url);
+                                          if (!signed) {
+                                            toast.error(isRTL ? 'لا تملك صلاحية الوصول لهذا الملف' : 'You do not have access to this file');
+                                            return;
+                                          }
+                                          window.open(signed, '_blank', 'noopener,noreferrer');
+                                        }}
+                                      >
                                         <Download className="h-4 w-4 text-primary" />
-                                      </a>
+                                      </button>
                                     ) : (
                                       <Lock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                                     )}
@@ -911,7 +922,13 @@ const CourseDetails = () => {
                                     onClick={() => {
                                       if (!quizAccessible) return;
                                       if (quiz.quiz_type === 'pdf' && quiz.file_url) {
-                                        window.open(quiz.file_url, '_blank');
+                                        getLessonFileUrl(quiz.file_url).then((signed) => {
+                                          if (!signed) {
+                                            toast.error(isRTL ? 'لا تملك صلاحية الوصول لهذا الملف' : 'You do not have access to this file');
+                                            return;
+                                          }
+                                          window.open(signed, '_blank', 'noopener,noreferrer');
+                                        });
                                       } else if (quiz.quiz_type === 'interactive') {
                                         navigate(`/quiz/${quiz.id}`);
                                       }
