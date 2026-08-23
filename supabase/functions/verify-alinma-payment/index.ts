@@ -288,7 +288,7 @@ serve(async (req) => {
         .maybeSingle();
       const createdAt = createdRow?.created_at ? new Date(createdRow.created_at).getTime() : Date.now();
       const ageMinutes = (Date.now() - createdAt) / 60000;
-      if (ageMinutes >= 3) {
+      if (ageMinutes >= 8) {
         await admin
           .from("payments")
           .update({
