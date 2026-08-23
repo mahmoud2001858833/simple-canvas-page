@@ -396,6 +396,7 @@ export const InstructorLessons = ({ courseId, courseTitle, chapterId, chapterTit
             }
             queryClient.invalidateQueries({ queryKey: ['instructor-lessons', courseId, chapterId] });
             setEditingLesson(created);
+            setDraftLessonId(created.id);
             setFormData({
               title: '', title_ar: '', description: '', duration_minutes: '',
               video_url: '', video_url_480p: '', video_url_720p: '', video_url_1080p: '',
