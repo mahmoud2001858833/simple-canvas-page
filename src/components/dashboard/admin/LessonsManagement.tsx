@@ -70,6 +70,7 @@ export const LessonsManagement = ({ courseId, courseTitle, chapterId, onBack }: 
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingLesson, setEditingLesson] = useState<any>(null);
+  const [draftLessonId, setDraftLessonId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     title: '',
