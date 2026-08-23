@@ -35,6 +35,23 @@ serve(async (req) => {
       throw new Error("Only admins/instructors can generate transcripts");
     }
 
+    // Verify the lesson exists and the caller owns its course (admins exempt)
+    const { data: lessonOwnership } = await supabase
+      .from("lessons")
+      .select("course_id, courses:course_id(instructor_id)")
+      .eq("id", lessonId)
+      .maybeSingle();
+
+    if (!lessonOwnership) throw new Error("Lesson not found");
+
+    const ownerId = (lessonOwnership as any)?.courses?.instructor_id;
+    if (roles.role !== "admin" && ownerId !== user.id) {
+      return new Response(JSON.stringify({ error: "Forbidden - You do not own this course" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Check if transcript already exists
     const { data: existing } = await supabase
       .from("lesson_transcripts")

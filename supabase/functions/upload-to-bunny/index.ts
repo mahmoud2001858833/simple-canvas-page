@@ -73,6 +73,43 @@ serve(async (req) => {
 
     console.log("[upload-to-bunny] Request data:", { tempFilePath, courseId, lessonId, quality });
 
+    // 4b. Verify ownership: instructors may only write to their own courses
+    const { data: courseRow } = await supabase
+      .from("courses")
+      .select("id, instructor_id")
+      .eq("id", courseId)
+      .maybeSingle();
+
+    if (!courseRow) {
+      return new Response(JSON.stringify({ error: "Course not found" }), {
+        status: 404,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (roleData.role !== "admin" && courseRow.instructor_id !== userData.user.id) {
+      console.error("[upload-to-bunny] Instructor does not own course", courseId);
+      return new Response(JSON.stringify({ error: "Forbidden - You do not own this course" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Ensure the lesson actually belongs to that course
+    const { data: lessonRow } = await supabase
+      .from("lessons")
+      .select("id")
+      .eq("id", lessonId)
+      .eq("course_id", courseId)
+      .maybeSingle();
+
+    if (!lessonRow) {
+      return new Response(JSON.stringify({ error: "Lesson does not belong to this course" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // 5. Download file from Supabase temp storage (SERVER-SIDE)
     console.log("[upload-to-bunny] Downloading from temp storage:", tempFilePath);
     
