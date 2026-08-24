@@ -1,8 +1,11 @@
+import { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Bell, Menu, Globe, Search, Check } from 'lucide-react';
+import { Bell, Menu, Globe, Search, Check, User, Settings, LogOut } from 'lucide-react';
+import { ProfileDialog } from '@/components/dashboard/ProfileDialog';
+
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
