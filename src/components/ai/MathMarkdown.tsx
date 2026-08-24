@@ -67,7 +67,7 @@ export function MathMarkdown({ content, className }: MathMarkdownProps) {
         "[&_table]:w-full [&_table]:my-3 [&_table]:text-xs [&_th]:border [&_th]:border-border [&_th]:p-1.5 [&_th]:bg-muted [&_td]:border [&_td]:border-border [&_td]:p-1.5",
         // math
         "[&_.katex]:text-[1.05em] [&_.katex-display]:my-4 [&_.katex-display]:overflow-x-auto [&_.katex-display]:overflow-y-hidden [&_.katex-display]:py-1",
-        "[&_.katex-display]:text-center [&_.katex-display]:dir-ltr",
+        "[&_.katex-display]:text-center",
         className
       )}
       dir="auto"
