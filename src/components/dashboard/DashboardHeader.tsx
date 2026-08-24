@@ -1,8 +1,11 @@
+import { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Bell, Menu, Globe, Search, Check } from 'lucide-react';
+import { Bell, Menu, Globe, Search, Check, User, Settings, LogOut } from 'lucide-react';
+import { ProfileDialog } from '@/components/dashboard/ProfileDialog';
+
 import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
@@ -24,11 +27,19 @@ interface HeaderProps {
 
 export const DashboardHeader = ({ userName, onMenuClick }: HeaderProps) => {
   const { language, setLanguage, dir } = useLanguage();
-  const { role } = useAuth();
+  const { role, profile, signOut } = useAuth();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useRealNotifications();
   const navigate = useNavigate();
   const isRTL = language === 'ar';
   const userRole = role;
+  const [profileOpen, setProfileOpen] = useState(false);
+
+  const goToSettings = () => {
+    if (role === 'admin') navigate('/admin?tab=settings');
+    else if (role === 'instructor') navigate('/instructor?tab=settings');
+    else navigate('/dashboard?tab=settings');
+  };
+
 
   const getInitials = (name: string) => {
     return name
@@ -163,15 +174,42 @@ export const DashboardHeader = ({ userName, onMenuClick }: HeaderProps) => {
           </DropdownMenu>
 
           {/* User Avatar */}
-          <div className="flex items-center gap-2 px-2">
-            <Avatar className="w-9 h-9 ring-2 ring-accent/40 ring-offset-1 ring-offset-transparent">
-              <AvatarImage src="" />
-              <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-white text-sm font-bold">
-                {getInitials(userName || 'U')}
-              </AvatarFallback>
-            </Avatar>
-            <span className="hidden md:block text-sm font-medium text-white">{userName}</span>
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center gap-2 px-2 rounded-xl hover:bg-white/10 transition-colors py-1">
+                <Avatar className="w-9 h-9 ring-2 ring-accent/40 ring-offset-1 ring-offset-transparent">
+                  <AvatarImage src={profile?.avatar_url || ''} alt={userName} />
+                  <AvatarFallback className="bg-gradient-to-br from-primary to-secondary text-white text-sm font-bold">
+                    {getInitials(userName || 'U')}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="hidden md:block text-sm font-medium text-white">{userName}</span>
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align={dir === 'rtl' ? 'start' : 'end'} className="w-56 rounded-xl">
+              <div className="px-3 py-2">
+                <p className="text-sm font-medium truncate">{userName}</p>
+                <p className="text-xs text-muted-foreground truncate">{profile?.email}</p>
+              </div>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setProfileOpen(true)} className="cursor-pointer gap-2">
+                <User className="w-4 h-4" />
+                {isRTL ? 'الملف الشخصي' : 'My Profile'}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={goToSettings} className="cursor-pointer gap-2">
+                <Settings className="w-4 h-4" />
+                {isRTL ? 'الإعدادات' : 'Settings'}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => signOut()} className="cursor-pointer gap-2 text-destructive focus:text-destructive">
+                <LogOut className="w-4 h-4" />
+                {isRTL ? 'تسجيل الخروج' : 'Sign out'}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} onOpenSettings={goToSettings} />
+
 
         </div>
       </div>
