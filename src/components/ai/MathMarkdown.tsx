@@ -15,12 +15,24 @@ interface MathMarkdownProps {
  * into the $ / $$ syntax that remark-math understands.
  */
 function normalizeMath(input: string): string {
-  return input
+  let out = input
     .replace(/\\\[([\s\S]+?)\\\]/g, (_m, body) => `\n\n$$${body}$$\n\n`)
     .replace(/\\\(([\s\S]+?)\\\)/g, (_m, body) => `$${body}$`)
     .replace(/\\begin\{(equation|align|aligned|cases|matrix|pmatrix|bmatrix)\*?\}([\s\S]+?)\\end\{\1\*?\}/g,
       (m) => `\n\n$$${m}$$\n\n`);
+
+  // Repair mismatched delimiters models emit: "$x$$" or "$$x$" -> "$$x$$"
+  out = out
+    .replace(/(^|[^$])\$(?!\$)([^$\n]+?)\$\$(?!\$)/g, (_m, pre, body) => `${pre}\n\n$$${body}$$\n\n`)
+    .replace(/\$\$(?!\$)([^$\n]+?)\$(?!\$)/g, (_m, body) => `\n\n$$${body}$$\n\n`);
+
+  // A line that is nothing but inline math becomes display math on its own
+  out = out.replace(/(^|\n)[ \t]*\$(?!\$)([^$\n]+?)\$[ \t]*(?=\n|$)/g,
+    (_m, pre, body) => `${pre}\n$$${body}$$\n`);
+
+  return out;
 }
+
 
 /**
  * Turns "1. عنوان" / "2) عنوان" section lines that models emit as plain
