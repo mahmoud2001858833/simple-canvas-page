@@ -27,11 +27,19 @@ interface HeaderProps {
 
 export const DashboardHeader = ({ userName, onMenuClick }: HeaderProps) => {
   const { language, setLanguage, dir } = useLanguage();
-  const { role } = useAuth();
+  const { role, profile, signOut } = useAuth();
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useRealNotifications();
   const navigate = useNavigate();
   const isRTL = language === 'ar';
   const userRole = role;
+  const [profileOpen, setProfileOpen] = useState(false);
+
+  const goToSettings = () => {
+    if (role === 'admin') navigate('/admin?tab=settings');
+    else if (role === 'instructor') navigate('/instructor?tab=settings');
+    else navigate('/dashboard?tab=settings');
+  };
+
 
   const getInitials = (name: string) => {
     return name
