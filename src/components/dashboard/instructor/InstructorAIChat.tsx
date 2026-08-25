@@ -78,12 +78,19 @@ export const InstructorAIChat = () => {
     };
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error(language === 'ar' ? 'يرجى تسجيل الدخول أولاً' : 'Please sign in first');
+        setIsLoading(false);
+        return;
+      }
+
       const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/instructor-ai-chat`;
       const resp = await fetch(CHAT_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           messages: [...messages.filter(m => !m.image).map(m => ({ role: m.role, content: m.content })), { role: 'user', content: trimmed }],
