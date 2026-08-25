@@ -2,6 +2,7 @@ import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import remarkGfm from "remark-gfm";
 import rehypeKatex from "rehype-katex";
+import katex from "katex";
 import "katex/dist/katex.min.css";
 import { cn } from "@/lib/utils";
 
@@ -10,80 +11,100 @@ interface MathMarkdownProps {
   className?: string;
 }
 
-const MATH_HINT_PATTERN = /(?:\\(?:frac|sqrt|sum|int|lim|vec|Delta|theta|alpha|beta|pi|approx|neq|leq|geq|times|cdot|pm|infty|text|begin|end)|[a-zA-Z]\s*(?:[_^]|=)|\d+\s*[+\-*/=]\s*\d+)/;
+const ARABIC = /[\u0600-\u06FF]/;
 
-function looksLikeMath(value: string): boolean {
-  return MATH_HINT_PATTERN.test(value.trim());
+/** True when KaTeX can actually render the snippet. */
+function isValidMath(tex: string): boolean {
+  const body = tex.trim();
+  if (!body || ARABIC.test(body)) return false;
+  try {
+    katex.renderToString(body, { throwOnError: true, strict: false });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
-function countSingleDollarDelimiters(value: string): number {
-  let count = 0;
-  for (let i = 0; i < value.length; i += 1) {
-    if (value[i] === "$" && value[i - 1] !== "$" && value[i + 1] !== "$") {
-      count += 1;
+/** Characters that may legitimately appear inside a latex snippet. */
+const MATH_CHARS = "A-Za-z0-9\\\\^_{}()\\[\\]+\\-*/=<>|!'’.,:;~ \\t";
+const MATH_RUN = new RegExp(`[${MATH_CHARS}]*(?:\\\\[a-zA-Z]+|[A-Za-z0-9)\\]}]\\s*(?:\\^|_|=)\\s*[A-Za-z0-9({\\\\+-])[${MATH_CHARS}]*`, "g");
+const TRAILING_JUNK = /[\s.,،؛:;!?]+$/;
+const LIST_MARKER = /^\s*(?:[-*+]|\d{1,2}[.)]|[A-Za-z][.)])\s+/;
+
+/** Trims a candidate from the right until KaTeX accepts it. */
+function longestValidMath(candidate: string): { tex: string; rest: string } | null {
+  let body = candidate;
+  while (body.trim().length > 0) {
+    const trimmed = body.replace(TRAILING_JUNK, "");
+    if (trimmed.length === 0) return null;
+    if (/\\[a-zA-Z]+|[\^_=]/.test(trimmed) && isValidMath(trimmed)) {
+      return { tex: trimmed.trim(), rest: candidate.slice(trimmed.length) };
     }
+    body = trimmed.slice(0, -1);
   }
-  return count;
+  return null;
+}
+
+/** Wraps bare latex/math runs inside plain text so they render as math. */
+function wrapFragments(text: string): string {
+  return text.replace(MATH_RUN, (match) => {
+    const marker = LIST_MARKER.exec(match)?.[0] ?? match.match(/^\s*/)?.[0] ?? "";
+    const leading = marker;
+    const candidate = match.slice(leading.length);
+    const valid = longestValidMath(candidate);
+    if (!valid) return match;
+    return `${leading}$${valid.tex}$${valid.rest}`;
+  });
 }
 
 /**
- * Normalizes the various LaTeX delimiters models emit into the syntax
- * remark-math understands, and hides broken/escaped dollar delimiters.
+ * Rebuilds the math delimiters models emit. Explicit math spans that KaTeX can
+ * render are preserved; anything else loses its delimiters so raw `$` signs and
+ * mangled Arabic never reach the UI. Bare latex is re-wrapped afterwards.
  */
 function normalizeMath(input: string): string {
-  let out = input
-    // Models sometimes escape delimiters as \$...\$, which renders as visible dollar signs.
-    .replace(/\\\$\\\$/g, "$$")
-    .replace(/\\\$/g, "$")
-    .replace(/\\\[([\s\S]+?)\\\]/g, (_m, body) => `\n\n$$${body}$$\n\n`)
-    .replace(/\\\(([\s\S]+?)\\\)/g, (_m, body) => `$${body}$`)
-    .replace(/\\begin\{(equation|align|aligned|cases|matrix|pmatrix|bmatrix)\*?\}([\s\S]+?)\\end\{\1\*?\}/g,
-      (m) => `\n\n$$${m}$$\n\n`);
+  const stash: { display: boolean; tex: string }[] = [];
+  const stashToken = (tex: string, display: boolean) => {
+    stash.push({ display, tex });
+    return `@@MATH${stash.length - 1}@@`;
+  };
 
-  // Normalize delimiter spacing so "$ x $" and "$$ x $$" are parsed.
+  let out = input.replace(/\\\$/g, "$");
+
+  const takeExplicit = (body: string, display: boolean, original: string) => {
+    const tex = body.replace(/\*\*/g, "").replace(/\s+/g, " ").trim();
+    return isValidMath(tex) ? stashToken(tex, display) : original.replace(/\$/g, "");
+  };
+
   out = out
-    .replace(/\$\$\s+([\s\S]*?)\s+\$\$/g, (_m, body) => `$$${body}$$`)
-    .replace(/\$(?!\$)\s+([^$\n]+?)\s+\$(?!\$)/g, (_m, body) => `$${body}$`);
+    .replace(/\\\[([\s\S]+?)\\\]/g, (m, body) => takeExplicit(body, true, m))
+    .replace(/\\\(([\s\S]+?)\\\)/g, (m, body) => takeExplicit(body, false, m))
+    // Arabic prose is never math, so a span containing it is a broken delimiter.
+    .replace(/\$\$([^$\u0600-\u06FF]+?)\$\$/g, (m, body) => takeExplicit(body, true, m))
+    .replace(/\$([^$\n\u0600-\u06FF]+?)\$/g, (m, body) => takeExplicit(body, false, m));
 
-  // Repair mismatched delimiters models emit: "$x$$" or "$$x$" -> "$$x$$"
-  out = out
-    .replace(/(^|[^$])\$(?!\$)([^$\n]+?)\$\$(?!\$)/g, (_m, pre, body) => `${pre}\n\n$$${body}$$\n\n`)
-    .replace(/\$\$(?!\$)([^$\n]+?)\$(?!\$)/g, (_m, body) => `\n\n$$${body}$$\n\n`);
+  // Any dollar left over was a broken delimiter (keep real currency like 50$ / $50).
+  out = out.replace(/\$/g, (m, offset: number) => {
+    const prev = out[offset - 1] ?? "";
+    const next = out[offset + 1] ?? "";
+    return /\d/.test(prev) || /\d/.test(next) ? m : "";
+  });
 
-  // Wrap bare LaTeX-only lines that the model forgot to delimit.
-  out = out
-    .split("\n")
-    .map((line) => {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith("$") || trimmed.startsWith("#") || trimmed.startsWith("- ")) return line;
-      if (looksLikeMath(trimmed) && !/[\u0600-\u06FF]/.test(trimmed) && trimmed.length <= 220) {
-        return `$$${trimmed}$$`;
-      }
-      return line;
-    })
-    .join("\n");
+  out = wrapFragments(out);
 
-  // A line that is nothing but inline math becomes display math on its own
-  out = out.replace(/(^|\n)[ \t]*\$(?!\$)([^$\n]+?)\$[ \t]*(?=\n|$)/g,
-    (_m, pre, body) => `${pre}\n$$${body}$$\n`);
+  // Restore validated math with the right delimiters.
+  out = out.replace(/@@MATH(\d+)@@/g, (_m, idx) => {
+    const entry = stash[Number(idx)];
+    if (!entry) return "";
+    return entry.display ? `\n\n$$${entry.tex}$$\n\n` : `$${entry.tex}$`;
+  });
 
-  // During streaming the model can send an opening delimiter before the close.
-  // Add a temporary close delimiter so the UI never shows raw dollar signs.
-  const displayMatches = out.match(/\$\$/g) || [];
-  if (displayMatches.length % 2 === 1) {
-    out += "$$";
-  }
-
-  const inlineDelimiterCount = countSingleDollarDelimiters(out);
-  if (inlineDelimiterCount % 2 === 1) {
-    const lastDollar = out.lastIndexOf("$");
-    const tail = out.slice(lastDollar + 1);
-    if (looksLikeMath(tail)) out += "$";
-    else out = `${out.slice(0, lastDollar)}${tail}`;
-  }
+  // Headings that models glue onto the previous line need their own line.
+  out = out.replace(/([^\n])(#{2,4}\s)/g, "$1\n\n$2");
 
   return out;
 }
+
 
 
 /**
@@ -94,17 +115,26 @@ function normalizeMath(input: string): string {
 function normalizeStructure(input: string): string {
   const lines = input.split("\n");
   const out = lines.map((line) => {
+    // A line that is nothing but inline math should render as display math.
+    const only = /^\s*\$([^$]+)\$\s*$/.exec(line);
+    if (only) return `\n$$${only[1].trim()}$$\n`;
     const m = /^\s*(\d{1,2})[.)]\s+(\S[^$\n]{0,80})$/.exec(line);
     if (m && !/[.،:!?]$/.test(m[2].trim()) && m[2].trim().split(/\s+/).length <= 8) {
       return `\n### ${m[1]}. ${m[2].trim()}\n`;
     }
     return line;
   });
+
   return out
     .join("\n")
     .replace(/([^\n])\n\$\$/g, "$1\n\n$$")
     .replace(/\$\$\n([^\n$])/g, "$$\n\n$1")
     .replace(/\n{3,}/g, "\n\n");
+}
+
+
+export function prepareMathMarkdown(content: string): string {
+  return normalizeStructure(normalizeMath(content));
 }
 
 export function MathMarkdown({ content, className }: MathMarkdownProps) {
@@ -140,7 +170,7 @@ export function MathMarkdown({ content, className }: MathMarkdownProps) {
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[[rehypeKatex, { throwOnError: false, strict: false, output: "html" }]]}
       >
-        {normalizeStructure(normalizeMath(content))}
+        {prepareMathMarkdown(content)}
       </ReactMarkdown>
     </div>
   );
