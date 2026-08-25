@@ -25,87 +25,76 @@ function isValidMath(tex: string): boolean {
   }
 }
 
-/** Latex-looking fragments that models emit without any delimiters. */
-const FRAGMENT_PATTERN =
-  /\\(?:frac|dfrac|tfrac|sqrt|sum|int|lim|vec|cdot|times|pm|infty|approx|neq|leq|geq|alpha|beta|theta|pi|Delta|sin|cos|tan|ln|log|left|right|text|mathrm)\b[^\s\u0600-\u06FF]*(?:\{[^{}]*\}[^\s\u0600-\u06FF]*)*/g;
+/** Characters that may legitimately appear inside a latex snippet. */
+const MATH_CHARS = "A-Za-z0-9\\\\^_{}()\\[\\]+\\-*/=<>|!'’.,:;~ \\t";
+const MATH_RUN = new RegExp(`[${MATH_CHARS}]*(?:\\\\[a-zA-Z]+|[A-Za-z0-9)\\]}]\\s*(?:\\^|_|=)\\s*[A-Za-z0-9({\\\\+-])[${MATH_CHARS}]*`, "g");
+const TRAILING_JUNK = /[\s.,،؛:;!?)]+$/;
 
-/** Wraps bare latex fragments inside plain text so they render as math. */
+/** Trims a candidate from the right until KaTeX accepts it. */
+function longestValidMath(candidate: string): { tex: string; rest: string } | null {
+  let body = candidate;
+  while (body.trim().length > 0) {
+    const trimmed = body.replace(TRAILING_JUNK, "");
+    if (trimmed.length === 0) return null;
+    if (/\\[a-zA-Z]+|[\^_=]/.test(trimmed) && isValidMath(trimmed)) {
+      return { tex: trimmed.trim(), rest: candidate.slice(trimmed.length) };
+    }
+    body = trimmed.slice(0, -1);
+  }
+  return null;
+}
+
+/** Wraps bare latex/math runs inside plain text so they render as math. */
 function wrapFragments(text: string): string {
-  return text.replace(FRAGMENT_PATTERN, (match) => {
-    const cleaned = match.replace(/[.,،؛:]+$/, "");
-    const suffix = match.slice(cleaned.length);
-    return isValidMath(cleaned) ? `$${cleaned}$${suffix}` : match;
+  return text.replace(MATH_RUN, (match) => {
+    const leading = match.match(/^\s*/)?.[0] ?? "";
+    const candidate = match.slice(leading.length);
+    const valid = longestValidMath(candidate);
+    if (!valid) return match;
+    return `${leading}$${valid.tex}$${valid.rest}`;
   });
 }
 
 /**
- * Rebuilds the math delimiters models emit. Any `$`/`$$` span that KaTeX
- * cannot render (or that contains Arabic prose or markdown bold) is treated
- * as plain text, so raw dollar signs and mangled Arabic never reach the UI.
+ * Rebuilds the math delimiters models emit. Explicit math spans that KaTeX can
+ * render are preserved; anything else loses its delimiters so raw `$` signs and
+ * mangled Arabic never reach the UI. Bare latex is re-wrapped afterwards.
  */
 function normalizeMath(input: string): string {
-  const pre = input
-    .replace(/\\\$/g, "$")
-    .replace(/\\\[([\s\S]+?)\\\]/g, (_m, body) => `\n\n$$${body}$$\n\n`)
-    .replace(/\\\(([\s\S]+?)\\\)/g, (_m, body) => `$${body}$`);
-
-  let out = "";
-  let text = "";
-  let i = 0;
-
-  const flushText = () => {
-    out += wrapFragments(text);
-    text = "";
+  const stash: { display: boolean; tex: string }[] = [];
+  const stashToken = (tex: string, display: boolean) => {
+    stash.push({ display, tex });
+    return `@@MATH${stash.length - 1}@@`;
   };
 
-  while (i < pre.length) {
-    const ch = pre[i];
-    if (ch !== "$") {
-      text += ch;
-      i += 1;
-      continue;
-    }
+  let out = input.replace(/\\\$/g, "$");
 
-    const isDisplay = pre[i + 1] === "$";
-    const openLen = isDisplay ? 2 : 1;
-    const closer = isDisplay ? "$$" : "$";
-    let searchFrom = i + openLen;
-    let close = -1;
+  const takeExplicit = (body: string, display: boolean, original: string) => {
+    const tex = body.replace(/\*\*/g, "").replace(/\s+/g, " ").trim();
+    return isValidMath(tex) ? stashToken(tex, display) : original.replace(/\$/g, "");
+  };
 
-    // find the next closing delimiter of the same kind
-    while (searchFrom < pre.length) {
-      const idx = pre.indexOf(closer, searchFrom);
-      if (idx === -1) break;
-      if (!isDisplay && pre[idx + 1] === "$") {
-        searchFrom = idx + 2;
-        continue;
-      }
-      close = idx;
-      break;
-    }
+  out = out
+    .replace(/\\\[([\s\S]+?)\\\]/g, (m, body) => takeExplicit(body, true, m))
+    .replace(/\\\(([\s\S]+?)\\\)/g, (m, body) => takeExplicit(body, false, m))
+    .replace(/\$\$([\s\S]+?)\$\$/g, (m, body) => takeExplicit(body, true, m))
+    .replace(/\$([^$\n]+?)\$/g, (m, body) => takeExplicit(body, false, m));
 
-    if (close === -1) {
-      // unmatched delimiter: drop it and keep the rest as text
-      i += openLen;
-      continue;
-    }
+  // Any dollar left over was a broken delimiter (keep real currency like 50$).
+  out = out.replace(/\$(?!\d)/g, "").replace(/(?<![\d\s])\$/g, "");
 
-    const rawBody = pre.slice(i + openLen, close);
-    const body = rawBody.replace(/\*\*/g, "").replace(/\s+/g, " ").trim();
+  out = wrapFragments(out);
 
-    if (isValidMath(body) && (isDisplay || !rawBody.includes("\n"))) {
-      flushText();
-      out += isDisplay ? `\n\n$$${body}$$\n\n` : `$${body}$`;
-    } else {
-      // not real math: keep the inner content as text, delimiters removed
-      text += rawBody;
-    }
-    i = close + closer.length;
-  }
+  // Restore validated math with the right delimiters.
+  out = out.replace(/@@MATH(\d+)@@/g, (_m, idx) => {
+    const entry = stash[Number(idx)];
+    if (!entry) return "";
+    return entry.display ? `\n\n$$${entry.tex}$$\n\n` : `$${entry.tex}$`;
+  });
 
-  flushText();
   return out;
 }
+
 
 /**
  * Turns "1. عنوان" / "2) عنوان" section lines that models emit as plain
