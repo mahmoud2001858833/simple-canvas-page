@@ -41,6 +41,8 @@ import {
   ClipboardList,
   Upload,
   ChevronDown,
+  Download,
+  Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { triggerTranscriptGeneration } from '@/lib/generateTranscript';
@@ -73,6 +75,7 @@ export const LessonsManagement = ({ courseId, courseTitle, chapterId, onBack }: 
   const [draftLessonId, setDraftLessonId] = useState<string | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
+  const [downloadingLessonId, setDownloadingLessonId] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -164,6 +167,10 @@ export const LessonsManagement = ({ courseId, courseTitle, chapterId, onBack }: 
       previewVideo: 'معاينة الفيديو',
       closePreview: 'إغلاق المعاينة',
       videoPreviewTitle: 'معاينة الفيديو قبل الحفظ',
+      downloadVideo: 'تنزيل الفيديو',
+      preparingDownload: 'جاري تجهيز التنزيل...',
+      downloadStarted: 'تم تجهيز رابط تنزيل الفيديو',
+      downloadFailed: 'تعذر تجهيز تنزيل الفيديو',
     },
     en: {
       back: 'Back to Courses',
@@ -192,6 +199,10 @@ export const LessonsManagement = ({ courseId, courseTitle, chapterId, onBack }: 
       previewVideo: 'Preview Video',
       closePreview: 'Close Preview',
       videoPreviewTitle: 'Video Preview Before Saving',
+      downloadVideo: 'Download video',
+      preparingDownload: 'Preparing download...',
+      downloadStarted: 'Video download link is ready',
+      downloadFailed: 'Failed to prepare video download',
     },
   };
 
@@ -428,6 +439,71 @@ export const LessonsManagement = ({ courseId, courseTitle, chapterId, onBack }: 
     }
   };
 
+  const getBestVideoKey = (lesson: any): string | null => {
+    return lesson.video_url_1080p || lesson.video_url_720p || lesson.video_url_480p || lesson.video_url || null;
+  };
+
+  const buildSafeFileName = (lesson: any): string => {
+    const title = (language === 'ar' ? lesson.title_ar || lesson.title : lesson.title || lesson.title_ar) || 'lesson-video';
+    return `${title}`.replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim().slice(0, 80) || 'lesson-video';
+  };
+
+  const resolveDownloadUrl = async (lesson: any): Promise<string> => {
+    const videoKey = getBestVideoKey(lesson);
+    if (!videoKey) throw new Error('No video available');
+
+    if (videoKey.startsWith('http://') || videoKey.startsWith('https://')) {
+      return videoKey;
+    }
+
+    if (videoKey.startsWith('videos/')) {
+      return `${CLOUDFLARE_WORKER_URL}/video/${videoKey}`;
+    }
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) throw new Error('Not authenticated');
+
+    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-signed-video-url`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ lessonId: lesson.id }),
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data?.signedUrl) return data.signedUrl;
+    }
+
+    const cleanKey = videoKey.replace(/^\/+/, '');
+    const r2Key = cleanKey.startsWith('videos/') ? cleanKey : `videos/${cleanKey}`;
+    return `${CLOUDFLARE_WORKER_URL}/video/${r2Key}`;
+  };
+
+  const handleDownloadVideo = async (lesson: any) => {
+    setDownloadingLessonId(lesson.id);
+    toast.info(t.preparingDownload);
+    try {
+      const downloadUrl = await resolveDownloadUrl(lesson);
+      const anchor = document.createElement('a');
+      anchor.href = downloadUrl;
+      anchor.download = buildSafeFileName(lesson);
+      anchor.target = '_blank';
+      anchor.rel = 'noopener noreferrer';
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      toast.success(t.downloadStarted);
+    } catch (error) {
+      console.error('Video download error:', error);
+      toast.error(t.downloadFailed);
+    } finally {
+      setDownloadingLessonId(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -563,14 +639,29 @@ export const LessonsManagement = ({ courseId, courseTitle, chapterId, onBack }: 
 
               <div className="flex items-center gap-1">
                 {lesson.video_url && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => navigate(`/instructor/video-editor/${lesson.id}`)}
-                    title={language === 'ar' ? 'تعديل الفيديو' : 'Edit Video'}
-                  >
-                    <FileVideo className="w-4 h-4 text-primary" />
-                  </Button>
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDownloadVideo(lesson)}
+                      disabled={downloadingLessonId === lesson.id}
+                      title={t.downloadVideo}
+                    >
+                      {downloadingLessonId === lesson.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin text-primary" />
+                      ) : (
+                        <Download className="w-4 h-4 text-primary" />
+                      )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => navigate(`/instructor/video-editor/${lesson.id}`)}
+                      title={language === 'ar' ? 'تعديل الفيديو' : 'Edit Video'}
+                    >
+                      <FileVideo className="w-4 h-4 text-primary" />
+                    </Button>
+                  </>
                 )}
                 <Button variant="ghost" size="icon" onClick={() => handleEdit(lesson)}>
                   <Edit className="w-4 h-4" />

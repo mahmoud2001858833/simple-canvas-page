@@ -10,25 +10,77 @@ interface MathMarkdownProps {
   className?: string;
 }
 
+const MATH_HINT_PATTERN = /(?:\\(?:frac|sqrt|sum|int|lim|vec|Delta|theta|alpha|beta|pi|approx|neq|leq|geq|times|cdot|pm|infty|text|begin|end)|[a-zA-Z]\s*(?:[_^]|=)|\d+\s*[+\-*/=]\s*\d+)/;
+
+function looksLikeMath(value: string): boolean {
+  return MATH_HINT_PATTERN.test(value.trim());
+}
+
+function countSingleDollarDelimiters(value: string): number {
+  let count = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    if (value[i] === "$" && value[i - 1] !== "$" && value[i + 1] !== "$") {
+      count += 1;
+    }
+  }
+  return count;
+}
+
 /**
- * Normalizes the various LaTeX delimiters models emit (\( \), \[ \])
- * into the $ / $$ syntax that remark-math understands.
+ * Normalizes the various LaTeX delimiters models emit into the syntax
+ * remark-math understands, and hides broken/escaped dollar delimiters.
  */
 function normalizeMath(input: string): string {
   let out = input
+    // Models sometimes escape delimiters as \$...\$, which renders as visible dollar signs.
+    .replace(/\\\$\\\$/g, "$$")
+    .replace(/\\\$/g, "$")
     .replace(/\\\[([\s\S]+?)\\\]/g, (_m, body) => `\n\n$$${body}$$\n\n`)
     .replace(/\\\(([\s\S]+?)\\\)/g, (_m, body) => `$${body}$`)
     .replace(/\\begin\{(equation|align|aligned|cases|matrix|pmatrix|bmatrix)\*?\}([\s\S]+?)\\end\{\1\*?\}/g,
       (m) => `\n\n$$${m}$$\n\n`);
+
+  // Normalize delimiter spacing so "$ x $" and "$$ x $$" are parsed.
+  out = out
+    .replace(/\$\$\s+([\s\S]*?)\s+\$\$/g, (_m, body) => `$$${body}$$`)
+    .replace(/\$(?!\$)\s+([^$\n]+?)\s+\$(?!\$)/g, (_m, body) => `$${body}$`);
 
   // Repair mismatched delimiters models emit: "$x$$" or "$$x$" -> "$$x$$"
   out = out
     .replace(/(^|[^$])\$(?!\$)([^$\n]+?)\$\$(?!\$)/g, (_m, pre, body) => `${pre}\n\n$$${body}$$\n\n`)
     .replace(/\$\$(?!\$)([^$\n]+?)\$(?!\$)/g, (_m, body) => `\n\n$$${body}$$\n\n`);
 
+  // Wrap bare LaTeX-only lines that the model forgot to delimit.
+  out = out
+    .split("\n")
+    .map((line) => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("$") || trimmed.startsWith("#") || trimmed.startsWith("- ")) return line;
+      if (looksLikeMath(trimmed) && !/[\u0600-\u06FF]/.test(trimmed) && trimmed.length <= 220) {
+        return `$$${trimmed}$$`;
+      }
+      return line;
+    })
+    .join("\n");
+
   // A line that is nothing but inline math becomes display math on its own
   out = out.replace(/(^|\n)[ \t]*\$(?!\$)([^$\n]+?)\$[ \t]*(?=\n|$)/g,
     (_m, pre, body) => `${pre}\n$$${body}$$\n`);
+
+  // During streaming the model can send an opening delimiter before the close.
+  // Add a temporary close delimiter so the UI never shows raw dollar signs.
+  const displayMatches = out.match(/\$\$/g) || [];
+  if (displayMatches.length % 2 === 1) {
+    out += "$$";
+  }
+
+  const inlineDelimiterCount = countSingleDollarDelimiters(out);
+  if (inlineDelimiterCount % 2 === 1) {
+    const lastDollar = out.lastIndexOf("$");
+    const tail = out.slice(lastDollar + 1);
+    if (looksLikeMath(tail)) out += "$";
+    else out = `${out.slice(0, lastDollar)}${tail}`;
+  }
 
   return out;
 }
