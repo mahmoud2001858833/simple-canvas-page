@@ -129,6 +129,10 @@ function normalizeStructure(input: string): string {
 }
 
 
+export function prepareMathMarkdown(content: string): string {
+  return normalizeStructure(normalizeMath(content));
+}
+
 export function MathMarkdown({ content, className }: MathMarkdownProps) {
   return (
     <div
@@ -162,7 +166,7 @@ export function MathMarkdown({ content, className }: MathMarkdownProps) {
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[[rehypeKatex, { throwOnError: false, strict: false, output: "html" }]]}
       >
-        {normalizeStructure(normalizeMath(content))}
+        {prepareMathMarkdown(content)}
       </ReactMarkdown>
     </div>
   );
