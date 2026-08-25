@@ -66,6 +66,16 @@ interface LessonsManagementProps {
   onBack: () => void;
 }
 
+interface DownloadableLesson {
+  id: string;
+  title?: string | null;
+  title_ar?: string | null;
+  video_url?: string | null;
+  video_url_480p?: string | null;
+  video_url_720p?: string | null;
+  video_url_1080p?: string | null;
+}
+
 export const LessonsManagement = ({ courseId, courseTitle, chapterId, onBack }: LessonsManagementProps) => {
   const { language } = useLanguage();
   const navigate = useNavigate();
@@ -439,16 +449,16 @@ export const LessonsManagement = ({ courseId, courseTitle, chapterId, onBack }: 
     }
   };
 
-  const getBestVideoKey = (lesson: any): string | null => {
+  const getBestVideoKey = (lesson: DownloadableLesson): string | null => {
     return lesson.video_url_1080p || lesson.video_url_720p || lesson.video_url_480p || lesson.video_url || null;
   };
 
-  const buildSafeFileName = (lesson: any): string => {
+  const buildSafeFileName = (lesson: DownloadableLesson): string => {
     const title = (language === 'ar' ? lesson.title_ar || lesson.title : lesson.title || lesson.title_ar) || 'lesson-video';
     return `${title}`.replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim().slice(0, 80) || 'lesson-video';
   };
 
-  const resolveDownloadUrl = async (lesson: any): Promise<string> => {
+  const resolveDownloadUrl = async (lesson: DownloadableLesson): Promise<string> => {
     const videoKey = getBestVideoKey(lesson);
     if (!videoKey) throw new Error('No video available');
 
@@ -482,7 +492,7 @@ export const LessonsManagement = ({ courseId, courseTitle, chapterId, onBack }: 
     return `${CLOUDFLARE_WORKER_URL}/video/${r2Key}`;
   };
 
-  const handleDownloadVideo = async (lesson: any) => {
+  const handleDownloadVideo = async (lesson: DownloadableLesson) => {
     setDownloadingLessonId(lesson.id);
     toast.info(t.preparingDownload);
     try {
