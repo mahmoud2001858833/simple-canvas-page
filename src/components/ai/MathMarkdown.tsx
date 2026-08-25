@@ -113,12 +113,16 @@ function normalizeMath(input: string): string {
 function normalizeStructure(input: string): string {
   const lines = input.split("\n");
   const out = lines.map((line) => {
+    // A line that is nothing but inline math should render as display math.
+    const only = /^\s*\$([^$]+)\$\s*$/.exec(line);
+    if (only) return `\n$$${only[1].trim()}$$\n`;
     const m = /^\s*(\d{1,2})[.)]\s+(\S[^$\n]{0,80})$/.exec(line);
     if (m && !/[.،:!?]$/.test(m[2].trim()) && m[2].trim().split(/\s+/).length <= 8) {
       return `\n### ${m[1]}. ${m[2].trim()}\n`;
     }
     return line;
   });
+
   return out
     .join("\n")
     .replace(/([^\n])\n\$\$/g, "$1\n\n$$")
