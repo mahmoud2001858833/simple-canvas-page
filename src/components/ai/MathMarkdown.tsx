@@ -77,11 +77,16 @@ function normalizeMath(input: string): string {
   out = out
     .replace(/\\\[([\s\S]+?)\\\]/g, (m, body) => takeExplicit(body, true, m))
     .replace(/\\\(([\s\S]+?)\\\)/g, (m, body) => takeExplicit(body, false, m))
-    .replace(/\$\$([\s\S]+?)\$\$/g, (m, body) => takeExplicit(body, true, m))
-    .replace(/\$([^$\n]+?)\$/g, (m, body) => takeExplicit(body, false, m));
+    // Arabic prose is never math, so a span containing it is a broken delimiter.
+    .replace(/\$\$([^$\u0600-\u06FF]+?)\$\$/g, (m, body) => takeExplicit(body, true, m))
+    .replace(/\$([^$\n\u0600-\u06FF]+?)\$/g, (m, body) => takeExplicit(body, false, m));
 
-  // Any dollar left over was a broken delimiter (keep real currency like 50$).
-  out = out.replace(/\$(?!\d)/g, "").replace(/(?<![\d\s])\$/g, "");
+  // Any dollar left over was a broken delimiter (keep real currency like 50$ / $50).
+  out = out.replace(/\$/g, (m, offset: number) => {
+    const prev = out[offset - 1] ?? "";
+    const next = out[offset + 1] ?? "";
+    return /\d/.test(prev) || /\d/.test(next) ? m : "";
+  });
 
   out = wrapFragments(out);
 
@@ -92,8 +97,12 @@ function normalizeMath(input: string): string {
     return entry.display ? `\n\n$$${entry.tex}$$\n\n` : `$${entry.tex}$`;
   });
 
+  // Headings that models glue onto the previous line need their own line.
+  out = out.replace(/([^\n])(#{2,4}\s)/g, "$1\n\n$2");
+
   return out;
 }
+
 
 
 /**
