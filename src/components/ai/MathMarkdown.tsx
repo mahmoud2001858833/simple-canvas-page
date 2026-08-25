@@ -28,7 +28,8 @@ function isValidMath(tex: string): boolean {
 /** Characters that may legitimately appear inside a latex snippet. */
 const MATH_CHARS = "A-Za-z0-9\\\\^_{}()\\[\\]+\\-*/=<>|!'’.,:;~ \\t";
 const MATH_RUN = new RegExp(`[${MATH_CHARS}]*(?:\\\\[a-zA-Z]+|[A-Za-z0-9)\\]}]\\s*(?:\\^|_|=)\\s*[A-Za-z0-9({\\\\+-])[${MATH_CHARS}]*`, "g");
-const TRAILING_JUNK = /[\s.,،؛:;!?)]+$/;
+const TRAILING_JUNK = /[\s.,،؛:;!?]+$/;
+const LIST_MARKER = /^\s*(?:[-*+]|\d{1,2}[.)]|[A-Za-z][.)])\s+/;
 
 /** Trims a candidate from the right until KaTeX accepts it. */
 function longestValidMath(candidate: string): { tex: string; rest: string } | null {
@@ -47,7 +48,8 @@ function longestValidMath(candidate: string): { tex: string; rest: string } | nu
 /** Wraps bare latex/math runs inside plain text so they render as math. */
 function wrapFragments(text: string): string {
   return text.replace(MATH_RUN, (match) => {
-    const leading = match.match(/^\s*/)?.[0] ?? "";
+    const marker = LIST_MARKER.exec(match)?.[0] ?? match.match(/^\s*/)?.[0] ?? "";
+    const leading = marker;
     const candidate = match.slice(leading.length);
     const valid = longestValidMath(candidate);
     if (!valid) return match;
