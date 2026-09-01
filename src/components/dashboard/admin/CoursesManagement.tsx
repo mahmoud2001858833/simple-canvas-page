@@ -81,6 +81,7 @@ export const CoursesManagement = () => {
     duration_hours: '',
     is_featured: false,
     is_active: true,
+    ai_enabled: false,
     category: 'academic',
     instructor_id: '',
     instructor_commission: '30',
@@ -289,6 +290,7 @@ export const CoursesManagement = () => {
       duration_hours: '',
       is_featured: false,
       is_active: true,
+      ai_enabled: false,
       category: 'academic',
       instructor_id: '',
       instructor_commission: '30',
@@ -374,6 +376,7 @@ export const CoursesManagement = () => {
       duration_hours: course.duration_hours?.toString() || '',
       is_featured: course.is_featured,
       is_active: course.is_active,
+      ai_enabled: course.ai_enabled ?? false,
       category: course.category || 'academic',
       instructor_id: course.instructor_id || '',
       instructor_commission: course.instructor_commission?.toString() || '30',
@@ -770,6 +773,13 @@ export const CoursesManagement = () => {
                     onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
                   />
                   <Label>{language === 'ar' ? 'نشط' : 'Active'}</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={formData.ai_enabled}
+                    onCheckedChange={(checked) => setFormData({ ...formData, ai_enabled: checked })}
+                  />
+                  <Label>{language === 'ar' ? 'المساعد الذكي' : 'AI Assistant'}</Label>
                 </div>
               </div>
 
