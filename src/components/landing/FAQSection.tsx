@@ -76,6 +76,7 @@ const FAQSection = () => {
         : 'No. Subscriptions are personal and non-transferable. Sharing your account or course content leads to immediate suspension with no refund.',
       icon: '🔒',
     },
+  ];
 
 
   const containerVariants = {
