@@ -41,7 +41,43 @@ const FAQSection = () => {
         : 'Yes, all recorded lessons are available 24/7. Live lessons are automatically recorded so you can watch them later.',
       icon: '⏰',
     },
+    {
+      question: language === 'ar' ? 'كيفية الاشتراك بدورة من الدورات التعليمية؟' : 'How do I subscribe to a course?',
+      answer: language === 'ar'
+        ? 'ادخل إلى صفحة الدورة من قسم "الدورات"، اضغط على "اشترك الآن"، ثم اختر طريقة الدفع المناسبة (بطاقة، مدى، تابي، أو التقسيط الشهري). يتم فتح الدورة في حسابك فور تأكيد الدفع.'
+        : 'Open the course page from the Courses section, click "Enroll now", then choose your payment method (card, Mada, Tabby, or monthly installments). The course unlocks immediately after payment is confirmed.',
+      icon: '🎓',
+    },
+    {
+      question: language === 'ar' ? 'هل يمكنني تغيير رقم هاتف الحساب؟' : 'Can I change my account phone number?',
+      answer: language === 'ar'
+        ? 'نعم، من لوحة التحكم ← الإعدادات ← الملف الشخصي يمكنك تحديث رقم الجوال. في حال واجهت مشكلة تواصل مع الدعم الفني وسيتم التعديل بعد التحقق من هويتك.'
+        : 'Yes. Go to Dashboard → Settings → Profile to update your phone number. If you face an issue, contact support and it will be updated after identity verification.',
+      icon: '📱',
+    },
+    {
+      question: language === 'ar' ? 'هل يمكنني استخدام نفس الحساب على أكثر من جهاز؟' : 'Can I use the same account on more than one device?',
+      answer: language === 'ar'
+        ? 'الحساب مخصص لجهاز واحد فقط لحماية المحتوى. عند تسجيل الدخول من جهاز جديد يتم إنهاء الجلسة على الجهاز السابق تلقائياً.'
+        : 'Each account is bound to a single device to protect the content. Signing in from a new device automatically ends the previous device session.',
+      icon: '💻',
+    },
+    {
+      question: language === 'ar' ? 'كم عدد المرات المسموح بها تبديل الجهاز المُستخدَم بجهاز آخر؟' : 'How many times can I switch devices?',
+      answer: language === 'ar'
+        ? 'يُسمح بتبديل الجهاز ثلاث مرات خلال الفصل الدراسي الواحد، ويتم التبديل لأسباب مُعيّنة فقط عبر طلب يُرسَل للدعم الفني.'
+        : 'Device switching is allowed three times per semester, and only for specific reasons through a request sent to support.',
+      icon: '🔁',
+    },
+    {
+      question: language === 'ar' ? 'هل يمكنني مشاركة الدورة التدريسية (كود التفعيل) مع صديقي؟' : 'Can I share my course access with a friend?',
+      answer: language === 'ar'
+        ? 'لا، الاشتراك شخصي وغير قابل للنقل أو المشاركة. مشاركة الحساب أو محتوى الدورة تُعرّض الحساب للإيقاف الفوري دون استرداد المبلغ.'
+        : 'No. Subscriptions are personal and non-transferable. Sharing your account or course content leads to immediate suspension with no refund.',
+      icon: '🔒',
+    },
   ];
+
 
   const containerVariants = {
     hidden: { opacity: 0 },
