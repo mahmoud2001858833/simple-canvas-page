@@ -148,6 +148,7 @@ export const DashboardSidebar = ({ activeTab, onTabChange, isOpen, onToggle, use
     { id: 'requests', label: { ar: 'الطلبات', en: 'Requests' }, icon: FileText, onboardingId: null, showBadge: false, isAction: false },
     { id: 'support', label: { ar: 'محادثات الدعم', en: 'Support Chats' }, icon: Headphones, onboardingId: null, showBadge: false, isAction: false },
     { id: 'payments', label: { ar: 'المدفوعات', en: 'Payments' }, icon: DollarSign, onboardingId: null, showBadge: false, isAction: false },
+    { id: 'live-payments', label: { ar: 'الإشعارات الفورية للمدفوعات', en: 'Live Payment Alerts' }, icon: Activity, onboardingId: null, showBadge: false, isAction: false },
     { id: 'abandoned-payments', label: { ar: 'الدفع المهجور', en: 'Abandoned Payments' }, icon: ShieldAlert, onboardingId: null, showBadge: false, isAction: false },
     { id: 'payment-methods', label: { ar: 'طرق الدفع للدورات', en: 'Payment Methods' }, icon: CreditCard, onboardingId: null, showBadge: false, isAction: false },
     { id: 'monthly-installments', label: { ar: 'تقسيط على الأشهر', en: 'Monthly Installments' }, icon: CalendarClock, onboardingId: null, showBadge: false, isAction: false },

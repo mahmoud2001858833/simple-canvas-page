@@ -42,8 +42,10 @@ const PaymentMethodsManagement = lazy(() => import('@/components/dashboard/admin
 const MonthlyInstallmentsManagement = lazy(() => import('@/components/dashboard/admin/MonthlyInstallmentsManagement').then(m => ({ default: m.MonthlyInstallmentsManagement })));
 const TermsManagement = lazy(() => import('@/components/dashboard/admin/TermsManagement').then(m => ({ default: m.TermsManagement })));
 const NelcIntegration = lazy(() => import('@/components/dashboard/admin/NelcIntegration').then(m => ({ default: m.NelcIntegration })));
+const LivePaymentAlerts = lazy(() => import('@/components/dashboard/admin/LivePaymentAlerts').then(m => ({ default: m.LivePaymentAlerts })));
 
-type TabType = 'overview' | 'users' | 'user-insights' | 'instructor-detail' | 'student-detail' | 'courses' | 'course-approvals' | 'requests' | 'payments' | 'abandoned-payments' | 'payment-methods' | 'monthly-installments' | 'financial-dashboard' | 'accounting' | 'withdrawals' | 'coupons' | 'universities' | 'colleges' | 'majors' | 'students-by-major' | 'reports' | 'notifications' | 'logs' | 'general' | 'settings' | 'support' | 'instructor-settings' | 'instructor-payouts' | 'student-refunds' | 'terms' | 'nelc' | 'capture-attempts' | 'workflow' | 'video-analytics' | 'instructor-specialties';
+type TabType = 'overview' | 'users' | 'user-insights' | 'instructor-detail' | 'student-detail' | 'courses' | 'course-approvals' | 'requests' | 'payments' | 'live-payments' | 'abandoned-payments' | 'payment-methods' | 'monthly-installments' | 'financial-dashboard' | 'accounting' | 'withdrawals' | 'coupons' | 'universities' | 'colleges' | 'majors' | 'students-by-major' | 'reports' | 'notifications' | 'logs' | 'general' | 'settings' | 'support' | 'instructor-settings' | 'instructor-payouts' | 'student-refunds' | 'terms' | 'nelc' | 'capture-attempts' | 'workflow' | 'video-analytics' | 'instructor-specialties';
+
 
 // Fallback components for each section
 const LoadingFallback = ({ type }: { type: string }) => {
@@ -134,6 +136,12 @@ const AdminDashboard = () => {
         return (
           <Suspense fallback={<LoadingFallback type="payments" />}>
             <PaymentsManagement />
+          </Suspense>
+        );
+      case 'live-payments':
+        return (
+          <Suspense fallback={<LoadingFallback type="payments" />}>
+            <LivePaymentAlerts />
           </Suspense>
         );
       case 'abandoned-payments':
