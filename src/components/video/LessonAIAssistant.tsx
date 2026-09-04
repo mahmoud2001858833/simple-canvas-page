@@ -58,9 +58,18 @@ async function streamChat({
 
   if (!resp.ok) {
     const errData = await resp.json().catch(() => ({ error: "Unknown error" }));
+    if (resp.status === 402) {
+      onError("انتهى رصيد الذكاء الاصطناعي في المنصة. يرجى شحن الرصيد لتفعيل المساعد.");
+      return;
+    }
+    if (resp.status === 429) {
+      onError("تم تجاوز الحد المسموح من الطلبات. حاول بعد قليل.");
+      return;
+    }
     onError(errData.error || `Error ${resp.status}`);
     return;
   }
+
 
   if (!resp.body) { onError("No response body"); return; }
 
