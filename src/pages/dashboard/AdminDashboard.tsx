@@ -138,6 +138,12 @@ const AdminDashboard = () => {
             <PaymentsManagement />
           </Suspense>
         );
+      case 'live-payments':
+        return (
+          <Suspense fallback={<LoadingFallback type="payments" />}>
+            <LivePaymentAlerts />
+          </Suspense>
+        );
       case 'abandoned-payments':
         return (
           <Suspense fallback={<LoadingFallback type="payments" />}>
