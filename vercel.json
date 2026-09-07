@@ -1,9 +1,18 @@
 {
   "rewrites": [
     {
+      "source": "/alinma-webhook",
+      "destination": "https://ixhvcxwbiisrxhngfjyg.supabase.co/functions/v1/alinma-webhook"
+    },
+    {
+      "source": "/api/alinma-webhook",
+      "destination": "https://ixhvcxwbiisrxhngfjyg.supabase.co/functions/v1/alinma-webhook"
+    },
+    {
       "source": "/functions/v1/alinma-webhook",
       "destination": "https://ixhvcxwbiisrxhngfjyg.supabase.co/functions/v1/alinma-webhook"
     },
+
     {
       "source": "/(.*)",
       "destination": "/index.html"

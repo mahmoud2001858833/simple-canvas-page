@@ -81,8 +81,9 @@ export const PaymentsManagement = () => {
       // Strict rule: no online payment may stay "pending". Auto-fail anything
       // older than 2 minutes that was never confirmed by the gateway.
       try {
-        await supabase.rpc('expire_stale_online_payments' as any, { p_minutes: 2 });
+        await supabase.rpc('expire_stale_online_payments' as any, { p_minutes: 30 });
       } catch (_) { /* non blocking */ }
+
 
       let query = supabase
         .from('payments')

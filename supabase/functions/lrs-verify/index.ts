@@ -7,9 +7,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const LRS_ENDPOINT = Deno.env.get("NELC_LRS_ENDPOINT") || "https://lrs.nelc.gov.sa/lrs-license-stg/xapi/statements";
+const LRS_ENDPOINT = Deno.env.get("NELC_LRS_ENDPOINT") || "https://lrs.nelc.gov.sa/lrs-nelc/xapi/statements";
 const LRS_USER = Deno.env.get("NELC_LRS_USERNAME") || "josoorcom_com";
-const LRS_PASS = Deno.env.get("NELC_LRS_PASSWORD") || "u8V%ly718L7!";
+const LRS_PASS = Deno.env.get("NELC_LRS_PASSWORD") || "aF6@2Z870!67";
+
 
 const PLATFORM = (Deno.env.get("NELC_PLATFORM_KEY") || Deno.env.get("NELC_PLATFORM_URL") || "https://josoorcom.com").replace(/\/+$/, "");
 

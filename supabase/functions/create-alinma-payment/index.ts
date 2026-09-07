@@ -310,11 +310,12 @@ serve(async (req) => {
       paymentId: payment.id,
       courseId: cid,
       requestId: rid,
+      orderId,
     });
 
     // Server-to-server notification so the payment is confirmed even if the
     // customer never returns to the receipt page.
-    const callbackUrl = `${supabaseUrl}/functions/v1/alinma-webhook`;
+    const callbackUrl = `${supabaseUrl.replace(/\/+$/, '')}/functions/v1/alinma-webhook`;
 
     const gatewayPayload: Record<string, unknown> = {
       terminalId,
@@ -338,10 +339,13 @@ serve(async (req) => {
       receipt: receiptUrl,
       callbackUrl,
       notificationUrl: callbackUrl,
+      webhookUrl: callbackUrl,
+      responseUrl: callbackUrl,
       additionalDetails: {
         userData,
       },
     };
+
 
 
     console.log("=== AlinmaPay Request ===");

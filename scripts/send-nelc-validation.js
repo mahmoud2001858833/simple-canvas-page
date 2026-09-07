@@ -3,9 +3,10 @@
  * Run directly using: node scripts/send-nelc-validation.js
  */
 
-const LRS_ENDPOINT = process.env.NELC_LRS_ENDPOINT || "https://lrs.nelc.gov.sa/lrs-license-stg/xapi/statements";
+const LRS_ENDPOINT = process.env.NELC_LRS_ENDPOINT || "https://lrs.nelc.gov.sa/lrs-nelc/xapi/statements";
 const LRS_USER = process.env.NELC_LRS_USERNAME || "josoorcom_com";
-const LRS_PASS = process.env.NELC_LRS_PASSWORD || "u8V%ly718L7!";
+const LRS_PASS = process.env.NELC_LRS_PASSWORD || "aF6@2Z870!67";
+
 
 const PLATFORM = (process.env.NELC_PLATFORM_KEY || "https://josoorcom.com").replace(/\/+$/, "");
 

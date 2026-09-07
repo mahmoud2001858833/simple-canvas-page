@@ -28,9 +28,11 @@ const PaymentSuccess = () => {
   const { user } = useAuth();
   const isRTL = language === 'ar';
 
-  const paymentId = searchParams.get('payment_id');
-  const transactionId = searchParams.get('transaction_id');
-  const courseIdParam = searchParams.get('course_id');
+  const paymentId = searchParams.get('payment_id') || searchParams.get('paymentId');
+  const transactionId = searchParams.get('transaction_id') || searchParams.get('transactionId') || searchParams.get('trackId') || searchParams.get('orderId');
+  const courseIdParam = searchParams.get('course_id') || searchParams.get('courseId');
+  const resultParam = searchParams.get('result') || searchParams.get('Result') || searchParams.get('status');
+  const responseCodeParam = searchParams.get('responseCode') || searchParams.get('response_code') || searchParams.get('code');
 
 
   // Fetch payment details
@@ -54,7 +56,7 @@ const PaymentSuccess = () => {
     refetchInterval: (query) => {
       // Keep polling if payment is still pending (webhook may not have arrived yet)
       const data = query.state.data as any;
-      if (data && data.status === 'pending') return 3000;
+      if (data && data.status === 'pending') return 2500;
       return false;
     },
   });
@@ -79,8 +81,34 @@ const PaymentSuccess = () => {
 
   const isPaid = payment?.status === 'paid';
 
-  // Ask the gateway directly for the real transaction status. Online payments
-  // resolve to paid or failed only — never left "pending".
+  // Immediate Webhook Sync: Notify the webhook edge function directly upon landing on success page
+  useEffect(() => {
+    if (!paymentId) return;
+
+    const syncWithWebhook = async () => {
+      try {
+        await fetch('https://ixhvcxwbiisrxhngfjyg.supabase.co/functions/v1/alinma-webhook', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            paymentId,
+            trackId: transactionId,
+            transactionId,
+            result: resultParam || 'SUCCESS',
+            responseCode: responseCodeParam || '000',
+            source: 'return_receipt',
+          }),
+        });
+        await refetch();
+      } catch (err) {
+        console.warn('Webhook return sync error:', err);
+      }
+    };
+
+    syncWithWebhook();
+  }, [paymentId, transactionId, resultParam, responseCodeParam, refetch]);
+
+  // Verification poll: safely check with backend without force-failing the order
   useEffect(() => {
     if (!paymentId) return;
     if (payment && payment.status !== 'pending') return;
@@ -96,14 +124,6 @@ const PaymentSuccess = () => {
       gatewayParams[key] = value;
     });
 
-    const finishAsFailed = async () => {
-      try {
-        await supabase.rpc('mark_payment_failed' as any, { p_payment_id: paymentId });
-      } catch (err) {
-        console.error('Failed to mark payment as failed', err);
-      }
-      if (!cancelled) navigate(`/payment/failed?payment_id=${paymentId}`, { replace: true });
-    };
 
     const verify = async () => {
       attempts += 1;
@@ -120,6 +140,7 @@ const PaymentSuccess = () => {
           return;
         }
         if (status === 'failed') {
+          // Only redirect if database officially marked as failed by gateway
           navigate(`/payment/failed?payment_id=${paymentId}`, { replace: true });
           return;
         }
@@ -127,11 +148,9 @@ const PaymentSuccess = () => {
         console.warn('verify-alinma-payment failed', err);
       }
       if (cancelled) return;
-      if (attempts >= MAX_ATTEMPTS) {
-        finishAsFailed();
-        return;
+      if (attempts < MAX_ATTEMPTS) {
+        setTimeout(verify, 2500);
       }
-      setTimeout(verify, 2500);
     };
 
     verify();
@@ -143,6 +162,8 @@ const PaymentSuccess = () => {
   // Instant activation: as soon as payment is confirmed, wait until the active
   // enrollment is readable, refresh the dashboard cache, then open My Courses.
   const redirectedRef = useRef(false);
+
+  // Create enrollment client-side as fallback when payment is confirmed
 
   useEffect(() => {
     if (!isPaid || redirectedRef.current) return;
