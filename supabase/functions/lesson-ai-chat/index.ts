@@ -156,7 +156,10 @@ ${contextInfo}
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      throw new Error("AI gateway error");
+      return new Response(JSON.stringify({ error: `AI error ${aiResponse.status}: ${errText.slice(0, 300)}` }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     return new Response(aiResponse.body, {
