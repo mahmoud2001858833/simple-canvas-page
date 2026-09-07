@@ -142,6 +142,8 @@ ${contextInfo}
 
 
     if (!aiResponse.ok) {
+      const errText = await aiResponse.text().catch(() => "");
+      console.error("Gemini error:", aiResponse.status, errText.slice(0, 500));
       if (aiResponse.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded, please try again later." }), {
           status: 429,
