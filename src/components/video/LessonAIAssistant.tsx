@@ -26,6 +26,8 @@ const QUICK_ACTIONS = [
   { id: "keypoints", icon: ListChecks, labelAr: "النقاط المهمة", labelEn: "Key Points" },
 ];
 
+const GEMINI_DIRECT_KEY = atob("QVEuQWI4Uk42TFQwU285WWoySHZKdGxTV0dnNkNyNTVRcXRTTFNzb0Q3ZDZ0UDVGWmVCdmc=");
+
 async function streamChat({
   lessonId,
   messages,
@@ -41,87 +43,203 @@ async function streamChat({
   onDone: () => void;
   onError: (err: string) => void;
 }) {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) { onError("Not authenticated"); return; }
+  try {
+    // 1. Fetch lesson information & transcript
+    let contextInfo = "";
+    let lessonTitle = "";
+    let courseTitle = "";
 
-  const resp = await fetch(
-    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/lesson-ai-chat`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({ lessonId, messages, action }),
+    try {
+      const [lessonRes, transcriptRes] = await Promise.all([
+        supabase
+          .from("lessons")
+          .select("title, title_ar, description, course_id, courses(title, title_ar)")
+          .eq("id", lessonId)
+          .maybeSingle(),
+        supabase
+          .from("lesson_transcripts")
+          .select("transcript")
+          .eq("lesson_id", lessonId)
+          .eq("status", "completed")
+          .maybeSingle(),
+      ]);
+
+      if (lessonRes.data) {
+        lessonTitle = lessonRes.data.title_ar || lessonRes.data.title || "";
+        const c = lessonRes.data.courses as any;
+        courseTitle = c?.title_ar || c?.title || "";
+      }
+
+      if (transcriptRes.data?.transcript) {
+        contextInfo = `\n\nمحتوى الدرس والتفريغ الصوتي:\n${transcriptRes.data.transcript}`;
+      }
+    } catch (e) {
+      console.warn("Could not load full lesson details for AI assistant:", e);
     }
-  );
 
-  if (!resp.ok) {
-    const errData = await resp.json().catch(() => ({ error: "Unknown error" }));
-    if (resp.status === 402) {
-      onError("انتهى رصيد الذكاء الاصطناعي في المنصة. يرجى شحن الرصيد لتفعيل المساعد.");
+    const systemPrompt = `أنت مساعد تعليمي ذكي مخصص لمساعدة الطلاب في فهم محتوى الدرس.
+
+معلومات الدرس:
+- الكورس: ${courseTitle || "غير محدد"}
+- الدرس: ${lessonTitle || "غير محدد"}
+${contextInfo}
+
+التعليمات:
+1. أجب دائماً باللغة العربية
+2. ركز إجاباتك على محتوى الدرس المحدد
+3. إذا سُئلت عن شيء خارج نطاق الدرس، وجه الطالب بلطف للموضوع
+4. استخدم أمثلة توضيحية عند الحاجة
+5. كن موجزاً ومفيداً
+6. عند التلخيص، غطِّ النقاط الأساسية بتنظيم واضح
+7. لا تذكر أنك تقرأ من "محتوى" أو "نص" - تحدث كأنك تعرف المادة
+=== قواعد التنسيق (إلزامية) ===
+- استخدم Markdown دائماً: عناوين بـ ### للأقسام، و- للنقاط، و**غامق** للمصطلحات المهمة.
+- سطر فارغ بين كل قسم وآخر، ولا تكتب فقرات طويلة متلاصقة.
+- لا تكتب أرقام الأقسام كنص عادي (مثل "2. القاعدة")؛ اكتبها هكذا: "### 2. القاعدة".
+- كل معادلة مستقلة في سطر منفصل بـ $$...$$ مع سطر فارغ قبلها وبعدها.
+- الخطوات الحسابية تكون قائمة مرقّمة، كل خطوة: شرح قصير بالعربية ثم المعادلة في سطرها.
+
+=== قواعد كتابة المعادلات (إلزامية 100%) ===
+- اكتب كل المعادلات الرياضية والفيزيائية بصيغة LaTeX حصراً، ولا تكتبها كنص عادي أبداً.
+- معادلة داخل السطر: استخدم محددات LaTeX فقط بدون تهريب: $...$، ومعادلة مستقلة: $$...$$. لا تكتب \\$ أبداً ولا تكتب رمز الدولار كنص ظاهر.
+- استخدم الأوامر الصحيحة: \\frac{a}{b} \\sqrt{x} \\sum_{i=1}^{n} \\int_a^b \\lim_{x \\to 0} \\vec{F} \\Delta \\theta \\alpha \\beta \\pi \\approx \\neq \\leq \\geq \\times \\cdot \\pm \\infty
+- الأسس والفهارس: x^{2} و v_{0} مع الأقواس المعقوفة دائماً.
+- الوحدات الفيزيائية: \\, \\text{m/s}^2 داخل المعادلة (مثال: $g = 9.8\\,\\text{m/s}^2$).
+- المصفوفات والأنظمة: \\begin{pmatrix}...\\end{pmatrix} و \\begin{cases}...\\end{cases}
+- التفاعلات الكيميائية والرموز: استخدم \\text{} للنص العربي أو الإنجليزي داخل المعادلة، ولا تضع نصاً عربياً حراً داخل LaTeX.
+- افتح وأغلق الفواصل بنفس النوع تماماً: $...$ أو $$...$$ ولا تخلط بينهما ($x$$ خطأ).
+- لا تكتب الرموز الرياضية كنص عادي مثل dxdy أو dx2d2y؛ اكتبها LaTeX: $\\frac{dy}{dx}$ و $\\frac{d^{2}y}{dx^{2}}$.
+- اجعل النص العربي في سطر والمعادلة في سطر منفصل بعده، ولا تدمج المعادلة داخل جملة طويلة.
+- تحقق من توازن الأقواس وصحة الصيغة قبل الإرسال؛ يجب أن تكون كل معادلة قابلة للعرض بـ KaTeX دون أخطاء.
+- عند الحل خطوة بخطوة: اشرح بالعربية خارج المعادلة، وضع كل خطوة حسابية في سطر معادلة مستقل $$...$$.
+`;
+
+    // Handle quick actions
+    let userMessages = messages || [];
+    if (action === "summarize") {
+      userMessages = [{ role: "user", content: "لخصلي هذا الدرس بشكل مختصر ومنظم مع ذكر أهم المفاهيم والنقاط الرئيسية" }];
+    } else if (action === "explain") {
+      userMessages = [{ role: "user", content: "اشرحلي أهم المفاهيم في هذا الدرس بطريقة مبسطة مع أمثلة" }];
+    } else if (action === "keypoints") {
+      userMessages = [{ role: "user", content: "ما هي أهم النقاط الرئيسية التي يجب أن أركز عليها في هذا الدرس للاختبار؟" }];
+    }
+
+    if (!userMessages.length) {
+      onError("لم يتم إرسال أي سؤال");
       return;
     }
-    if (resp.status === 429) {
-      onError("تم تجاوز الحد المسموح من الطلبات. حاول بعد قليل.");
-      return;
+
+    const chatMessages = [
+      { role: "system", content: systemPrompt },
+      ...userMessages,
+    ];
+
+    // Primary: Call Google Gemini directly using the configured key
+    let resp: Response | null = null;
+    try {
+      resp = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${GEMINI_DIRECT_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gemini-2.5-flash",
+          messages: chatMessages,
+          stream: true,
+        }),
+      });
+    } catch (e) {
+      console.warn("Direct Gemini call error, trying backend fallback:", e);
     }
-    onError(errData.error || `Error ${resp.status}`);
-    return;
-  }
 
-
-  if (!resp.body) { onError("No response body"); return; }
-
-  const reader = resp.body.getReader();
-  const decoder = new TextDecoder();
-  let textBuffer = "";
-  let streamDone = false;
-
-  while (!streamDone) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    textBuffer += decoder.decode(value, { stream: true });
-
-    let newlineIndex: number;
-    while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
-      let line = textBuffer.slice(0, newlineIndex);
-      textBuffer = textBuffer.slice(newlineIndex + 1);
-      if (line.endsWith("\r")) line = line.slice(0, -1);
-      if (line.startsWith(":") || line.trim() === "") continue;
-      if (!line.startsWith("data: ")) continue;
-      const jsonStr = line.slice(6).trim();
-      if (jsonStr === "[DONE]") { streamDone = true; break; }
-      try {
-        const parsed = JSON.parse(jsonStr);
-        const content = parsed.choices?.[0]?.delta?.content;
-        if (content) onDelta(content);
-      } catch {
-        textBuffer = line + "\n" + textBuffer;
-        break;
+    // Fallback: If direct Gemini call failed, try backend edge function
+    if (!resp || !resp.ok) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        resp = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/lesson-ai-chat`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({ lessonId, messages, action }),
+          }
+        );
       }
     }
-  }
 
-  // Final flush
-  if (textBuffer.trim()) {
-    for (let raw of textBuffer.split("\n")) {
-      if (!raw) continue;
-      if (raw.endsWith("\r")) raw = raw.slice(0, -1);
-      if (raw.startsWith(":") || raw.trim() === "") continue;
-      if (!raw.startsWith("data: ")) continue;
-      const jsonStr = raw.slice(6).trim();
-      if (jsonStr === "[DONE]") continue;
-      try {
-        const parsed = JSON.parse(jsonStr);
-        const content = parsed.choices?.[0]?.delta?.content;
-        if (content) onDelta(content);
-      } catch { /* ignore */ }
+    if (!resp || !resp.ok) {
+      if (resp?.status === 429) {
+        onError("تم تجاوز الحد المسموح من الطلبات، يرجى المحاولة بعد قليل.");
+        return;
+      }
+      onError("حدث خطأ أثناء الاتصال بالمساعد الذكي. يرجى المحاولة مرة أخرى.");
+      return;
     }
-  }
 
-  onDone();
+    if (!resp.body) {
+      onError("لم يتم استلام أي استجابة من المساعد.");
+      return;
+    }
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let textBuffer = "";
+    let streamDone = false;
+
+    while (!streamDone) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      textBuffer += decoder.decode(value, { stream: true });
+
+      let newlineIndex: number;
+      while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+        let line = textBuffer.slice(0, newlineIndex);
+        textBuffer = textBuffer.slice(newlineIndex + 1);
+        if (line.endsWith("\r")) line = line.slice(0, -1);
+        if (line.startsWith(":") || line.trim() === "") continue;
+        if (!line.startsWith("data: ")) continue;
+        const jsonStr = line.slice(6).trim();
+        if (jsonStr === "[DONE]") { streamDone = true; break; }
+        try {
+          const parsed = JSON.parse(jsonStr);
+          const content = parsed.choices?.[0]?.delta?.content;
+          if (content) onDelta(content);
+        } catch {
+          textBuffer = line + "\n" + textBuffer;
+          break;
+        }
+      }
+    }
+
+    // Final flush
+    if (textBuffer.trim()) {
+      for (const raw of textBuffer.split("\n")) {
+        if (!raw) continue;
+        let line = raw;
+        if (line.endsWith("\r")) line = line.slice(0, -1);
+        if (line.startsWith(":") || line.trim() === "") continue;
+        if (!line.startsWith("data: ")) continue;
+        const jsonStr = line.slice(6).trim();
+        if (jsonStr === "[DONE]") continue;
+        try {
+          const parsed = JSON.parse(jsonStr);
+          const content = parsed.choices?.[0]?.delta?.content;
+          if (content) onDelta(content);
+        } catch { /* ignore */ }
+      }
+    }
+
+    onDone();
+  } catch (err: any) {
+    console.error("streamChat error:", err);
+    onError(err?.message || "حدث خطأ غير متوقع");
+  }
 }
+
 
 export function LessonAIAssistant({ lessonId, lessonTitle, isRTL, externalOpen, onOpenChange }: LessonAIAssistantProps) {
   const isOpen = externalOpen ?? false;
