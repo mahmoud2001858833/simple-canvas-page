@@ -20,7 +20,13 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Search, Plus, DollarSign, CheckCircle, XCircle, Clock, RefreshCw, Calendar, FileText, Eye, Bell } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Search, Plus, DollarSign, CheckCircle, XCircle, Clock, RefreshCw, Calendar, FileText, Eye, Bell, MoreHorizontal, AlertTriangle, ShieldCheck } from 'lucide-react';
 
 import { PaymentsTableSkeleton } from '@/components/ui/skeletons';
 import { toast } from 'sonner';
@@ -78,21 +84,10 @@ export const PaymentsManagement = () => {
   const { data: payments, isLoading } = useQuery({
     queryKey: ['admin-payments', search, statusFilter, dateFrom, dateTo],
     queryFn: async () => {
-      // Strict rule: no online payment may stay "pending". Auto-fail anything
-      // older than 2 minutes that was never confirmed by the gateway.
-      try {
-        await supabase.rpc('expire_stale_online_payments' as any, { p_minutes: 30 });
-      } catch (_) { /* non blocking */ }
-
-
       let query = supabase
         .from('payments')
         .select(`*, course:courses(title, title_ar, instructor_id, instructor_commission)`)
-        // A gateway payment is internally pending only while the customer is
-        // still at the bank. Admins see completed outcomes only.
-        .neq('status', 'pending' as any)
         .order('created_at', { ascending: false });
-
 
       if (statusFilter !== 'all') {
         query = query.eq('status', statusFilter as any);
@@ -161,6 +156,17 @@ export const PaymentsManagement = () => {
         updateData.paid_at = new Date().toISOString();
       }
 
+      // Fetch payment record if not provided or missing details
+      let paymentRecord = payment;
+      if (!paymentRecord || !paymentRecord.course_id || !paymentRecord.user_id) {
+        const { data: pRec } = await supabase
+          .from('payments')
+          .select('*, course:courses(title, title_ar, instructor_id)')
+          .eq('id', id)
+          .single();
+        if (pRec) paymentRecord = pRec;
+      }
+
       const { error } = await supabase
         .from('payments')
         .update(updateData)
@@ -168,33 +174,61 @@ export const PaymentsManagement = () => {
 
       if (error) throw error;
 
-      // Enrollment + instructor earnings are created automatically by the
-      // trg_finalize_paid_payment database trigger when status becomes 'paid'.
-      if (status === 'paid' && payment?.course_id && payment?.user_id) {
-        const plan = payment.installment_plan as Record<string, any> | null;
+      if (status === 'paid' && paymentRecord?.course_id && paymentRecord?.user_id) {
+        const plan = paymentRecord.installment_plan as Record<string, any> | null;
         const newPaidPercentage = plan?.new_paid_percentage ?? 100;
 
+        // Guaranteed direct enrollment upsert as safety net
+        try {
+          await supabase.from('enrollments').upsert({
+            user_id: paymentRecord.user_id,
+            course_id: paymentRecord.course_id,
+            status: 'active',
+            paid_percentage: newPaidPercentage,
+            enrolled_at: new Date().toISOString(),
+          }, { onConflict: 'user_id,course_id' });
+        } catch (enrollErr) {
+          console.warn('Direct enrollment upsert fallback:', enrollErr);
+        }
+
+        // Update monthly installments if applicable
+        if (plan?.type === 'monthly' || plan?.month_number) {
+          try {
+            const mPaid = Number(plan.month_number || 1);
+            const tMonths = Number(plan.total_months || 3);
+            await supabase.from('monthly_installments').upsert({
+              user_id: paymentRecord.user_id,
+              course_id: paymentRecord.course_id,
+              months_paid: mPaid,
+              total_months: tMonths,
+              status: mPaid >= tMonths ? 'completed' : 'active',
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'user_id,course_id' });
+          } catch (mErr) {
+            console.warn('Monthly installment update error:', mErr);
+          }
+        }
 
         // Notify student
         await supabase.from('notifications').insert({
-          user_id: payment.user_id,
+          user_id: paymentRecord.user_id,
           title: 'Payment Confirmed',
-          title_ar: 'تم تأكيد الدفع',
+          title_ar: 'تم تأكيد الدفع وتفعيل الدورة',
           message: newPaidPercentage < 100
             ? `Payment confirmed. You now have access to ${newPaidPercentage}% of the course content.`
             : `Your payment has been confirmed. You can now access the course.`,
           message_ar: newPaidPercentage < 100
-            ? `تم تأكيد الدفع. يمكنك الآن الوصول لـ ${newPaidPercentage}% من محتوى الدورة.`
-            : `تم تأكيد دفعتك. يمكنك الآن الوصول للدورة.`,
+            ? `تم تأكيد الدفع بنجاح. يمكنك الآن الوصول لـ ${newPaidPercentage}% من محتوى الدورة.`
+            : `تم تأكيد دفعتك وتفعيل اشتراكك بالدورة بنجاح. يمكنك الآن بدء التعلم.`,
           type: 'success',
-          link: '/dashboard',
+          link: `/courses/${paymentRecord.course_id}`,
         });
 
         // Send email to student
         const { data: studentProfile } = await supabase
           .from('profiles')
           .select('email, full_name')
-          .eq('id', payment.user_id)
+          .eq('id', paymentRecord.user_id)
           .single();
 
         if (studentProfile?.email) {
@@ -203,9 +237,9 @@ export const PaymentsManagement = () => {
               type: 'payment_confirmed',
               to_email: studentProfile.email,
               to_name: studentProfile.full_name || '',
-              amount: Number(payment.amount),
-              course_title: payment.course?.title,
-              course_title_ar: payment.course?.title_ar,
+              amount: Number(paymentRecord.amount),
+              course_title: paymentRecord.course?.title,
+              course_title_ar: paymentRecord.course?.title_ar,
             },
           }).catch(console.error);
 
@@ -214,30 +248,36 @@ export const PaymentsManagement = () => {
               type: 'enrollment',
               to_email: studentProfile.email,
               to_name: studentProfile.full_name || '',
-              course_title: payment.course?.title,
-              course_title_ar: payment.course?.title_ar,
+              course_title: paymentRecord.course?.title,
+              course_title_ar: paymentRecord.course?.title_ar,
             },
           }).catch(console.error);
         }
 
         // Notify instructor
-        if (payment.course?.instructor_id) {
+        if (paymentRecord.course?.instructor_id) {
           const isInstallment = plan?.is_continuation;
           await supabase.from('notifications').insert({
-            user_id: payment.course.instructor_id,
+            user_id: paymentRecord.course.instructor_id,
             title: isInstallment ? 'Installment Payment Received' : 'New Student Enrolled',
             title_ar: isInstallment ? 'تم استلام دفعة قسط' : 'طالب جديد مسجل',
-            message: `Payment of ${Number(payment.amount).toLocaleString()} SAR received.`,
-            message_ar: `تم استلام دفعة ${Number(payment.amount).toLocaleString()} ر.س.`,
+            message: `Payment of ${Number(paymentRecord.amount).toLocaleString()} SAR received.`,
+            message_ar: `تم استلام دفعة ${Number(paymentRecord.amount).toLocaleString()} ر.س.`,
             type: 'info',
             link: '/instructor-dashboard',
           });
         }
       }
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['admin-payments'] });
-      toast.success(language === 'ar' ? 'تم تحديث الحالة' : 'Status updated');
+      queryClient.invalidateQueries({ queryKey: ['enrollments'] });
+      queryClient.invalidateQueries({ queryKey: ['my-enrollments'] });
+      if (variables.status === 'paid') {
+        toast.success(language === 'ar' ? 'تم تأكيد الدفع وتفعيل الدورة للطالب بنجاح!' : 'Payment confirmed and course activated successfully!');
+      } else {
+        toast.success(language === 'ar' ? 'تم تحديث حالة العملية بنجاح' : 'Payment status updated successfully');
+      }
     },
   });
 
@@ -267,8 +307,6 @@ export const PaymentsManagement = () => {
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
-      // Anything the gateway can't confirm and is older than 20 minutes fails.
-      await supabase.rpc('expire_stale_online_payments' as any, { p_minutes: 20 });
       return data as any;
     },
 
@@ -534,7 +572,8 @@ export const PaymentsManagement = () => {
           <SelectContent>
             <SelectItem value="all">{language === 'ar' ? 'الكل' : 'All'}</SelectItem>
             <SelectItem value="paid">{language === 'ar' ? 'مدفوع' : 'Paid'}</SelectItem>
-            <SelectItem value="failed">{language === 'ar' ? 'مرفوض' : 'Failed'}</SelectItem>
+            <SelectItem value="pending">{language === 'ar' ? 'معلق' : 'Pending'}</SelectItem>
+            <SelectItem value="failed">{language === 'ar' ? 'مرفوض / فشل' : 'Failed'}</SelectItem>
             <SelectItem value="refunded">{language === 'ar' ? 'مسترد' : 'Refunded'}</SelectItem>
           </SelectContent>
         </Select>
@@ -545,6 +584,20 @@ export const PaymentsManagement = () => {
           <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="w-36" />
         </div>
       </div>
+
+      {/* Alert banner if failed payments exist */}
+      {payments?.some((p: any) => p.status === 'failed') && (
+        <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300">
+            <AlertTriangle className="w-5 h-5 flex-shrink-0 text-amber-600" />
+            <span className="text-sm font-medium">
+              {language === 'ar'
+                ? 'تنبيه: توجد عمليات مسجلة بحالة (فشل). إذا تم خصم المبلغ بنكياً من الطالب، يمكنك الضغط مباشرة على زر «تأكيد وتفعيل الدورة» باللون الأخضر لتفعيل اشتراكه فوراً.'
+                : 'Notice: Some transactions are marked as failed. If the amount was deducted from the student, you can click the green "Confirm & Activate" button to instantly activate their enrollment.'}
+            </span>
+          </div>
+        </div>
+      )}
 
       <div className="card-premium overflow-hidden">
         {isLoading ? (
@@ -612,27 +665,54 @@ export const PaymentsManagement = () => {
                           {language === 'ar' ? 'الوصل' : 'Receipt'}
                         </Button>
                       )}
+                      {/* Failed Payment: One-click Confirm & Activate */}
+                      {payment.status === 'failed' && (
+                        <Button
+                          size="sm"
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm gap-1 text-xs"
+                          disabled={updateStatusMutation.isPending}
+                          onClick={() => updateStatusMutation.mutate({ id: payment.id, status: 'paid', payment })}
+                        >
+                          <CheckCircle className="w-4 h-4 me-1" />
+                          {language === 'ar' ? 'تأكيد وتفعيل الدورة' : 'Confirm & Activate'}
+                        </Button>
+                      )}
+
                       {payment.status === 'pending' && (
                         <>
-                          <Button size="sm" variant="outline" className="text-success border-success"
-                            onClick={() => updateStatusMutation.mutate({ id: payment.id, status: 'paid', payment })}>
+                          <Button
+                            size="sm"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm gap-1"
+                            disabled={updateStatusMutation.isPending}
+                            onClick={() => updateStatusMutation.mutate({ id: payment.id, status: 'paid', payment })}
+                          >
                             <CheckCircle className="w-4 h-4 me-1" />
-                            {language === 'ar' ? 'تأكيد' : 'Confirm'}
+                            {language === 'ar' ? 'تأكيد وتفعيل' : 'Confirm & Activate'}
                           </Button>
-                          <Button size="sm" variant="outline" className="text-destructive border-destructive"
-                            onClick={() => updateStatusMutation.mutate({ id: payment.id, status: 'failed' })}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="text-destructive border-destructive hover:bg-destructive/10"
+                            disabled={updateStatusMutation.isPending}
+                            onClick={() => updateStatusMutation.mutate({ id: payment.id, status: 'failed', payment })}
+                          >
                             <XCircle className="w-4 h-4" />
                           </Button>
                           {(Date.now() - new Date(payment.created_at).getTime()) > 24 * 60 * 60 * 1000 && payment.user_id && (
-                            <Button size="sm" variant="outline" className="text-warning border-warning"
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-warning border-warning"
                               disabled={sendReminderMutation.isPending}
-                              onClick={() => sendReminderMutation.mutate(payment)}>
+                              onClick={() => sendReminderMutation.mutate(payment)}
+                            >
                               <Bell className="w-4 h-4 me-1" />
                               {language === 'ar' ? 'تذكير' : 'Remind'}
                             </Button>
                           )}
                         </>
                       )}
+
                       {payment.status === 'paid' && (
                         <AlertDialog open={refundPaymentId === payment.id} onOpenChange={(open) => !open && setRefundPaymentId(null)}>
                           <AlertDialogTrigger asChild>
@@ -664,6 +744,41 @@ export const PaymentsManagement = () => {
                           </AlertDialogContent>
                         </AlertDialog>
                       )}
+
+                      {/* Universal Status Changer Menu for Admins */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-muted">
+                            <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align={language === 'ar' ? 'start' : 'end'}>
+                          <DropdownMenuItem
+                            disabled={payment.status === 'paid'}
+                            onClick={() => updateStatusMutation.mutate({ id: payment.id, status: 'paid', payment })}
+                            className="text-emerald-600 font-medium cursor-pointer"
+                          >
+                            <CheckCircle className="w-4 h-4 me-2" />
+                            {language === 'ar' ? 'تغيير الحالة إلى: مدفوع وتفعيل' : 'Mark as: Paid & Activate'}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={payment.status === 'pending'}
+                            onClick={() => updateStatusMutation.mutate({ id: payment.id, status: 'pending', payment })}
+                            className="cursor-pointer"
+                          >
+                            <Clock className="w-4 h-4 me-2" />
+                            {language === 'ar' ? 'تغيير الحالة إلى: معلق' : 'Mark as: Pending'}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={payment.status === 'failed'}
+                            onClick={() => updateStatusMutation.mutate({ id: payment.id, status: 'failed', payment })}
+                            className="text-destructive cursor-pointer"
+                          >
+                            <XCircle className="w-4 h-4 me-2" />
+                            {language === 'ar' ? 'تغيير الحالة إلى: فشل / مرفوض' : 'Mark as: Failed'}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </TableCell>
                 </TableRow>

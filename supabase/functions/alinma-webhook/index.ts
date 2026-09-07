@@ -328,12 +328,15 @@ serve(async (req) => {
       if (data) payment = data;
     }
 
-    // 4. By id = trackId (if trackId was payment UUID)
-    if (!payment && trackId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trackId)) {
+    // 4. By id = paymentId or trackId (if valid UUID)
+    const uuidCandidate = [paymentId, trackId, String(payload.id || ""), String(payload.payment_id || "")].find(
+      (val) => val && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val)
+    );
+    if (!payment && uuidCandidate) {
       const { data } = await supabase
         .from("payments")
         .select("*")
-        .eq("id", trackId)
+        .eq("id", uuidCandidate)
         .maybeSingle();
       if (data) payment = data;
     }
@@ -346,6 +349,25 @@ serve(async (req) => {
         .eq("transaction_id", paymentId)
         .maybeSingle();
       if (data) payment = data;
+    }
+
+    // 6. By customer email fallback (matches most recent payment)
+    const emailCandidate = String(payload.customerEmail || payload.email || "").trim().toLowerCase();
+    if (!payment && emailCandidate && emailCandidate.includes("@")) {
+      const { data: prof } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("email", emailCandidate)
+        .maybeSingle();
+      if (prof?.id) {
+        const { data: pList } = await supabase
+          .from("payments")
+          .select("*")
+          .eq("user_id", prof.id)
+          .order("created_at", { ascending: false })
+          .limit(1);
+        if (pList && pList[0]) payment = pList[0];
+      }
     }
 
     if (!payment) {

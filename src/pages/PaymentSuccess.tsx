@@ -228,8 +228,29 @@ const PaymentSuccess = () => {
   useEffect(() => {
     if (!paymentId || !payment) return;
     if (payment.status === 'paid' || payment.status === 'pending') return;
+
+    // If the bank returned a success signal in URL params, heal the payment instead of redirecting to failure
+    const normResult = (resultParam || '').toUpperCase();
+    const isGatewaySuccess =
+      normResult === 'SUCCESS' ||
+      normResult === 'SUCCESSFUL' ||
+      normResult === 'CAPTURED' ||
+      normResult === 'PAID' ||
+      responseCodeParam === '000' ||
+      responseCodeParam === '00' ||
+      responseCodeParam === '0';
+
+    if (isGatewaySuccess) {
+      supabase
+        .from('payments')
+        .update({ status: 'paid', paid_at: new Date().toISOString() })
+        .eq('id', paymentId)
+        .then(() => refetch());
+      return;
+    }
+
     navigate(`/payment/failed?payment_id=${paymentId}`, { replace: true });
-  }, [payment, paymentId, navigate]);
+  }, [payment, paymentId, navigate, resultParam, responseCodeParam, refetch]);
 
   const shouldRedirect = !!resolvedCourseId && isPaid;
 
