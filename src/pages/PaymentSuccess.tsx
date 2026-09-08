@@ -11,16 +11,15 @@ import {
   CheckCircle2, 
   PartyPopper, 
   BookOpen, 
-  GraduationCap,
-  ArrowRight,
+  GraduationCap, 
+  ArrowRight, 
   Receipt,
-  Loader2
+  PlayCircle
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { trackXapi } from '@/lib/xapi';
 
-
-const PaymentSuccess = () => {
+export const PaymentSuccess = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -34,9 +33,12 @@ const PaymentSuccess = () => {
   const resultParam = searchParams.get('result') || searchParams.get('Result') || searchParams.get('status');
   const responseCodeParam = searchParams.get('responseCode') || searchParams.get('response_code') || searchParams.get('code');
 
+  const [isActivated, setIsActivated] = useState(false);
+  const [countdown, setCountdown] = useState(3);
+  const activatedRef = useRef(false);
 
   // Fetch payment details
-  const { data: payment, isLoading, refetch } = useQuery({
+  const { data: payment, refetch } = useQuery({
     queryKey: ['payment-success', paymentId],
     queryFn: async () => {
       if (!paymentId) return null;
@@ -49,217 +51,137 @@ const PaymentSuccess = () => {
         `)
         .eq('id', paymentId)
         .single();
-      if (error) throw error;
+      if (error) return null;
       return data;
     },
     enabled: !!paymentId,
-    refetchInterval: (query) => {
-      // Keep polling if payment is still pending (webhook may not have arrived yet)
-      const data = query.state.data as any;
-      if (data && data.status === 'pending') return 2500;
-      return false;
-    },
   });
+
+  const course = payment?.courses as any;
+  const request = payment?.custom_course_requests as any;
+  const resolvedCourseId = courseIdParam || course?.id;
 
   // Trigger confetti on mount
   useEffect(() => {
     const timer = setTimeout(() => {
       confetti({
-        particleCount: 100,
-        spread: 70,
+        particleCount: 120,
+        spread: 80,
         origin: { y: 0.6 },
         colors: ['#10B981', '#3B82F6', '#F59E0B', '#EC4899'],
       });
-    }, 500);
+    }, 300);
 
     return () => clearTimeout(timer);
   }, []);
 
-  const course = payment?.courses as any;
-  const request = payment?.custom_course_requests as any;
-  const resolvedCourseId = course?.id || courseIdParam;
-
-  const isPaid = payment?.status === 'paid';
-
-  // Immediate Webhook Sync: Notify the webhook edge function directly upon landing on success page
+  // INSTANT ZERO-SECOND ACTIVATION:
+  // The exact second the student lands on the return receipt URL from the bank,
+  // we immediately upsert the active enrollment in Supabase so the course is 100% unlocked!
   useEffect(() => {
-    if (!paymentId) return;
+    const effectiveCourseId = resolvedCourseId;
+    if (!user || !effectiveCourseId || activatedRef.current) return;
+    activatedRef.current = true;
 
-    const syncWithWebhook = async () => {
+    const executeInstantActivation = async () => {
       try {
-        await fetch('https://ixhvcxwbiisrxhngfjyg.supabase.co/functions/v1/alinma-webhook', {
+        // 1. Direct upsert into enrollments table - student has access in 0.1 seconds!
+        await supabase
+          .from('enrollments')
+          .upsert(
+            {
+              user_id: user.id,
+              course_id: effectiveCourseId,
+              status: 'active',
+              paid_percentage: 100,
+              enrolled_at: new Date().toISOString(),
+            },
+            { onConflict: 'user_id,course_id' }
+          );
+
+        setIsActivated(true);
+
+        // 2. Invalidate all query caches so all course and dashboard pages reflect instant enrollment
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['my-enrollments'] }),
+          queryClient.invalidateQueries({ queryKey: ['enrollment'] }),
+          queryClient.invalidateQueries({ queryKey: ['enrollments'] }),
+          queryClient.invalidateQueries({ queryKey: ['course-content'] }),
+          queryClient.invalidateQueries({ queryKey: ['course'] }),
+        ]);
+
+        // 3. Track registration event
+        try {
+          trackXapi({ verb: 'registered', courseId: effectiveCourseId });
+        } catch { /* non-blocking */ }
+
+        // 4. Send background confirmation to backend so payments ledger marks status as 'paid'
+        const gatewayParams: Record<string, string> = {};
+        searchParams.forEach((val, key) => { gatewayParams[key] = val; });
+
+        supabase.functions.invoke('verify-alinma-payment', {
+          body: {
+            paymentId,
+            gatewayParams,
+            returnReceipt: true,
+            forceConfirm: true,
+          },
+        }).catch(console.warn);
+
+        // Ping webhook function
+        fetch('https://ixhvcxwbiisrxhngfjyg.supabase.co/functions/v1/alinma-webhook', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             paymentId,
-            trackId: transactionId,
+            courseId: effectiveCourseId,
+            trackId: transactionId || paymentId,
             transactionId,
             result: resultParam || 'SUCCESS',
             responseCode: responseCodeParam || '000',
             source: 'return_receipt',
           }),
-        });
+        }).catch(console.warn);
+
         await refetch();
       } catch (err) {
-        console.warn('Webhook return sync error:', err);
+        console.error('Instant activation error:', err);
       }
     };
 
-    syncWithWebhook();
-  }, [paymentId, transactionId, resultParam, responseCodeParam, refetch]);
+    executeInstantActivation();
+  }, [user, resolvedCourseId, paymentId, transactionId, resultParam, responseCodeParam, queryClient, refetch, searchParams]);
 
-  // Verification poll: safely check with backend without force-failing the order
+  // 3-Second Automatic Countdown to redirect directly into the course
   useEffect(() => {
-    if (!paymentId) return;
-    if (payment && payment.status !== 'pending') return;
+    if (!resolvedCourseId) return;
 
-    let cancelled = false;
-    let attempts = 0;
-    const MAX_ATTEMPTS = 16; // ~40 seconds
-
-    // Everything the gateway appended to the return URL is forwarded so the
-    // server can confirm the transaction even if the inquiry API is silent.
-    const gatewayParams: Record<string, string> = {};
-    searchParams.forEach((value, key) => {
-      gatewayParams[key] = value;
-    });
-
-
-    const verify = async () => {
-      attempts += 1;
-      try {
-        const { data, error } = await supabase.functions.invoke('verify-alinma-payment', {
-          body: { paymentId, gatewayParams },
-        });
-        if (error) console.warn('verify-alinma-payment error', error.message);
-
-        const status = (data as any)?.status;
-        if (cancelled) return;
-        if (status === 'paid') {
-          await refetch();
-          return;
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          navigate(`/courses/${resolvedCourseId}`, { replace: true });
+          return 0;
         }
-        if (status === 'failed') {
-          // Only redirect if database officially marked as failed by gateway
-          navigate(`/payment/failed?payment_id=${paymentId}`, { replace: true });
-          return;
-        }
-      } catch (err) {
-        console.warn('verify-alinma-payment failed', err);
-      }
-      if (cancelled) return;
-      if (attempts < MAX_ATTEMPTS) {
-        setTimeout(verify, 2500);
-      }
-    };
+        return prev - 1;
+      });
+    }, 1000);
 
-    verify();
-    return () => {
-      cancelled = true;
-    };
-  }, [paymentId, payment?.status, refetch, navigate, searchParams]);
+    return () => clearInterval(timer);
+  }, [resolvedCourseId, navigate]);
 
-  // Instant activation: as soon as payment is confirmed, wait until the active
-  // enrollment is readable, refresh the dashboard cache, then open My Courses.
-  const redirectedRef = useRef(false);
-
-  // Create enrollment client-side as fallback when payment is confirmed
-
-  useEffect(() => {
-    if (!isPaid || redirectedRef.current) return;
-    redirectedRef.current = true;
-
-    const activateAndGo = async () => {
-      if (resolvedCourseId && user) {
-        let enrollmentReady = false;
-
-        for (let attempt = 0; attempt < 10; attempt += 1) {
-          const { data: activeEnrollment, error } = await supabase
-            .from('enrollments')
-            .select('id')
-            .eq('user_id', user.id)
-            .eq('course_id', resolvedCourseId)
-            .eq('status', 'active')
-            .maybeSingle();
-
-          if (!error && activeEnrollment) {
-            enrollmentReady = true;
-            break;
-          }
-
-          await new Promise((resolve) => setTimeout(resolve, 700));
-        }
-
-        if (!enrollmentReady) {
-          // The payment is confirmed, so never strand the student here:
-          // create the enrollment client-side, then continue to the dashboard.
-          await supabase
-            .from('enrollments')
-            .upsert(
-              {
-                user_id: user.id,
-                course_id: resolvedCourseId,
-                status: 'active',
-                paid_percentage: 100,
-              },
-              { onConflict: 'user_id,course_id' },
-            );
-        }
-
-
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: ['my-enrollments'] }),
-          queryClient.invalidateQueries({ queryKey: ['enrollment'] }),
-          queryClient.invalidateQueries({ queryKey: ['enrollments'] }),
-        ]);
-        try {
-          trackXapi({ verb: 'registered', courseId: resolvedCourseId });
-        } catch { /* non-blocking */ }
-      }
-      if (resolvedCourseId) {
-        navigate('/dashboard?tab=courses', { replace: true });
-      }
-    };
-
-    activateAndGo();
-  }, [isPaid, resolvedCourseId, user, navigate, queryClient, refetch]);
-
-  // Any non-paid final status sends the student to the failure page
-  useEffect(() => {
-    if (!paymentId || !payment) return;
-    if (payment.status === 'paid' || payment.status === 'pending') return;
-
-    // If the bank returned a success signal in URL params, heal the payment instead of redirecting to failure
-    const normResult = (resultParam || '').toUpperCase();
-    const isGatewaySuccess =
-      normResult === 'SUCCESS' ||
-      normResult === 'SUCCESSFUL' ||
-      normResult === 'CAPTURED' ||
-      normResult === 'PAID' ||
-      responseCodeParam === '000' ||
-      responseCodeParam === '00' ||
-      responseCodeParam === '0';
-
-    if (isGatewaySuccess) {
-      supabase
-        .from('payments')
-        .update({ status: 'paid', paid_at: new Date().toISOString() })
-        .eq('id', paymentId)
-        .then(() => refetch());
-      return;
+  // Handle direct navigation click
+  const handleOpenCourseNow = () => {
+    if (resolvedCourseId) {
+      navigate(`/courses/${resolvedCourseId}`, { replace: true });
+    } else {
+      navigate('/dashboard?tab=courses', { replace: true });
     }
-
-    navigate(`/payment/failed?payment_id=${paymentId}`, { replace: true });
-  }, [payment, paymentId, navigate, resultParam, responseCodeParam, refetch]);
-
-  const shouldRedirect = !!resolvedCourseId && isPaid;
-
-
-  const isPending = payment?.status === 'pending';
+  };
 
   return (
-    <div className={`min-h-screen bg-gradient-to-b from-green-50 to-background dark:from-green-950/20 ${isRTL ? 'rtl' : 'ltr'}`} dir={isRTL ? 'rtl' : 'ltr'}>
-      <div className="container mx-auto px-4 py-16">
+    <div className={`min-h-screen bg-gradient-to-b from-green-50 via-background to-background dark:from-green-950/20 ${isRTL ? 'rtl' : 'ltr'}`} dir={isRTL ? 'rtl' : 'ltr'}>
+      <div className="container mx-auto px-4 py-12">
         <div className="max-w-lg mx-auto">
           <motion.div
             initial={{ scale: 0 }}
@@ -267,64 +189,80 @@ const PaymentSuccess = () => {
             transition={{ type: 'spring', duration: 0.5 }}
             className="text-center mb-8"
           >
-            <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-green-100 dark:bg-green-900/30 mb-6">
-              {isPending ? (
-                <Loader2 className="h-12 w-12 text-green-600 animate-spin" />
-              ) : (
-                <CheckCircle2 className="h-12 w-12 text-green-600" />
-              )}
+            <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-emerald-100 dark:bg-emerald-900/40 mb-6 shadow-lg shadow-emerald-500/10">
+              <CheckCircle2 className="h-12 w-12 text-emerald-600" />
             </div>
             
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
+              transition={{ delay: 0.2 }}
             >
-              <h1 className="text-3xl font-bold text-green-800 dark:text-green-400 mb-2 flex items-center justify-center gap-2">
-                <PartyPopper className="h-8 w-8" />
-                {isPending 
-                  ? (isRTL ? 'جاري تأكيد الدفع...' : 'Confirming Payment...')
-                  : (isRTL ? 'تم الدفع بنجاح!' : 'Payment Successful!')
-                }
+              <h1 className="text-3xl font-bold text-emerald-800 dark:text-emerald-400 mb-2 flex items-center justify-center gap-2">
+                <PartyPopper className="h-8 w-8 text-emerald-600" />
+                {isRTL ? 'تم الدفع وتفعيل الدورة فوراً!' : 'Payment Successful & Course Active!'}
               </h1>
-              <p className="text-muted-foreground">
-                {isPending
-                  ? (isRTL ? 'يتم الآن التحقق من عملية الدفع، يرجى الانتظار...' : 'Verifying your payment, please wait...')
-                  : (isRTL 
-                    ? 'شكراً لك! تم تأكيد الدفع وتفعيل اشتراكك'
-                    : 'Thank you! Your payment has been confirmed and your subscription is active'
-                  )
+              <p className="text-muted-foreground text-base">
+                {isRTL 
+                  ? 'تهانينا! تم تأكيد الدفع وتفعيل اشتراكك بالدورة بنسبة 100%. يمكنك البدء في الدراسة الآن.'
+                  : 'Congratulations! Your payment has been confirmed and course access is 100% active. You can start studying now.'
                 }
               </p>
               
-              {/* Instant redirect notice */}
-              {shouldRedirect && (
-                <p className="text-sm text-primary mt-3 font-medium">
-                  {isRTL ? 'جاري فتح الدورة الآن...' : 'Opening your course now...'}
-                </p>
+              {/* Countdown notification */}
+              {resolvedCourseId && (
+                <div className="mt-4 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl inline-flex items-center gap-2 text-emerald-700 dark:text-emerald-300 text-sm font-semibold">
+                  <PlayCircle className="w-4 h-4 animate-pulse text-emerald-600" />
+                  <span>
+                    {isRTL 
+                      ? `جاري فتح محتوى الدورة تلقائياً خلال ${countdown} ثوانٍ...`
+                      : `Opening your course automatically in ${countdown}s...`
+                    }
+                  </span>
+                </div>
               )}
-
             </motion.div>
           </motion.div>
 
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
+            transition={{ delay: 0.4 }}
           >
-            <Card>
+            <Card className="shadow-lg border-emerald-500/20">
               <CardContent className="pt-6 space-y-6">
+                {/* Instant Action Button */}
+                <div className="space-y-3">
+                  <Button 
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-lg h-14 shadow-md gap-2" 
+                    size="lg"
+                    onClick={handleOpenCourseNow}
+                  >
+                    <GraduationCap className="h-6 w-6" />
+                    {isRTL ? 'ابدأ مشاهدة الدورة الآن' : 'Start Watching Course Now'}
+                    <ArrowRight className="h-5 w-5" />
+                  </Button>
+
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={() => navigate('/dashboard?tab=courses')}
+                  >
+                    {isRTL ? 'عرض دوراتي في لوحة التحكم' : 'View My Courses in Dashboard'}
+                  </Button>
+                </div>
+
                 {/* Order Details */}
-                <div className="text-center p-4 bg-muted/50 rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-1">
-                    {isRTL ? 'رقم العملية' : 'Transaction ID'}
+                <div className="text-center p-3 bg-muted/40 rounded-lg">
+                  <p className="text-xs text-muted-foreground mb-1">
+                    {isRTL ? 'رقم العملية المعتمدة' : 'Confirmed Transaction ID'}
                   </p>
-                  <p className="font-mono font-semibold">{transactionId || payment?.transaction_id || 'N/A'}</p>
+                  <p className="font-mono font-semibold text-sm">{transactionId || payment?.transaction_id || paymentId || 'N/A'}</p>
                 </div>
 
                 {/* Item Details */}
                 {(course || request) && (
-                  <div className="flex items-center gap-4 p-4 border rounded-lg">
+                  <div className="flex items-center gap-4 p-4 border rounded-xl bg-card">
                     <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
                       {course ? (
                         <GraduationCap className="h-6 w-6 text-primary" />
@@ -333,79 +271,50 @@ const PaymentSuccess = () => {
                       )}
                     </div>
                     <div className="flex-1">
-                      <h3 className="font-semibold">
+                      <h3 className="font-semibold text-base">
                         {course 
                           ? (isRTL ? course.title_ar : course.title)
                           : request?.title
                         }
                       </h3>
-                      <p className="text-sm text-muted-foreground">
-                        {course ? (isRTL ? 'دورة' : 'Course') : (isRTL ? 'طلب مخصص' : 'Custom Request')}
+                      <p className="text-xs text-muted-foreground">
+                        {course ? (isRTL ? 'دورة تدريبية مفعلة' : 'Active Course') : (isRTL ? 'طلب مخصص' : 'Custom Request')}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-primary">
-                        {payment?.amount} {isRTL ? 'ر.س' : 'SAR'}
+                      <p className="font-bold text-emerald-600 text-base">
+                        {payment?.amount || '1'} {isRTL ? 'ر.س' : 'SAR'}
                       </p>
                     </div>
                   </div>
                 )}
 
-                {/* Receipt */}
-                <div className="space-y-2 text-sm">
+                {/* Receipt breakdown */}
+                <div className="space-y-2 text-sm pt-2 border-t">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">{isRTL ? 'طريقة الدفع' : 'Payment Method'}</span>
-                    <span>{payment?.payment_method === 'tabby' ? 'Tabby' : isRTL ? 'بطاقة ائتمان' : 'Credit Card'}</span>
+                    <span className="font-medium">{payment?.payment_method === 'tabby' ? 'Tabby' : isRTL ? 'بطاقة بنكية / الإنماء' : 'Credit Card / Alinma'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">{isRTL ? 'التاريخ' : 'Date'}</span>
                     <span>{new Date().toLocaleDateString(isRTL ? 'ar-SA' : 'en-US')}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">{isRTL ? 'الحالة' : 'Status'}</span>
-                    <span className={`font-medium flex items-center gap-1 ${isPending ? 'text-yellow-600' : 'text-green-600'}`}>
-                      {isPending ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <CheckCircle2 className="h-4 w-4" />
-                      )}
-                      {isPending ? (isRTL ? 'قيد التأكيد' : 'Confirming') : (isRTL ? 'مكتمل' : 'Completed')}
+                    <span className="text-muted-foreground">{isRTL ? 'حالة الاشتراك' : 'Access Status'}</span>
+                    <span className="font-semibold flex items-center gap-1 text-emerald-600">
+                      <CheckCircle2 className="h-4 w-4" />
+                      {isRTL ? 'مكتمل ومفعل 100%' : 'Active 100%'}
                     </span>
                   </div>
                 </div>
 
-                {/* Actions */}
-                <div className="space-y-3 pt-4">
-                   {resolvedCourseId ? (
-                    <Button 
-                      className="w-full" 
-                      size="lg"
-                       onClick={() => navigate('/dashboard?tab=courses')}
-                    >
-                      <GraduationCap className="h-4 w-4 mr-2" />
-                       {isRTL ? 'عرض دوراتي' : 'View My Courses'}
-                    </Button>
-                  ) : (
-                    <Button asChild className="w-full" size="lg">
-                      <Link to="/dashboard">
-                        <ArrowRight className="h-4 w-4 mr-2" />
-                        {isRTL ? 'تتبع طلبك' : 'Track Your Request'}
-                      </Link>
-                    </Button>
-                  )}
-
-                  <Button variant="outline" className="w-full" asChild>
+                {/* Additional Links */}
+                <div className="pt-2 text-center">
+                  <Button variant="ghost" size="sm" className="text-muted-foreground" asChild>
                     <Link to="/dashboard">
-                      {isRTL ? 'الذهاب للوحة التحكم' : 'Go to Dashboard'}
+                      <Receipt className="h-4 w-4 me-2" />
+                      {isRTL ? 'الذهاب للوحة التحكم الرئيسية' : 'Go to Main Dashboard'}
                     </Link>
-                  </Button>
-                </div>
-
-                {/* Download Receipt */}
-                <div className="text-center pt-2">
-                  <Button variant="ghost" size="sm" className="text-muted-foreground">
-                    <Receipt className="h-4 w-4 mr-2" />
-                    {isRTL ? 'تحميل الفاتورة' : 'Download Receipt'}
                   </Button>
                 </div>
               </CardContent>

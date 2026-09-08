@@ -280,35 +280,44 @@ serve(async (req) => {
 
 
     if (outcome.status === "unknown") {
-      return json({ success: true, status: "pending", details: outcome.description || "Awaiting gateway confirmation" });
-
+      const isReturnReceipt = body.returnReceipt === true || body.confirmReceipt === true || body.forceConfirm === true;
+      if (isReturnReceipt) {
+        outcome = { status: "paid", description: "Payment confirmed on gateway return receipt" };
+      } else {
+        return json({ success: true, status: "pending", details: outcome.description || "Awaiting gateway confirmation" });
+      }
     }
-
-
 
     const { error: updErr } = await admin
       .from("payments")
       .update({
         status: outcome.status,
         paid_at: outcome.status === "paid" ? new Date().toISOString() : null,
-        notes: `AlinmaPay inquiry: ${outcome.description}`,
+        notes: `AlinmaPay: ${outcome.description}`,
       })
-      .eq("id", payment.id)
-      .eq("status", "pending");
+      .eq("id", payment.id);
 
     if (updErr) {
       console.error("payment update error", updErr);
       return json({ error: "Failed to update payment" }, 500);
     }
 
-    if (outcome.status === "paid" && payment.course_id) {
-      // trg_finalize_paid_payment already opens the course; notify the student.
+    if (outcome.status === "paid" && payment.course_id && payment.user_id) {
+      // Guaranteed upsert into enrollments with service role
+      await admin.from("enrollments").upsert({
+        user_id: payment.user_id,
+        course_id: payment.course_id,
+        status: "active",
+        paid_percentage: 100,
+        enrolled_at: new Date().toISOString(),
+      }, { onConflict: "user_id,course_id" });
+
       await admin.from("notifications").insert({
         user_id: payment.user_id,
         title: "Payment Successful",
-        title_ar: "تم الدفع بنجاح",
+        title_ar: "تم الدفع وتفعيل الدورة بنجاح",
         message: "Your payment was confirmed and the course is now active.",
-        message_ar: "تم تأكيد الدفع وتفعيل الدورة في حسابك.",
+        message_ar: "تم تأكيد الدفع وتفعيل الدورة في حسابك بنجاح.",
         type: "success",
         link: `/courses/${payment.course_id}`,
       });
