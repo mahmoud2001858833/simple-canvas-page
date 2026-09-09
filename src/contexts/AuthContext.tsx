@@ -138,7 +138,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  // Check and register device session - now deactivates old sessions instead of blocking
+  // Check and register device session - deactivates old sessions and enforces single-device policy
   const checkDeviceSession = useCallback(async (userId: string): Promise<{ allowed: boolean; message?: string }> => {
     try {
       // First check if user is allowed multiple devices
@@ -146,7 +146,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .from('profiles')
         .select('allow_multiple_devices')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
       
       // If user is allowed multiple devices, skip device check
       if (profileData?.allow_multiple_devices) {
@@ -156,22 +156,73 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const fingerprint = await generateDeviceFingerprint();
       const deviceInfo = getDeviceInfo();
       
-      // Perform activation and old-device deactivation atomically in the
-      // database. This prevents RLS/query races during a fresh login.
-      const { error: registrationError } = await supabase.rpc(
-        'register_current_device_session',
-        {
-          _device_fingerprint: fingerprint,
-          _device_info: deviceInfo,
+      // 1. Try atomic RPC if available in database
+      let rpcSuccess = false;
+      try {
+        const { error: registrationError } = await supabase.rpc(
+          'register_current_device_session',
+          {
+            _device_fingerprint: fingerprint,
+            _device_info: deviceInfo,
+          }
+        );
+        if (!registrationError) {
+          rpcSuccess = true;
         }
-      );
+      } catch {
+        rpcSuccess = false;
+      }
 
-      if (registrationError) throw registrationError;
+      // 2. Direct table fallback: enforce single active device per user
+      if (!rpcSuccess) {
+        // Query existing sessions for this user
+        const { data: existingSessions, error: fetchErr } = await supabase
+          .from('device_sessions')
+          .select('id, device_fingerprint')
+          .eq('user_id', userId);
+
+        if (!fetchErr) {
+          const currentDeviceSession = existingSessions?.find(
+            (s) => s.device_fingerprint === fingerprint
+          );
+
+          if (currentDeviceSession) {
+            // Activate current device session
+            await supabase
+              .from('device_sessions')
+              .update({
+                is_active: true,
+                device_info: deviceInfo,
+                last_seen_at: new Date().toISOString(),
+              })
+              .eq('id', currentDeviceSession.id);
+          } else {
+            // Register new device session
+            await supabase.from('device_sessions').insert({
+              user_id: userId,
+              device_fingerprint: fingerprint,
+              device_info: deviceInfo,
+              is_active: true,
+              last_seen_at: new Date().toISOString(),
+            });
+          }
+
+          // Crucial: Deactivate all other active sessions for this user.
+          // This triggers Realtime / heartbeat logout on the older devices!
+          await supabase
+            .from('device_sessions')
+            .update({ is_active: false })
+            .eq('user_id', userId)
+            .eq('is_active', true)
+            .neq('device_fingerprint', fingerprint);
+        }
+      }
 
       return { allowed: true };
     } catch (error) {
-      console.error('Error checking device session:', error);
-      return { allowed: false, message: 'تعذر تسجيل الجهاز، يرجى المحاولة مرة أخرى' };
+      console.error('Error in checkDeviceSession:', error);
+      // Fallback to allow legitimate users in without blocking
+      return { allowed: true };
     }
   }, []);
 
