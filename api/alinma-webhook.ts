@@ -152,6 +152,17 @@ export default async function handler(req: any, res: any) {
       '000'
     ).trim();
 
+    const eventName = String(
+      payload.event ||
+      payload.eventType ||
+      payload.Event ||
+      payload.action ||
+      payload.notificationType ||
+      ''
+    ).trim();
+
+    const normEvent = eventName.toUpperCase();
+
     const normResult = result.toUpperCase();
     const isSuccess =
       SUCCESS_CODES.has(normResult) ||
@@ -160,6 +171,8 @@ export default async function handler(req: any, res: any) {
       normResult.includes('CAPTURED') ||
       normResult.includes('APPROVED') ||
       normResult.includes('PAID') ||
+      normEvent.includes('SUCCESS') ||
+      normEvent.includes('CAPTURED') ||
       responseCode === '000' ||
       responseCode === '00' ||
       responseCode === '0';
@@ -174,7 +187,12 @@ export default async function handler(req: any, res: any) {
       FAILURE_CODES.has(normResult) ||
       FAILURE_CODES.has(responseCode) ||
       normResult.includes('DECLIN') ||
-      normResult.includes('CANCEL');
+      normResult.includes('CANCEL') ||
+      normResult.includes('FAIL') ||
+      normEvent.includes('DECLIN') ||
+      normEvent.includes('CANCEL') ||
+      normEvent.includes('FAIL') ||
+      normEvent.includes('TIMEOUT');
 
     // Look for payment in Supabase
     let payment: any = null;
