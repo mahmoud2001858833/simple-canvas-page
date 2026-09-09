@@ -4,12 +4,12 @@ import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL =
   process.env.VITE_SUPABASE_URL ||
   process.env.SUPABASE_URL ||
-  'https://ixhvcxwbiisrxhngfjyg.supabase.co';
+  'https://nrioqyolqusiexgpxfxz.supabase.co';
 
 const SUPABASE_KEY =
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
   process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml4aHZjeHdiaWlzcnhobmdmanlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0Nzk5MzUsImV4cCI6MjA4NDA1NTkzNX0.wVgnjXhuuUn4T-bVULzE8ModNbQsTyseGsdDRAIVGrA';
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6Ik5yaW9xeW9scXVzaWV4Z3B4Znh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2NTUyOTAsImV4cCI6MjA4NDIzMTI5MH0.Uz6aoBl2kjTKENXw8eTrSdOM4W93RVuWTDWr1fCLpAo';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -259,7 +259,7 @@ export default async function handler(req: any, res: any) {
       },
     };
 
-    fetch('https://ixhvcxwbiisrxhngfjyg.supabase.co/functions/v1/alinma-webhook', {
+    fetch(`${SUPABASE_URL}/functions/v1/alinma-webhook`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
