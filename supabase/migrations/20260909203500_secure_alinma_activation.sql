@@ -28,8 +28,10 @@ BEGIN
   END IF;
 
   -- Security check: caller must be the payment owner or an admin
-  IF auth.uid() IS NOT NULL AND auth.uid() <> v_payment.user_id AND NOT public.has_role(auth.uid(), 'admin') THEN
-    RETURN json_build_object('success', false, 'error', 'Unauthorized');
+  IF auth.uid() IS NOT NULL AND auth.uid() <> v_payment.user_id THEN
+    IF NOT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role::text = 'admin') THEN
+      RETURN json_build_object('success', false, 'error', 'Unauthorized');
+    END IF;
   END IF;
 
   -- If order_id is provided, verify it matches
