@@ -27,39 +27,88 @@ export const PaymentSuccess = () => {
   const { user } = useAuth();
   const isRTL = language === 'ar';
 
-  const paymentId = searchParams.get('payment_id') || searchParams.get('paymentId');
-  const transactionId = searchParams.get('transaction_id') || searchParams.get('transactionId') || searchParams.get('trackId') || searchParams.get('orderId');
+  const rawPaymentId = searchParams.get('payment_id') || searchParams.get('paymentId');
+  const transactionId = searchParams.get('transaction_id') || searchParams.get('transactionId') || searchParams.get('trackId') || searchParams.get('orderId') || searchParams.get('TrackID');
   const courseIdParam = searchParams.get('course_id') || searchParams.get('courseId');
   const resultParam = searchParams.get('result') || searchParams.get('Result') || searchParams.get('status');
-  const responseCodeParam = searchParams.get('responseCode') || searchParams.get('response_code') || searchParams.get('code');
+  const responseCodeParam = searchParams.get('responseCode') || searchParams.get('response_code') || searchParams.get('code') || searchParams.get('ResponseCode');
 
   const [isActivated, setIsActivated] = useState(false);
   const [countdown, setCountdown] = useState(3);
   const activatedRef = useRef(false);
 
-  // Fetch payment details
+  // Fetch payment details with comprehensive multi-tier lookup
   const { data: payment, refetch } = useQuery({
-    queryKey: ['payment-success', paymentId],
+    queryKey: ['payment-success', rawPaymentId, transactionId, user?.id],
     queryFn: async () => {
-      if (!paymentId) return null;
-      const { data, error } = await supabase
-        .from('payments')
-        .select(`
-          *,
-          courses (id, title, title_ar),
-          custom_course_requests (id, title)
-        `)
-        .eq('id', paymentId)
-        .single();
-      if (error) return null;
-      return data;
+      // 1. If valid UUID, query by id
+      const isUuid = rawPaymentId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawPaymentId);
+      if (isUuid) {
+        const { data } = await supabase
+          .from('payments')
+          .select(`
+            *,
+            courses (id, title, title_ar),
+            custom_course_requests (id, title)
+          `)
+          .eq('id', rawPaymentId)
+          .maybeSingle();
+        if (data) return data;
+      }
+
+      // 2. Query by transaction_id (orderId / trackId)
+      const lookupTrack = transactionId || rawPaymentId;
+      if (lookupTrack) {
+        const { data } = await supabase
+          .from('payments')
+          .select(`
+            *,
+            courses (id, title, title_ar),
+            custom_course_requests (id, title)
+          `)
+          .eq('transaction_id', lookupTrack)
+          .maybeSingle();
+        if (data) return data;
+      }
+
+      // 3. Query by tabby_payment_id
+      if (lookupTrack) {
+        const { data } = await supabase
+          .from('payments')
+          .select(`
+            *,
+            courses (id, title, title_ar),
+            custom_course_requests (id, title)
+          `)
+          .eq('tabby_payment_id', lookupTrack)
+          .maybeSingle();
+        if (data) return data;
+      }
+
+      // 4. Query latest payment for currently authenticated user
+      if (user?.id) {
+        const { data } = await supabase
+          .from('payments')
+          .select(`
+            *,
+            courses (id, title, title_ar),
+            custom_course_requests (id, title)
+          `)
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (data) return data;
+      }
+
+      return null;
     },
-    enabled: !!paymentId,
+    enabled: !!(rawPaymentId || transactionId || user?.id),
   });
 
   const course = payment?.courses as any;
   const request = payment?.custom_course_requests as any;
-  const resolvedCourseId = courseIdParam || course?.id;
+  const resolvedCourseId = courseIdParam || course?.id || payment?.course_id;
 
   // Trigger confetti on mount
   useEffect(() => {
@@ -77,65 +126,88 @@ export const PaymentSuccess = () => {
 
   // INSTANT ZERO-SECOND ACTIVATION:
   // The exact second the student lands on the return receipt URL from the bank,
-  // we immediately upsert the active enrollment in Supabase so the course is 100% unlocked!
+  // we immediately update payment to paid and upsert active enrollment in Supabase!
   useEffect(() => {
     const effectiveCourseId = resolvedCourseId;
-    if (!user || !effectiveCourseId || activatedRef.current) return;
+    if (!user || (!effectiveCourseId && !payment) || activatedRef.current) return;
     activatedRef.current = true;
 
     const executeInstantActivation = async () => {
       try {
-        // 1. Direct upsert into enrollments table - student has access in 0.1 seconds!
-        await supabase
-          .from('enrollments')
-          .upsert(
-            {
-              user_id: user.id,
-              course_id: effectiveCourseId,
-              status: 'active',
-              paid_percentage: 100,
-              enrolled_at: new Date().toISOString(),
-            },
-            { onConflict: 'user_id,course_id' }
-          );
+        const targetCourseId = effectiveCourseId || payment?.course_id || course?.id;
+        const targetPaymentId = payment?.id || rawPaymentId;
 
-        setIsActivated(true);
+        // 1. Direct update to payments table: mark as paid immediately
+        if (targetPaymentId) {
+          await supabase
+            .from('payments')
+            .update({
+              status: 'paid',
+              paid_at: new Date().toISOString(),
+              tabby_payment_id: transactionId || payment?.tabby_payment_id || undefined,
+              notes: [payment?.notes, 'Payment confirmed on return receipt'].filter(Boolean).join(' | '),
+            })
+            .eq('id', targetPaymentId);
+        }
 
-        // 2. Invalidate all query caches so all course and dashboard pages reflect instant enrollment
+        // 2. Direct upsert into enrollments table - student has access in 0.1 seconds!
+        if (targetCourseId && user.id) {
+          await supabase
+            .from('enrollments')
+            .upsert(
+              {
+                user_id: user.id,
+                course_id: targetCourseId,
+                status: 'active',
+                paid_percentage: 100,
+                enrolled_at: new Date().toISOString(),
+              },
+              { onConflict: 'user_id,course_id' }
+            );
+
+          setIsActivated(true);
+        }
+
+        // 3. Invalidate all query caches so all course and dashboard pages reflect instant enrollment
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ['my-enrollments'] }),
           queryClient.invalidateQueries({ queryKey: ['enrollment'] }),
           queryClient.invalidateQueries({ queryKey: ['enrollments'] }),
           queryClient.invalidateQueries({ queryKey: ['course-content'] }),
           queryClient.invalidateQueries({ queryKey: ['course'] }),
+          queryClient.invalidateQueries({ queryKey: ['admin-payments'] }),
+          queryClient.invalidateQueries({ queryKey: ['my-payments'] }),
         ]);
 
-        // 3. Track registration event
-        try {
-          trackXapi({ verb: 'registered', courseId: effectiveCourseId });
-        } catch { /* non-blocking */ }
+        // 4. Track registration event
+        if (targetCourseId) {
+          try {
+            trackXapi({ verb: 'registered', courseId: targetCourseId });
+          } catch { /* non-blocking */ }
+        }
 
-        // 4. Send background confirmation to backend so payments ledger marks status as 'paid'
-        const gatewayParams: Record<string, string> = {};
-        searchParams.forEach((val, key) => { gatewayParams[key] = val; });
-
-        supabase.functions.invoke('verify-alinma-payment', {
-          body: {
-            paymentId,
-            gatewayParams,
-            returnReceipt: true,
-            forceConfirm: true,
-          },
+        // 5. Notify both webhooks in the background for permanent audit logging
+        fetch('/api/alinma-webhook', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            paymentId: targetPaymentId,
+            courseId: targetCourseId,
+            trackId: transactionId || payment?.transaction_id || targetPaymentId,
+            transactionId,
+            result: resultParam || 'SUCCESS',
+            responseCode: responseCodeParam || '000',
+            source: 'return_receipt',
+          }),
         }).catch(console.warn);
 
-        // Ping webhook function
         fetch('https://ixhvcxwbiisrxhngfjyg.supabase.co/functions/v1/alinma-webhook', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            paymentId,
-            courseId: effectiveCourseId,
-            trackId: transactionId || paymentId,
+            paymentId: targetPaymentId,
+            courseId: targetCourseId,
+            trackId: transactionId || payment?.transaction_id || targetPaymentId,
             transactionId,
             result: resultParam || 'SUCCESS',
             responseCode: responseCodeParam || '000',
@@ -150,7 +222,7 @@ export const PaymentSuccess = () => {
     };
 
     executeInstantActivation();
-  }, [user, resolvedCourseId, paymentId, transactionId, resultParam, responseCodeParam, queryClient, refetch, searchParams]);
+  }, [user, resolvedCourseId, payment, rawPaymentId, transactionId, resultParam, responseCodeParam, queryClient, refetch, course]);
 
   // 3-Second Automatic Countdown to redirect directly into the course
   useEffect(() => {

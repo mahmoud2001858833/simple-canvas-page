@@ -128,8 +128,29 @@ export default async function handler(req: any, res: any) {
       '000'
     ).trim();
 
-    // Check if result indicates success
-    const isSuccess = SUCCESS_CODES.has(result) || SUCCESS_CODES.has(responseCode);
+    const normResult = result.toUpperCase();
+    const isSuccess =
+      SUCCESS_CODES.has(normResult) ||
+      SUCCESS_CODES.has(responseCode) ||
+      normResult.includes('SUCCESS') ||
+      normResult.includes('CAPTURED') ||
+      normResult.includes('APPROVED') ||
+      normResult.includes('PAID') ||
+      responseCode === '000' ||
+      responseCode === '00' ||
+      responseCode === '0';
+
+    const FAILURE_CODES = new Set([
+      '201', '202', '205', '209', '218', '220', '223', '225', '259',
+      '301', '304', '401', '402', '403', '501', '502', '503', '504', '505', '601',
+      'FAILURE', 'UNSUCCESSFUL', 'DECLINED', 'CANCELED', 'CANCELLED', 'TIMEOUT', 'REJECTED'
+    ]);
+
+    const isFailure =
+      FAILURE_CODES.has(normResult) ||
+      FAILURE_CODES.has(responseCode) ||
+      normResult.includes('DECLIN') ||
+      normResult.includes('CANCEL');
 
     // Look for payment in Supabase
     let payment: any = null;
@@ -165,6 +186,21 @@ export default async function handler(req: any, res: any) {
       if (data) payment = data;
     }
 
+    // 5. By customer email (matches most recent payment)
+    const emailCandidate = String(payload.customerEmail || payload.email || orderObj.customerEmail || '').trim().toLowerCase();
+    if (!payment && emailCandidate && emailCandidate.includes('@')) {
+      const { data: prof } = await supabase.from('profiles').select('id').eq('email', emailCandidate).maybeSingle();
+      if (prof?.id) {
+        const { data: recentList } = await supabase
+          .from('payments')
+          .select('*')
+          .eq('user_id', prof.id)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        if (recentList && recentList[0]) payment = recentList[0];
+      }
+    }
+
     if (!payment) {
       console.warn('Payment not found for payload:', { trackId, paymentId, transactionId });
       return res.status(200).json({
@@ -177,7 +213,7 @@ export default async function handler(req: any, res: any) {
     console.log(`Matched payment: ${payment.id} (user: ${payment.user_id}, course: ${payment.course_id})`);
 
     if (isSuccess) {
-      // 1. Update payment to paid
+      // 1. Update payment to paid (even if it was previously marked failed by timeout/creation events)
       await supabase
         .from('payments')
         .update({
@@ -217,8 +253,8 @@ export default async function handler(req: any, res: any) {
         payment_id: payment.id,
         message: 'Payment confirmed and course activated successfully',
       });
-    } else {
-      // Payment declined/failed
+    } else if (isFailure) {
+      // Explicit payment failure
       await supabase
         .from('payments')
         .update({
@@ -232,6 +268,16 @@ export default async function handler(req: any, res: any) {
         status: 'failed',
         payment_id: payment.id,
         message: 'Payment recorded as failed',
+      });
+    } else {
+      // Non-terminal event (e.g. TransactionCreated, LinkBased.Created, InProgress)
+      // DO NOT mark as failed! Keep current status and return OK.
+      console.log(`Non-terminal event ${result} for payment ${payment.id}, keeping pending status`);
+      return res.status(200).json({
+        success: true,
+        status: payment.status,
+        payment_id: payment.id,
+        message: 'Event logged; payment status maintained',
       });
     }
   } catch (error: any) {
