@@ -394,21 +394,6 @@ const Checkout = () => {
         }
 
         if (data?.redirect_url) {
-          try {
-            const pendingIntent = {
-              paymentId: data.payment_id,
-              orderId: data.track_id,
-              transactionId: data.transaction_id,
-              courseId: courseId || null,
-              requestId: requestId || null,
-              amount: finalPrice,
-              timestamp: Date.now(),
-            };
-            localStorage.setItem('pending_checkout', JSON.stringify(pendingIntent));
-            sessionStorage.setItem('pending_checkout', JSON.stringify(pendingIntent));
-          } catch (storageErr) {
-            console.warn('Could not store pending checkout intent', storageErr);
-          }
           window.location.href = data.redirect_url;
         } else {
           toast.error(isRTL ? 'لم يتم استلام رابط الدفع' : 'No payment link received');

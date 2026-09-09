@@ -292,63 +292,7 @@ const CourseDetails = () => {
   });
 
 
-  // Auto-unlock course if the student completed checkout but enrollment is propagating
-  useEffect(() => {
-    if (!user || !courseUUID || paidAccess || enrollment?.status === 'active') return;
-
-    const checkPendingAndActivate = async () => {
-      try {
-        const raw = localStorage.getItem('pending_checkout') || sessionStorage.getItem('pending_checkout');
-        let matched = false;
-        if (raw) {
-          try {
-            const parsed = JSON.parse(raw);
-            if (parsed.courseId === courseUUID) matched = true;
-          } catch {}
-        }
-
-        if (!matched) {
-          const { data: p } = await supabase
-            .from('payments')
-            .select('id, status, created_at')
-            .eq('user_id', user.id)
-            .eq('course_id', courseUUID)
-            .eq('payment_method', 'online')
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-          if (p && (p.status === 'paid' || p.status === 'pending')) {
-            matched = true;
-          }
-        }
-
-        if (matched) {
-          await supabase.from('enrollments').upsert(
-            {
-              user_id: user.id,
-              course_id: courseUUID,
-              status: 'active',
-              paid_percentage: 100,
-              enrolled_at: new Date().toISOString(),
-            },
-            { onConflict: 'user_id,course_id' }
-          );
-
-          await Promise.all([
-            queryClient.invalidateQueries({ queryKey: ['course-access', courseUUID, user.id] }),
-            queryClient.invalidateQueries({ queryKey: ['enrollment', courseUUID, user.id] }),
-            queryClient.invalidateQueries({ queryKey: ['my-enrollments'] }),
-          ]);
-        }
-      } catch (e) {
-        console.warn('Auto-unlock course error:', e);
-      }
-    };
-
-    checkPendingAndActivate();
-  }, [user, courseUUID, paidAccess, enrollment, queryClient]);
-
+  // Fetch lesson progress
   const { data: lessonProgress = [] } = useQuery({
     queryKey: ["lesson-progress", courseUUID, user?.id],
     queryFn: async () => {

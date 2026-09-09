@@ -21,7 +21,6 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import NotFound from "./pages/NotFound";
 import MaintenancePage from "./pages/MaintenancePage";
-import { PaymentSentinel } from "@/components/payment/PaymentSentinel";
 
 // Retry wrapper for lazy imports (handles stale chunk errors after deploys)
 function lazyRetry<T extends React.ComponentType<any>>(
@@ -158,7 +157,6 @@ const App = () => (
                   </Suspense>
                   <BrowserRouter>
                     <PasswordRecoveryHandler />
-                    <PaymentSentinel />
                     <MaintenanceGuard>
                       <Suspense fallback={<PageSkeleton />}>
                         <Routes>
