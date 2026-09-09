@@ -303,8 +303,8 @@ serve(async (req) => {
     // Build return URL — redirect directly to course page after payment
     const siteUrl = "https://www.josoorcom.com";
     const receiptUrl = cid
-      ? `${siteUrl}/payment/success?payment_id=${payment.id}&course_id=${cid}`
-      : `${siteUrl}/payment/success?payment_id=${payment.id}`;
+      ? `${siteUrl}/payment/success?payment_id=${payment.id}&course_id=${cid}&order_id=${orderId}`
+      : `${siteUrl}/payment/success?payment_id=${payment.id}&order_id=${orderId}`;
 
     const userData = JSON.stringify({
       paymentId: payment.id,
@@ -337,6 +337,8 @@ serve(async (req) => {
         billingAddressCountry: "SA",
       },
       receipt: receiptUrl,
+      returnUrl: receiptUrl,
+      redirectUrl: receiptUrl,
       callbackUrl,
       notificationUrl: callbackUrl,
       webhookUrl: callbackUrl,

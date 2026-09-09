@@ -186,33 +186,36 @@ export const PaymentSuccess = () => {
           } catch { /* non-blocking */ }
         }
 
-        // 5. Notify both webhooks in the background for permanent audit logging
+        // Clean up pending storage
+        try {
+          localStorage.removeItem('pending_checkout');
+          sessionStorage.removeItem('pending_checkout');
+        } catch {}
+
+        // 5. Notify both webhooks in the background with full userData for permanent database confirmation
+        const webhookPayload = {
+          paymentId: targetPaymentId,
+          courseId: targetCourseId,
+          trackId: transactionId || payment?.transaction_id || targetPaymentId,
+          transactionId: transactionId || payment?.tabby_payment_id,
+          additionalDetails: {
+            userData: JSON.stringify({
+              paymentId: targetPaymentId,
+              courseId: targetCourseId,
+              orderId: transactionId || payment?.transaction_id,
+            }),
+          },
+          result: resultParam || 'SUCCESS',
+          responseCode: responseCodeParam || '000',
+          source: 'return_receipt',
+        };
+
+        supabase.functions.invoke('alinma-webhook', { body: webhookPayload }).catch(console.warn);
+
         fetch('/api/alinma-webhook', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            paymentId: targetPaymentId,
-            courseId: targetCourseId,
-            trackId: transactionId || payment?.transaction_id || targetPaymentId,
-            transactionId,
-            result: resultParam || 'SUCCESS',
-            responseCode: responseCodeParam || '000',
-            source: 'return_receipt',
-          }),
-        }).catch(console.warn);
-
-        fetch('https://ixhvcxwbiisrxhngfjyg.supabase.co/functions/v1/alinma-webhook', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            paymentId: targetPaymentId,
-            courseId: targetCourseId,
-            trackId: transactionId || payment?.transaction_id || targetPaymentId,
-            transactionId,
-            result: resultParam || 'SUCCESS',
-            responseCode: responseCodeParam || '000',
-            source: 'return_receipt',
-          }),
+          body: JSON.stringify(webhookPayload),
         }).catch(console.warn);
 
         await refetch();

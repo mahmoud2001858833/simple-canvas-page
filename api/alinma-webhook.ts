@@ -68,19 +68,37 @@ export default async function handler(req: any, res: any) {
 
     console.log('Alinma Webhook received payload:', JSON.stringify(payload));
 
-    // Forward to Supabase Edge Function asynchronously for redundant audit logging
-    fetch('https://ixhvcxwbiisrxhngfjyg.supabase.co/functions/v1/alinma-webhook', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
-      },
-      body: JSON.stringify(payload),
-    }).catch((err) => console.warn('Forward to Supabase edge function failed:', err));
-
     const orderObj = payload.order || {};
     const orderDetails = payload.orderDetails || {};
+    const addDetails = payload.additionalDetails || {};
+
+    // Extract userData if present
+    let parsedUserData: Record<string, any> = {};
+    try {
+      const rawUD = addDetails.userData || payload.userData || payload.metadata;
+      if (typeof rawUD === 'string') {
+        parsedUserData = JSON.parse(rawUD);
+      } else if (typeof rawUD === 'object' && rawUD !== null) {
+        parsedUserData = rawUD;
+      }
+    } catch {}
+
+    // Extract reference across all Alinma formats (Hosted Checkout, Apple Pay, Inquiry)
+    const alinmaRef = String(
+      payload.transactionRef ||
+      payload.TransactionRef ||
+      payload.tranRef ||
+      payload.TranRef ||
+      payload.transaction_ref ||
+      payload.referenceId ||
+      payload.ReferenceId ||
+      payload.referenceNo ||
+      payload.ReferenceNo ||
+      payload.refNumber ||
+      payload.ref ||
+      payload.MerchantTxnId ||
+      ''
+    ).trim();
 
     const trackId = String(
       payload.trackId ||
@@ -91,20 +109,24 @@ export default async function handler(req: any, res: any) {
       payload.order_id ||
       orderObj.orderId ||
       orderDetails.orderId ||
+      parsedUserData.orderId ||
       ''
     ).trim();
 
     const paymentId = String(
+      parsedUserData.paymentId ||
       payload.paymentId ||
       payload.paymentid ||
       payload.PaymentID ||
       payload.transactionId ||
       payload.tranid ||
       payload.trans_id ||
+      alinmaRef ||
       ''
     ).trim();
 
     const transactionId = String(
+      alinmaRef ||
       payload.transactionId ||
       payload.tranid ||
       payload.trans_id ||
@@ -117,6 +139,7 @@ export default async function handler(req: any, res: any) {
       payload.Result ||
       payload.status ||
       payload.Status ||
+      payload.transStatus ||
       'SUCCESS'
     ).trim().toUpperCase();
 
@@ -125,6 +148,7 @@ export default async function handler(req: any, res: any) {
       payload.response_code ||
       payload.ResponseCode ||
       payload.code ||
+      payload.ResultCode ||
       '000'
     ).trim();
 
@@ -156,7 +180,7 @@ export default async function handler(req: any, res: any) {
     let payment: any = null;
 
     // 1. By internal UUID
-    const uuidCandidate = [paymentId, trackId, String(payload.id || '')].find((v) =>
+    const uuidCandidate = [parsedUserData.paymentId, paymentId, trackId, String(payload.id || '')].find((v) =>
       v && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
     );
     if (uuidCandidate) {
@@ -170,19 +194,20 @@ export default async function handler(req: any, res: any) {
       if (data) payment = data;
     }
 
-    // 3. By tabby_payment_id = transactionId / paymentId
-    if (!payment && (transactionId || paymentId)) {
+    // 3. By tabby_payment_id = transactionId / paymentId / alinmaRef
+    const lookupRef = transactionId || paymentId || alinmaRef;
+    if (!payment && lookupRef) {
       const { data } = await supabase
         .from('payments')
         .select('*')
-        .eq('tabby_payment_id', transactionId || paymentId)
+        .eq('tabby_payment_id', lookupRef)
         .maybeSingle();
       if (data) payment = data;
     }
 
-    // 4. By transaction_id = paymentId
-    if (!payment && paymentId) {
-      const { data } = await supabase.from('payments').select('*').eq('transaction_id', paymentId).maybeSingle();
+    // 4. By transaction_id = paymentId / alinmaRef
+    if (!payment && lookupRef) {
+      const { data } = await supabase.from('payments').select('*').eq('transaction_id', lookupRef).maybeSingle();
       if (data) payment = data;
     }
 
@@ -200,6 +225,31 @@ export default async function handler(req: any, res: any) {
         if (recentList && recentList[0]) payment = recentList[0];
       }
     }
+
+    // Forward enriched payload to Supabase Edge Function (has full Service Role access)
+    const forwardPayload = {
+      ...payload,
+      trackId: trackId || payment?.transaction_id,
+      paymentId: payment?.id || paymentId,
+      transactionId: transactionId || payment?.tabby_payment_id,
+      additionalDetails: {
+        userData: JSON.stringify({
+          paymentId: payment?.id || paymentId,
+          courseId: payment?.course_id,
+          orderId: trackId || payment?.transaction_id,
+        }),
+      },
+    };
+
+    fetch('https://ixhvcxwbiisrxhngfjyg.supabase.co/functions/v1/alinma-webhook', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+      },
+      body: JSON.stringify(forwardPayload),
+    }).catch((err) => console.warn('Forward to Supabase edge function failed:', err));
 
     if (!payment) {
       console.warn('Payment not found for payload:', { trackId, paymentId, transactionId });
