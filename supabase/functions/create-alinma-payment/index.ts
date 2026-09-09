@@ -311,6 +311,7 @@ serve(async (req) => {
       courseId: cid,
       requestId: rid,
       orderId,
+      receiptUrl,
     });
 
     // Server-to-server notification so the payment is confirmed even if the

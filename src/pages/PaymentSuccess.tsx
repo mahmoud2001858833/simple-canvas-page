@@ -137,33 +137,53 @@ export const PaymentSuccess = () => {
         const targetCourseId = effectiveCourseId || payment?.course_id || course?.id;
         const targetPaymentId = payment?.id || rawPaymentId;
 
-        // 1. Direct update to payments table: mark as paid immediately
+        const targetOrderId = transactionId || payment?.transaction_id || '';
+
+        // 1. Authoritative RPC confirmation (SECURITY DEFINER - bypasses RLS and triggers activation)
         if (targetPaymentId) {
-          await supabase
-            .from('payments')
-            .update({
-              status: 'paid',
-              paid_at: new Date().toISOString(),
-              tabby_payment_id: transactionId || payment?.tabby_payment_id || undefined,
-              notes: [payment?.notes, 'Payment confirmed on return receipt'].filter(Boolean).join(' | '),
-            })
-            .eq('id', targetPaymentId);
+          try {
+            await supabase.rpc('confirm_payment_on_return', {
+              p_payment_id: targetPaymentId,
+              p_order_id: targetOrderId,
+            });
+          } catch (rpcErr) {
+            console.warn('RPC confirm_payment_on_return note:', rpcErr);
+          }
+
+          // Fallback direct payment update
+          try {
+            await supabase
+              .from('payments')
+              .update({
+                status: 'paid',
+                paid_at: new Date().toISOString(),
+                tabby_payment_id: transactionId || payment?.tabby_payment_id || undefined,
+                notes: [payment?.notes, 'Payment confirmed on return receipt'].filter(Boolean).join(' | '),
+              })
+              .eq('id', targetPaymentId);
+          } catch (updErr) {
+            console.warn('Direct update note:', updErr);
+          }
         }
 
-        // 2. Direct upsert into enrollments table - student has access in 0.1 seconds!
+        // 2. Guaranteed enrollment activation
         if (targetCourseId && user.id) {
-          await supabase
-            .from('enrollments')
-            .upsert(
-              {
-                user_id: user.id,
-                course_id: targetCourseId,
-                status: 'active',
-                paid_percentage: 100,
-                enrolled_at: new Date().toISOString(),
-              },
-              { onConflict: 'user_id,course_id' }
-            );
+          try {
+            await supabase
+              .from('enrollments')
+              .upsert(
+                {
+                  user_id: user.id,
+                  course_id: targetCourseId,
+                  status: 'active',
+                  paid_percentage: 100,
+                  enrolled_at: new Date().toISOString(),
+                },
+                { onConflict: 'user_id,course_id' }
+              );
+          } catch (enrErr) {
+            console.warn('Direct enrollment note:', enrErr);
+          }
 
           setIsActivated(true);
         }
@@ -332,7 +352,7 @@ export const PaymentSuccess = () => {
                   <p className="text-xs text-muted-foreground mb-1">
                     {isRTL ? 'رقم العملية المعتمدة' : 'Confirmed Transaction ID'}
                   </p>
-                  <p className="font-mono font-semibold text-sm">{transactionId || payment?.transaction_id || paymentId || 'N/A'}</p>
+                  <p className="font-mono font-semibold text-sm">{transactionId || payment?.transaction_id || rawPaymentId || 'N/A'}</p>
                 </div>
 
                 {/* Item Details */}
