@@ -130,20 +130,28 @@ const LessonViewer = () => {
     }
   }, [user, state.hasSeenWelcome, state.completedSteps, startOnboarding]);
 
-  // Fetch course
-  const { data: course } = useQuery({
+  // Determine if courseId param is a UUID or a slug
+  const isUUID = courseId ? /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(courseId) : false;
+
+  // Fetch course (supports both UUID and slug)
+  const { data: course, isLoading: isCourseLoading } = useQuery({
     queryKey: ["course", courseId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("courses")
-        .select("*")
-        .eq("id", courseId)
-        .single();
+      let query = supabase.from("courses").select("*");
+      if (isUUID) {
+        query = query.eq("id", courseId);
+      } else {
+        query = query.eq("slug", courseId);
+      }
+      const { data, error } = await query.single();
       if (error) throw error;
       return data;
     },
     enabled: !!courseId,
   });
+
+  // Resolved course UUID for database foreign key queries
+  const resolvedCourseId = course?.id || (isUUID ? courseId : undefined);
 
   // Fetch instructor name (for the intro board)
   const { data: instructorProfile } = useQuery({
@@ -161,13 +169,13 @@ const LessonViewer = () => {
   });
 
   // Fetch all lessons with chapter info for proper ordering
-  const { data: lessons = [] } = useQuery({
-    queryKey: ["lessons", courseId],
+  const { data: lessons = [], isLoading: isLessonsLoading } = useQuery({
+    queryKey: ["lessons", resolvedCourseId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lessons")
         .select("*, chapters:chapter_id(sort_order)")
-        .eq("course_id", courseId)
+        .eq("course_id", resolvedCourseId!)
         .order("sort_order");
       if (error) throw error;
       // Sort by chapter sort_order first, then lesson sort_order
@@ -178,22 +186,22 @@ const LessonViewer = () => {
         return (a.sort_order || 0) - (b.sort_order || 0);
       });
     },
-    enabled: !!courseId,
+    enabled: !!resolvedCourseId,
   });
 
   // Fetch chapters for installment gating
   const { data: chapters = [] } = useQuery({
-    queryKey: ["chapters", courseId],
+    queryKey: ["chapters", resolvedCourseId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("chapters")
         .select("*")
-        .eq("course_id", courseId)
+        .eq("course_id", resolvedCourseId!)
         .order("sort_order");
       if (error) throw error;
       return data;
     },
-    enabled: !!courseId,
+    enabled: !!resolvedCourseId,
   });
 
   // Current lesson
@@ -204,34 +212,34 @@ const LessonViewer = () => {
 
   // Fetch enrollment
   const { data: enrollment } = useQuery({
-    queryKey: ["enrollment", courseId, user?.id],
+    queryKey: ["enrollment", resolvedCourseId, user?.id],
     queryFn: async () => {
       if (!user) return null;
       const { data, error } = await supabase
         .from("enrollments")
         .select("*")
-        .eq("course_id", courseId)
+        .eq("course_id", resolvedCourseId!)
         .eq("user_id", user.id)
         .maybeSingle();
       if (error) throw error;
       return data;
     },
-    enabled: !!courseId && !!user,
+    enabled: !!resolvedCourseId && !!user,
   });
 
   // Server-side authorization: active enrollment + successful payment
   const { data: paidAccess = false } = useQuery({
-    queryKey: ["course-access", courseId, user?.id],
+    queryKey: ["course-access", resolvedCourseId, user?.id],
     queryFn: async () => {
-      if (!user || !courseId) return false;
+      if (!user || !resolvedCourseId) return false;
       const { data, error } = await supabase.rpc("user_has_course_access", {
         _user_id: user.id,
-        _course_id: courseId,
+        _course_id: resolvedCourseId,
       });
       if (error) throw error;
       return !!data;
     },
-    enabled: !!courseId && !!user,
+    enabled: !!resolvedCourseId && !!user,
   });
 
 
@@ -266,10 +274,10 @@ const LessonViewer = () => {
 
   // NELC xAPI: learner initialized the course session
   useEffect(() => {
-    if (!user || !courseId || !hasAccess) return;
-    trackXapi({ verb: "initialized", courseId });
+    if (!user || !resolvedCourseId || !hasAccess) return;
+    trackXapi({ verb: "initialized", courseId: resolvedCourseId });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, courseId, hasAccess]);
+  }, [user?.id, resolvedCourseId, hasAccess]);
 
   // Fetch video URL using Cloudflare Worker
   // For preview lessons, allow access even without user login
@@ -301,7 +309,7 @@ const LessonViewer = () => {
 
   // Fetch all lesson progress for sidebar
   const { data: allProgress = [] } = useQuery({
-    queryKey: ["all-lesson-progress", courseId, user?.id],
+    queryKey: ["all-lesson-progress", resolvedCourseId, user?.id],
     queryFn: async () => {
       if (!user) return [];
       const lessonIds = lessons.map((l) => l.id);
@@ -315,7 +323,7 @@ const LessonViewer = () => {
       if (error) throw error;
       return data;
     },
-    enabled: !!courseId && !!user && lessons.length > 0,
+    enabled: !!resolvedCourseId && !!user && lessons.length > 0,
   });
 
   // Save progress mutation
@@ -356,7 +364,7 @@ const LessonViewer = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lesson-progress", lessonId] });
-      queryClient.invalidateQueries({ queryKey: ["all-lesson-progress", courseId] });
+      queryClient.invalidateQueries({ queryKey: ["all-lesson-progress", resolvedCourseId] });
     },
   });
 
@@ -375,7 +383,7 @@ const LessonViewer = () => {
       // NELC xAPI: lesson video watched + lesson completed
       trackXapi({
         verb: "watched",
-        courseId,
+        courseId: resolvedCourseId || courseId,
         lessonId,
         objectName: currentLesson?.title || currentLesson?.title_ar,
         durationSeconds: Math.round(duration || 0),
@@ -383,7 +391,7 @@ const LessonViewer = () => {
       });
       trackXapi({
         verb: "completed",
-        courseId,
+        courseId: resolvedCourseId || courseId,
         lessonId,
         objectName: currentLesson?.title || currentLesson?.title_ar,
         durationSeconds: Math.round(duration || 0),
@@ -402,14 +410,14 @@ const LessonViewer = () => {
             // NELC xAPI: overall course progress
             trackXapi({
               verb: "progressed",
-              courseId,
+              courseId: resolvedCourseId || courseId,
               score: { scaled: progressPercent / 100 },
               completion: progressPercent >= 100,
             });
 
             // Show rating dialog when course is 100% complete
             if (progressPercent >= 100) {
-              trackXapi({ verb: "completed", courseId });
+              trackXapi({ verb: "completed", courseId: resolvedCourseId || courseId });
               setTimeout(() => setShowRatingDialog(true), 1000);
             }
           });
@@ -562,6 +570,16 @@ const LessonViewer = () => {
   const completedLessons = allProgress.filter((p) => p.completed).length;
   const overallProgress = lessons.length > 0 ? (completedLessons / lessons.length) * 100 : 0;
 
+  if (isCourseLoading || isLessonsLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  const courseNavigationPath = course?.slug || resolvedCourseId || courseId;
+
   if (!currentLesson) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -571,7 +589,7 @@ const LessonViewer = () => {
             {isRTL ? "الدرس غير موجود" : "Lesson Not Found"}
           </h1>
           <Button asChild variant="outline" className="mt-4">
-            <Link to={`/courses/${courseId}`}>
+            <Link to={`/courses/${courseNavigationPath}`}>
               {isRTL ? "العودة للدورة" : "Back to Course"}
             </Link>
           </Button>
@@ -599,7 +617,7 @@ const LessonViewer = () => {
             }
           </p>
           <Button asChild>
-            <Link to={isLockedByInstallment ? `/checkout/${courseId}` : `/courses/${courseId}`}>
+            <Link to={isLockedByInstallment ? `/checkout/${courseNavigationPath}` : `/courses/${courseNavigationPath}`}>
               {isLockedByInstallment
                 ? (isRTL ? "ادفع للمتابعة" : "Pay to Continue")
                 : (isRTL ? "اشترك الآن" : "Enroll Now")
@@ -627,7 +645,7 @@ const LessonViewer = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => navigate(`/courses/${courseId}`)}
+                onClick={() => navigate(`/courses/${courseNavigationPath}`)}
               >
                 {isRTL ? <ArrowRight className="h-4 w-4" /> : <ArrowLeft className="h-4 w-4" />}
                 <span className="ml-2">
@@ -1132,7 +1150,7 @@ const LessonViewer = () => {
               {(() => {
                 // Group lessons by chapter, maintaining chapter sort order
                 const sortedChaptersList = [...chapters].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-                const unassignedLessons = lessons.filter(l => !(l as any).chapter_id);
+                const unassignedLessons = lessons.filter(l => !(l as any).chapter_id || !chapters.some(c => c.id === (l as any).chapter_id));
                 let globalIndex = 0;
 
                 return (
@@ -1270,11 +1288,11 @@ const LessonViewer = () => {
     </div>
 
     {/* Course Rating Dialog */}
-    {courseId && (
+    {(resolvedCourseId || courseId) && (
       <CourseRatingDialog
         open={showRatingDialog}
         onOpenChange={setShowRatingDialog}
-        courseId={courseId}
+        courseId={resolvedCourseId || courseId}
         isRTL={isRTL}
       />
     )}

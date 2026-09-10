@@ -383,6 +383,7 @@ export const LessonsManagement = ({ courseId, courseTitle, chapterId, onBack }: 
   });
 
   const resetForm = () => {
+    setDraftLessonId(null);
     setFormData({
       title: '',
       title_ar: '',
@@ -400,6 +401,7 @@ export const LessonsManagement = ({ courseId, courseTitle, chapterId, onBack }: 
   };
 
   const handleEdit = (lesson: any) => {
+    setDraftLessonId(null);
     setEditingLesson(lesson);
     setFormData({
       title: lesson.title,
@@ -442,6 +444,7 @@ export const LessonsManagement = ({ courseId, courseTitle, chapterId, onBack }: 
   };
 
   const handleSubmit = () => {
+    setDraftLessonId(null);
     if (editingLesson) {
       updateMutation.mutate({ id: editingLesson.id, data: formData });
     } else {
@@ -797,14 +800,15 @@ export const LessonsManagement = ({ courseId, courseTitle, chapterId, onBack }: 
       <Dialog open={isDialogOpen} onOpenChange={async (open) => {
         setIsDialogOpen(open);
         if (!open) {
-          if (draftLessonId) {
+          const currentDraftId = draftLessonId;
+          setDraftLessonId(null);
+          if (currentDraftId) {
             // Remove the empty placeholder lesson if it was never filled in
-            const { data: draft } = await supabase.from('lessons').select('title, title_ar, video_url').eq('id', draftLessonId).maybeSingle();
+            const { data: draft } = await supabase.from('lessons').select('title, title_ar, video_url').eq('id', currentDraftId).maybeSingle();
             if (draft && !draft.title?.trim() && !draft.title_ar?.trim() && !draft.video_url) {
-              await supabase.from('lessons').delete().eq('id', draftLessonId);
+              await supabase.from('lessons').delete().eq('id', currentDraftId);
               queryClient.invalidateQueries({ queryKey: ['admin-lessons', courseId] });
             }
-            setDraftLessonId(null);
           }
           resetForm();
         }

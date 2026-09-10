@@ -197,6 +197,59 @@ export const InstructorLessons = ({ courseId, courseTitle, chapterId, chapterTit
     enabled: !!chapterId,
   });
 
+  // Fetch unassigned lessons (chapter_id is null) for this course
+  const { data: unassignedLessons = [] } = useQuery({
+    queryKey: ['instructor-unassigned-lessons', courseId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('lessons')
+        .select('*')
+        .eq('course_id', courseId)
+        .is('chapter_id', null)
+        .order('sort_order', { ascending: true });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!courseId,
+  });
+
+  const assignToChapterMutation = useMutation({
+    mutationFn: async (lessonId: string) => {
+      const maxOrder = lessons?.length ? Math.max(...lessons.map(l => l.sort_order || 0)) : 0;
+      const { error } = await supabase
+        .from('lessons')
+        .update({ chapter_id: chapterId, sort_order: maxOrder + 1 })
+        .eq('id', lessonId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['instructor-lessons', courseId, chapterId] });
+      queryClient.invalidateQueries({ queryKey: ['instructor-unassigned-lessons', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['chapter-lesson-counts', courseId] });
+      toast.success(language === 'ar' ? 'تم ربط الدرس بالفصل بنجاح' : 'Lesson assigned to chapter');
+    },
+  });
+
+  const assignAllToChapterMutation = useMutation({
+    mutationFn: async () => {
+      let currentMax = lessons?.length ? Math.max(...lessons.map(l => l.sort_order || 0)) : 0;
+      for (const l of unassignedLessons) {
+        currentMax++;
+        const { error } = await supabase
+          .from('lessons')
+          .update({ chapter_id: chapterId, sort_order: currentMax })
+          .eq('id', l.id);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['instructor-lessons', courseId, chapterId] });
+      queryClient.invalidateQueries({ queryKey: ['instructor-unassigned-lessons', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['chapter-lesson-counts', courseId] });
+      toast.success(language === 'ar' ? 'تم ربط جميع الدروس بالفصل' : 'All lessons assigned to chapter');
+    },
+  });
+
   const deleteChapterFile = async (id: string) => {
     await supabase.from('chapter_files' as any).delete().eq('id', id);
     queryClient.invalidateQueries({ queryKey: ['instructor-chapter-files', courseId, chapterId] });
@@ -279,6 +332,7 @@ export const InstructorLessons = ({ courseId, courseTitle, chapterId, chapterTit
   });
 
   const resetForm = () => {
+    setDraftLessonId(null);
     setFormData({
       title: '', title_ar: '', description: '', duration_minutes: '',
       video_url: '', video_url_480p: '', video_url_720p: '', video_url_1080p: '',
@@ -288,6 +342,7 @@ export const InstructorLessons = ({ courseId, courseTitle, chapterId, chapterTit
   };
 
   const handleEdit = (lesson: any) => {
+    setDraftLessonId(null);
     setEditingLesson(lesson);
     setFormData({
       title: lesson.title, title_ar: lesson.title_ar,
@@ -302,6 +357,7 @@ export const InstructorLessons = ({ courseId, courseTitle, chapterId, chapterTit
 
   const handleSubmit = () => {
     if (editingLesson) {
+      setDraftLessonId(null);
       updateMutation.mutate({ id: editingLesson.id, data: formData });
     }
   };
@@ -502,6 +558,64 @@ export const InstructorLessons = ({ courseId, courseTitle, chapterId, chapterTit
         )}
       </div>
 
+      {/* Unassigned Lessons */}
+      {chapterId && unassignedLessons.length > 0 && (
+        <div className="space-y-3 border-t pt-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+              <Video className="w-4 h-4" />
+              {language === 'ar' ? `دروس عامة غير مربوطة بفصل (${unassignedLessons.length})` : `Unassigned Lessons (${unassignedLessons.length})`}
+            </h3>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => assignAllToChapterMutation.mutate()}
+              disabled={assignAllToChapterMutation.isPending}
+            >
+              <Plus className="w-3 h-3 me-1" />
+              {language === 'ar' ? 'ربط الكل بهذا الفصل' : 'Assign all to this chapter'}
+            </Button>
+          </div>
+          {unassignedLessons.map((lesson, index) => (
+            <div
+              key={lesson.id}
+              className="card-premium p-4 flex items-center gap-4 group border-dashed"
+            >
+              <span className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium text-muted-foreground">
+                {index + 1}
+              </span>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium truncate">
+                  {language === 'ar'
+                    ? (lesson.title_ar || lesson.title || `درس ${index + 1}`)
+                    : (lesson.title || lesson.title_ar || `Lesson ${index + 1}`)}
+                </h3>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {lesson.video_url && (
+                    <Badge variant="default" className="text-xs">{language === 'ar' ? 'يوجد فيديو' : 'Has video'}</Badge>
+                  )}
+                  {lesson.duration_minutes > 0 && (
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {lesson.duration_minutes} {language === 'ar' ? 'دقيقة' : 'min'}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => assignToChapterMutation.mutate(lesson.id)}
+                disabled={assignToChapterMutation.isPending}
+              >
+                <Plus className="w-3 h-3 me-1" />
+                {language === 'ar' ? 'ربط بهذا الفصل' : 'Assign here'}
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Chapter Files */}
       {chapterId && chapterFiles.length > 0 && (
         <div className="space-y-2">
@@ -546,14 +660,15 @@ export const InstructorLessons = ({ courseId, courseTitle, chapterId, chapterTit
       <Dialog open={isDialogOpen} onOpenChange={async (open) => {
         setIsDialogOpen(open);
         if (!open) {
-          if (draftLessonId) {
-            const { data: draft } = await supabase.from('lessons').select('title, title_ar, video_url').eq('id', draftLessonId).maybeSingle();
+          const currentDraftId = draftLessonId;
+          setDraftLessonId(null);
+          if (currentDraftId) {
+            const { data: draft } = await supabase.from('lessons').select('title, title_ar, video_url').eq('id', currentDraftId).maybeSingle();
             if (draft && !draft.title?.trim() && !draft.title_ar?.trim() && !draft.video_url) {
-              await supabase.from('lessons').delete().eq('id', draftLessonId);
+              await supabase.from('lessons').delete().eq('id', currentDraftId);
               queryClient.invalidateQueries({ queryKey: ['instructor-lessons', courseId, chapterId] });
               queryClient.invalidateQueries({ queryKey: ['chapter-lesson-counts', courseId] });
             }
-            setDraftLessonId(null);
           }
           resetForm();
         }

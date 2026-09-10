@@ -457,7 +457,7 @@ const CourseDetails = () => {
 
     lessons.forEach((lesson, globalIndex) => {
       const chId = (lesson as any).chapter_id;
-      if (chId) {
+      if (chId && chapters.some(c => c.id === chId)) {
         if (!chapterMap.has(chId)) chapterMap.set(chId, []);
         chapterMap.get(chId)!.push({ lesson, globalIndex });
       } else {
@@ -639,7 +639,7 @@ const CourseDetails = () => {
                         <Progress value={progressPercent} className="h-2" />
                       </div>
                       <Button className="w-full" size="lg" asChild>
-                        <Link to={`/courses/${id}/lessons/${lessons[0]?.id}`}>
+                        <Link to={`/courses/${courseUUID || id}/lessons/${lessons[0]?.id}`}>
                           <Play className="h-4 w-4 mr-2" />{isRTL ? "متابعة التعلم" : "Continue Learning"}
                         </Link>
                       </Button>
@@ -829,7 +829,7 @@ const CourseDetails = () => {
                                     }`}
                                     onClick={() => {
                                       if (accessible) {
-                                        navigate(`/courses/${id}/lessons/${lesson.id}`);
+                                        navigate(`/courses/${courseUUID || id}/lessons/${lesson.id}`);
                                       } else if (!user) {
                                         toast.info(isRTL ? 'سجّل دخولك أولاً ثم اشترِ الدورة لمشاهدة هذا الدرس' : 'Please login and purchase the course to watch this lesson');
                                         navigate('/login');

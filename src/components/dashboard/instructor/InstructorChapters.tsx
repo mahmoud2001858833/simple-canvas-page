@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { 
-  ArrowLeft, Plus, Edit, Trash2, GripVertical, FolderOpen, BookOpen 
+  ArrowLeft, Plus, Edit, Trash2, GripVertical, FolderOpen, BookOpen, Video 
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { InstructorLessons } from './InstructorLessons';
@@ -77,8 +77,8 @@ export const InstructorChapters = ({ courseId, courseTitle, onBack }: Instructor
     },
   });
 
-  // Get lesson counts per chapter
-  const { data: lessonCounts = {} } = useQuery({
+  // Get lesson counts per chapter and unassigned lessons
+  const { data: lessonCountsData = { counts: {}, unassignedCount: 0 } } = useQuery({
     queryKey: ['chapter-lesson-counts', courseId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -87,14 +87,20 @@ export const InstructorChapters = ({ courseId, courseTitle, onBack }: Instructor
         .eq('course_id', courseId);
       if (error) throw error;
       const counts: Record<string, number> = {};
+      let unassigned = 0;
       (data || []).forEach(l => {
         if (l.chapter_id) {
           counts[l.chapter_id] = (counts[l.chapter_id] || 0) + 1;
+        } else {
+          unassigned++;
         }
       });
-      return counts;
+      return { counts, unassignedCount: unassigned };
     },
   });
+
+  const lessonCounts = lessonCountsData.counts;
+  const unassignedCount = lessonCountsData.unassignedCount;
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -211,44 +217,70 @@ export const InstructorChapters = ({ courseId, courseTitle, onBack }: Instructor
               </div>
             </div>
           ))
-        ) : chapters.length === 0 ? (
-          <div className="text-center py-16 text-muted-foreground">
-            <FolderOpen className="w-16 h-16 mx-auto mb-4 opacity-30" />
-            <p className="text-lg font-medium">{t.noChapters}</p>
-            <p className="text-sm mt-1">{t.createFirst}</p>
-          </div>
         ) : (
-          chapters.map((chapter, index) => {
-            const count = lessonCounts[chapter.id] || 0;
-            const chapterTitle = isRTL ? (chapter.title_ar || chapter.title) : (chapter.title || chapter.title_ar);
-            return (
+          <>
+            {chapters.length === 0 && unassignedCount === 0 && (
+              <div className="text-center py-16 text-muted-foreground">
+                <FolderOpen className="w-16 h-16 mx-auto mb-4 opacity-30" />
+                <p className="text-lg font-medium">{t.noChapters}</p>
+                <p className="text-sm mt-1">{t.createFirst}</p>
+              </div>
+            )}
+
+            {chapters.map((chapter, index) => {
+              const count = lessonCounts[chapter.id] || 0;
+              const chapterTitle = isRTL ? (chapter.title_ar || chapter.title) : (chapter.title || chapter.title_ar);
+              return (
+                <div
+                  key={chapter.id}
+                  className="card-premium p-4 flex items-center gap-4 group cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => setSelectedChapter({ id: chapter.id, title: chapterTitle })}
+                >
+                  <GripVertical className="w-5 h-5 text-muted-foreground cursor-grab opacity-50 group-hover:opacity-100" />
+                  <span className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium text-primary">
+                    {index + 1}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold truncate">{chapterTitle}</h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge variant="outline" className="text-xs">
+                        <BookOpen className="w-3 h-3 me-1" />
+                        {count} {t.lessons}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                    <Button variant="ghost" size="icon" onClick={(e) => handleEdit(chapter, e)}>
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    {/* Delete restricted to admins per platform policy */}
+                  </div>
+                </div>
+              );
+            })}
+
+            {unassignedCount > 0 && (
               <div
-                key={chapter.id}
-                className="card-premium p-4 flex items-center gap-4 group cursor-pointer hover:shadow-md transition-shadow"
-                onClick={() => setSelectedChapter({ id: chapter.id, title: chapterTitle })}
+                className="card-premium p-4 flex items-center gap-4 group cursor-pointer hover:shadow-md transition-shadow border-dashed border-amber-300 dark:border-amber-700 bg-amber-50/40 dark:bg-amber-950/20"
+                onClick={() => setSelectedChapter({ id: '', title: isRTL ? 'الدروس العامة (غير مربوطة بفصل)' : 'General Lessons (Unassigned)' })}
               >
-                <GripVertical className="w-5 h-5 text-muted-foreground cursor-grab opacity-50 group-hover:opacity-100" />
-                <span className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-medium text-primary">
-                  {index + 1}
-                </span>
+                <div className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                  <Video className="w-4 h-4" />
+                </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold truncate">{chapterTitle}</h3>
+                  <h3 className="font-semibold truncate text-amber-900 dark:text-amber-200">
+                    {isRTL ? 'الدروس العامة (غير مربوطة بفصل)' : 'General Lessons (Unassigned)'}
+                  </h3>
                   <div className="flex items-center gap-2 mt-1">
-                    <Badge variant="outline" className="text-xs">
+                    <Badge variant="outline" className="text-xs border-amber-400 text-amber-700 dark:text-amber-300">
                       <BookOpen className="w-3 h-3 me-1" />
-                      {count} {t.lessons}
+                      {unassignedCount} {t.lessons}
                     </Badge>
                   </div>
                 </div>
-                <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                  <Button variant="ghost" size="icon" onClick={(e) => handleEdit(chapter, e)}>
-                    <Edit className="w-4 h-4" />
-                  </Button>
-                  {/* Delete restricted to admins per platform policy */}
-                </div>
               </div>
-            );
-          })
+            )}
+          </>
         )}
       </div>
 
