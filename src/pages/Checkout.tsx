@@ -73,69 +73,75 @@ const Checkout = () => {
     }
   }, [user, navigate]);
 
+  const isCourseUUID = courseId ? /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(courseId) : false;
+
   // Fetch course details
   const { data: course, isLoading: courseLoading } = useQuery({
     queryKey: ['checkout-course', courseId],
     queryFn: async () => {
       if (!courseId) return null;
-      const { data, error } = await supabase
-        .from('courses')
-        .select('*')
-        .eq('id', courseId)
-        .single();
+      let query = supabase.from('courses').select('*');
+      if (isCourseUUID) {
+        query = query.eq('id', courseId);
+      } else {
+        query = query.eq('slug', courseId);
+      }
+      const { data, error } = await query.single();
       if (error) throw error;
       return data;
     },
     enabled: !!courseId,
   });
 
+  const resolvedCourseId = course?.id || (isCourseUUID ? courseId : undefined);
+
   // Fetch existing enrollment (for installment payments)
   const { data: enrollment } = useQuery({
-    queryKey: ['checkout-enrollment', courseId, user?.id],
+    queryKey: ['checkout-enrollment', resolvedCourseId, user?.id],
     queryFn: async () => {
-      if (!user || !courseId) return null;
+      if (!user || !resolvedCourseId) return null;
       const { data, error } = await supabase
         .from('enrollments')
         .select('*')
-        .eq('course_id', courseId)
+        .eq('course_id', resolvedCourseId)
         .eq('user_id', user.id)
         .maybeSingle();
       if (error) throw error;
       return data;
     },
-    enabled: !!courseId && !!user,
+    enabled: !!resolvedCourseId && !!user,
   });
 
   // Fetch existing monthly installment plan
   const { data: monthlyPlan } = useQuery({
-    queryKey: ['checkout-monthly-plan', courseId, user?.id],
+    queryKey: ['checkout-monthly-plan', resolvedCourseId, user?.id],
     queryFn: async () => {
-      if (!user || !courseId) return null;
+      if (!user || !resolvedCourseId) return null;
       const { data, error } = await supabase
         .from('monthly_installments')
         .select('*')
-        .eq('course_id', courseId)
+        .eq('course_id', resolvedCourseId)
         .eq('user_id', user.id)
         .maybeSingle();
       if (error) return null;
       return data;
     },
-    enabled: !!courseId && !!user,
+    enabled: !!resolvedCourseId && !!user,
   });
 
   // Fetch lessons count for display (installments are based on lessons, not chapters)
   const { data: chaptersCount = 0 } = useQuery({
-    queryKey: ['checkout-lessons-count', courseId],
+    queryKey: ['checkout-lessons-count', resolvedCourseId],
     queryFn: async () => {
-      if (!courseId) return 0;
+      if (!resolvedCourseId) return 0;
       const { count, error } = await supabase
         .from('lessons')
         .select('*', { count: 'exact', head: true })
-        .eq('course_id', courseId);
+        .eq('course_id', resolvedCourseId);
       if (error) return 0;
       return count || 0;
     },
-    enabled: !!courseId,
+    enabled: !!resolvedCourseId,
   });
 
   // Fetch custom request details
@@ -199,14 +205,15 @@ const Checkout = () => {
 
   // Redirect free courses to direct enrollment
   useEffect(() => {
-    if (course && (course.price === 0 || course.price === null) && user && !isExistingEnrollment) {
+    if (course && (course.price === 0 || course.price === null) && user && !isExistingEnrollment && resolvedCourseId) {
       const enrollFree = async () => {
         try {
           const { error } = await supabase.from('enrollments').upsert(
             {
               user_id: user.id,
-              course_id: courseId!,
+              course_id: resolvedCourseId,
               status: 'active',
+              paid_percentage: 100,
             },
             { onConflict: 'user_id,course_id', ignoreDuplicates: true },
           );
@@ -220,7 +227,7 @@ const Checkout = () => {
             toast.success(isRTL ? 'تم التسجيل بنجاح!' : 'Enrolled successfully!');
           }
 
-          navigate(`/courses/${courseId}`, { replace: true });
+          navigate(`/courses/${course.slug || courseId}`, { replace: true });
         } catch (e: any) {
           toast.error(e.message);
           navigate(-1);
@@ -228,7 +235,7 @@ const Checkout = () => {
       };
       enrollFree();
     }
-  }, [course, user, courseId, navigate, isRTL, isExistingEnrollment]);
+  }, [course, user, courseId, resolvedCourseId, navigate, isRTL, isExistingEnrollment]);
 
   // Calculate installment amount: pay the delta between target % and current paid %
   const selectedOption = allInstallmentOptions.find(opt => opt.percent === selectedInstallment);
@@ -262,7 +269,7 @@ const Checkout = () => {
       const { data, error } = await supabase.rpc('validate_coupon', {
         p_code: couponCode.trim(),
         p_user_id: user.id,
-        p_course_id: courseId || null,
+        p_course_id: resolvedCourseId || null,
         p_order_amount: priceBeforeCoupon,
       });
       if (error) throw error;
@@ -327,10 +334,10 @@ const Checkout = () => {
     setIsProcessing(true);
     try {
       // Free via 100% coupon → enroll directly, skip gateway
-      if (finalPrice === 0 && courseId) {
+      if (finalPrice === 0 && resolvedCourseId) {
         const { data: paymentData, error: payErr } = await supabase.from('payments').insert({
           user_id: user.id,
-          course_id: courseId,
+          course_id: resolvedCourseId,
           request_id: requestId || null,
           amount: 0,
           payment_method: 'online',
@@ -344,7 +351,7 @@ const Checkout = () => {
         }
         const { error: enrollErr } = await supabase.from('enrollments').upsert({
           user_id: user.id,
-          course_id: courseId,
+          course_id: resolvedCourseId,
           status: 'active',
           paid_percentage: 100,
         }, { onConflict: 'user_id,course_id' });
@@ -363,19 +370,19 @@ const Checkout = () => {
           } catch (e) { console.error(e); }
         }
         toast.success(isRTL ? 'تم تفعيل الدورة مجاناً!' : 'Course activated for free!');
-        navigate(`/courses/${courseId}`);
+        navigate(`/courses/${course?.slug || courseId}`);
         return;
       }
 
       if (paymentMethod === 'alinmapay') {
         const { data, error } = await supabase.functions.invoke('create-alinma-payment', {
           body: {
-            courseId: courseId || null,
+            courseId: resolvedCourseId || null,
             requestId: requestId || null,
             userId: user.id,
             amount: finalPrice,
             couponCode: appliedCoupon?.valid ? couponCode.trim() : null,
-            installmentPercent: courseId ? (isMonthly ? 100 : selectedInstallment) : 100,
+            installmentPercent: resolvedCourseId ? (isMonthly ? 100 : selectedInstallment) : 100,
             planType: isMonthly ? 'monthly' : 'chapters',
             customerEmail: user.email,
           },
@@ -402,7 +409,7 @@ const Checkout = () => {
         // Create pending payment for bank transfer
         const { data: paymentData, error: paymentError } = await supabase.from('payments').insert({
           user_id: user.id,
-          course_id: courseId || null,
+          course_id: resolvedCourseId || null,
           request_id: requestId || null,
           amount: finalPrice,
           payment_method: 'bank_transfer',

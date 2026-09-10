@@ -245,7 +245,7 @@ const CourseDetails = () => {
 
   // Fetch attachments count
   const { data: attachmentsCount = 0 } = useQuery({
-    queryKey: ["attachments-count", id],
+    queryKey: ["attachments-count", courseUUID || id],
     queryFn: async () => {
       const lessonIds = lessons.map(l => l.id);
       if (lessonIds.length === 0) return 0;
@@ -359,10 +359,11 @@ const CourseDetails = () => {
   // Enroll mutation
   const enrollMutation = useMutation({
     mutationFn: async () => {
-      if (!user || !id) throw new Error("Not authenticated");
+      const targetCourseId = courseUUID || course?.id;
+      if (!user || !targetCourseId) throw new Error("Not authenticated or course not found");
       const { data: payment, error: paymentError } = await supabase
         .from("payments")
-        .insert({ user_id: user.id, course_id: id, amount: course?.price || 0, payment_method: "online", status: "pending" })
+        .insert({ user_id: user.id, course_id: targetCourseId, amount: course?.price || 0, payment_method: "online", status: "pending" })
         .select()
         .single();
       if (paymentError) throw paymentError;
@@ -373,14 +374,25 @@ const CourseDetails = () => {
         .eq("id", payment.id);
       if (updateError) throw updateError;
 
-      const { error: enrollError } = await supabase.from("enrollments").insert({
-        user_id: user.id, course_id: id, status: "active",
-      });
+      const { error: enrollError } = await supabase.from("enrollments").upsert({
+        user_id: user.id,
+        course_id: targetCourseId,
+        status: "active",
+        paid_percentage: 100,
+      }, { onConflict: "user_id,course_id" });
       if (enrollError) throw enrollError;
       return payment;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["enrollment", id] });
+      const targetCourseId = courseUUID || course?.id;
+      queryClient.invalidateQueries({ queryKey: ["enrollment", targetCourseId] });
+      queryClient.invalidateQueries({ queryKey: ["enrollment", targetCourseId, user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["enrollment", id, user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["course-access", targetCourseId] });
+      queryClient.invalidateQueries({ queryKey: ["course-access", targetCourseId, user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["course-access", id, user?.id] });
+      queryClient.invalidateQueries({ queryKey: ["lessons", targetCourseId] });
+      queryClient.invalidateQueries({ queryKey: ["lessons", id] });
       setShowEnrollDialog(false);
       toast.success(isRTL ? "تم الاشتراك بنجاح!" : "Enrolled successfully!");
     },
@@ -614,7 +626,7 @@ const CourseDetails = () => {
                       <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
                         {isRTL ? `المدفوع: ${paidPercentage}% - متاح ${accessibleChapterCount} من ${totalChaptersCount} فصل` : `Paid: ${paidPercentage}% - ${accessibleChapterCount} of ${totalChaptersCount} chapters available`}
                       </p>
-                      <Button size="sm" className="mt-2 w-full" onClick={() => navigate(`/checkout/${id}`)}>
+                      <Button size="sm" className="mt-2 w-full" onClick={() => navigate(`/checkout/${courseUUID || id}`)}>
                         <CreditCard className="h-4 w-4 mr-2" />
                         {isRTL ? 'ادفع القسط التالي' : 'Pay Next Installment'}
                       </Button>
@@ -657,15 +669,15 @@ const CourseDetails = () => {
                     </Button>
                   ) : (
                     <div className="space-y-2">
-                      <Button className="w-full" size="lg" onClick={() => { if (!user) { navigate("/login"); return; } navigate(`/checkout/${id}?installment=100`); }}>
+                      <Button className="w-full" size="lg" onClick={() => { if (!user) { navigate("/login"); return; } navigate(`/checkout/${courseUUID || id}?installment=100`); }}>
                         <ShoppingCart className="h-4 w-4 mr-2" />{isRTL ? "اشتري الآن" : "Buy Now"}
                       </Button>
-                      <Button variant="outline" className="w-full" onClick={() => { if (!user) { navigate("/login"); return; } navigate(`/checkout/${id}?installment=33`); }}>
+                      <Button variant="outline" className="w-full" onClick={() => { if (!user) { navigate("/login"); return; } navigate(`/checkout/${courseUUID || id}?installment=33`); }}>
                         <CreditCard className="h-4 w-4 me-2" />
                         {isRTL ? "الشراء بالتقسيط (ادفع 1/3)" : "Pay in installments (1/3)"}
                       </Button>
                       {(course as any)?.monthly_installment_enabled && (
-                        <Button variant="outline" className="w-full" onClick={() => { if (!user) { navigate("/login"); return; } navigate(`/checkout/${id}?plan=monthly`); }}>
+                        <Button variant="outline" className="w-full" onClick={() => { if (!user) { navigate("/login"); return; } navigate(`/checkout/${courseUUID || id}?plan=monthly`); }}>
                           <Calendar className="h-4 w-4 me-2" />
                           {isRTL
                             ? `التقسيط على ${(course as any)?.monthly_installment_months || 3} أشهر`
@@ -809,7 +821,7 @@ const CourseDetails = () => {
                                     ? 'هذا الفصل مقفل. ادفع القسط التالي لفتحه.'
                                     : 'This chapter is locked. Pay the next installment to unlock it.'}
                                 </p>
-                                <Button size="sm" className="w-full" onClick={() => navigate(`/checkout/${id}`)}>
+                                <Button size="sm" className="w-full" onClick={() => navigate(`/checkout/${courseUUID || id}`)}>
                                   <CreditCard className="h-4 w-4 mr-2" />
                                   {isRTL ? 'ادفع للمتابعة' : 'Pay to Continue'}
                                 </Button>
@@ -834,10 +846,14 @@ const CourseDetails = () => {
                                         toast.info(isRTL ? 'سجّل دخولك أولاً ثم اشترِ الدورة لمشاهدة هذا الدرس' : 'Please login and purchase the course to watch this lesson');
                                         navigate('/login');
                                       } else if (!enrollment) {
-                                        toast.info(isRTL ? 'اشترِ الدورة لمشاهدة هذا الدرس' : 'Purchase the course to watch this lesson');
-                                        navigate(`/checkout/${id}`);
+                                        if (course?.price === 0 || course?.price === null) {
+                                          handleEnroll();
+                                        } else {
+                                          toast.info(isRTL ? 'اشترِ الدورة لمشاهدة هذا الدرس' : 'Purchase the course to watch this lesson');
+                                          navigate(`/checkout/${courseUUID || id}`);
+                                        }
                                       } else if (enrollment?.status === 'active') {
-                                        navigate(`/checkout/${id}`);
+                                        navigate(`/checkout/${courseUUID || id}`);
                                       }
                                     }}
                                   >
