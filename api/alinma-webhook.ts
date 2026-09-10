@@ -18,8 +18,20 @@ const SUCCESS_CODES = new Set([
 ]);
 
 export default async function handler(req: any, res: any) {
-  // CORS Headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  // CORS Headers - Restrict to trusted origins
+  const ALLOWED_ORIGINS = new Set([
+    'https://www.josoorcom.com',
+    'https://josoorcom.com',
+    'http://localhost:5173',
+    'http://localhost:8080',
+    'http://localhost:3000',
+  ]);
+
+  const origin = req.headers?.origin || req.headers?.Origin;
+  if (origin && ALLOWED_ORIGINS.has(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Vary', 'Origin');
+  }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS');
   res.setHeader(
     'Access-Control-Allow-Headers',
