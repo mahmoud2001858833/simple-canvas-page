@@ -5,8 +5,12 @@ import { ChevronLeft, ChevronRight, Play, Sparkles, Star, ChevronDown } from 'lu
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useSmoothScroll } from '@/hooks/useSmoothScroll';
 import AnimatedBackground from './AnimatedBackground';
-import heroStudent from '@/assets/hero-student.png';
-import logo from '@/assets/logo.png';
+import heroStudentPng from '@/assets/hero-student.png';
+import heroStudentWebp from '@/assets/hero-student.webp';
+import heroStudentAvif from '@/assets/hero-student.avif';
+import logoPng from '@/assets/logo.png';
+import logoWebp from '@/assets/logo.webp';
+import { OptimizedImage } from '@/components/ui/OptimizedImage';
 import { usePlatformStats } from '@/hooks/usePlatformStats';
 const HeroSection = () => {
   const { t, dir, language } = useLanguage();
@@ -143,11 +147,15 @@ const HeroSection = () => {
               
               <div className="relative rounded-[2rem] overflow-hidden bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-sm p-1">
                 <div className="rounded-[1.75rem] overflow-hidden">
-                  <img 
-                    src={heroStudent} 
+                  <OptimizedImage 
+                    src={heroStudentWebp}
+                    webpSrc={heroStudentWebp}
+                    avifSrc={heroStudentAvif}
                     alt={language === 'ar' ? "طالب يدرس على منصة جسوركم التعليمية" : "Student learning on the Josoorkom e-learning platform"}
+                    width={768}
+                    height={1024}
+                    priority={true}
                     className="w-full max-w-sm xl:max-w-md object-cover"
-                    loading="eager"
                   />
                 </div>
               </div>
@@ -160,9 +168,13 @@ const HeroSection = () => {
                 className="absolute -top-6 left-1/2 -translate-x-1/2 z-20"
               >
                 <div className="bg-white rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] p-3 border border-accent/20 ring-1 ring-accent/10">
-                  <img 
-                    src={logo} 
+                  <OptimizedImage 
+                    src={logoWebp}
+                    webpSrc={logoWebp}
                     alt={language === 'ar' ? "شعار جسوركم" : "Josoorkom Logo"}
+                    width={80}
+                    height={80}
+                    priority={true}
                     className="w-16 h-16 md:w-20 md:h-20 object-contain"
                   />
                 </div>
