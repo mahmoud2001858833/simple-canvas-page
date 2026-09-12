@@ -112,28 +112,38 @@ const PasswordRecoveryHandler = () => {
   return null;
 };
 
-// Maintenance mode guard - blocks all non-admin users when maintenance is on
+// Maintenance mode guard - non-blocking optimistic rendering for instant load
 const MaintenanceGuard = ({ children }: { children: React.ReactNode }) => {
   const { role } = useAuth();
   const [isMaintenanceMode, setIsMaintenanceMode] = useState(false);
-  const [checked, setChecked] = useState(false);
 
   useEffect(() => {
+    let isMounted = true;
     const checkMaintenance = async () => {
-      const { data } = await supabase
-        .from('platform_settings')
-        .select('value')
-        .eq('key', 'maintenance_mode')
-        .maybeSingle();
-      
-      setIsMaintenanceMode(data?.value === 'true');
-      setChecked(true);
+      try {
+        const timeoutPromise = new Promise<{ data: null }>((resolve) =>
+          setTimeout(() => resolve({ data: null }), 2000)
+        );
+        const queryPromise = supabase
+          .from('platform_settings')
+          .select('value')
+          .eq('key', 'maintenance_mode')
+          .maybeSingle();
+
+        const { data } = await Promise.race([queryPromise, timeoutPromise]);
+        if (isMounted && data?.value === 'true') {
+          setIsMaintenanceMode(true);
+        }
+      } catch (err) {
+        console.warn('Maintenance check bypassed:', err);
+      }
     };
     checkMaintenance();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  if (!checked) return <PageSkeleton />;
-  
   // Admins bypass maintenance mode
   if (isMaintenanceMode && role !== 'admin') {
     return <MaintenancePage />;
