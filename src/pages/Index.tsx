@@ -1,18 +1,20 @@
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
 import Navbar from '@/components/landing/Navbar';
 import AnnouncementBar from '@/components/landing/AnnouncementBar';
 import HeroSection from '@/components/landing/HeroSection';
-import HowItWorks from '@/components/landing/HowItWorks';
-import IntroVideoSection from '@/components/landing/IntroVideoSection';
-import FeaturesSection from '@/components/landing/FeaturesSection';
-import UniversitiesSection from '@/components/landing/UniversitiesSection';
-import CoursesSection from '@/components/landing/CoursesSection';
-import FAQSection from '@/components/landing/FAQSection';
-import CTASection from '@/components/landing/CTASection';
-import Footer from '@/components/landing/Footer';
-import ScrollToTop from '@/components/landing/ScrollToTop';
+
+// Lazy loaded below-the-fold components to maximize initial paint & LCP
+const IntroVideoSection = lazy(() => import('@/components/landing/IntroVideoSection'));
+const HowItWorks = lazy(() => import('@/components/landing/HowItWorks'));
+const UniversitiesSection = lazy(() => import('@/components/landing/UniversitiesSection'));
+const CoursesSection = lazy(() => import('@/components/landing/CoursesSection'));
+const FeaturesSection = lazy(() => import('@/components/landing/FeaturesSection'));
+const FAQSection = lazy(() => import('@/components/landing/FAQSection'));
+const CTASection = lazy(() => import('@/components/landing/CTASection'));
+const Footer = lazy(() => import('@/components/landing/Footer'));
+const ScrollToTop = lazy(() => import('@/components/landing/ScrollToTop'));
 
 const Index = () => {
   const { dir } = useLanguage();
@@ -62,25 +64,27 @@ const Index = () => {
       <Navbar />
       <AnnouncementBar />
       <HeroSection />
-      <IntroVideoSection />
-      <section id="how-it-works">
-        <HowItWorks />
-      </section>
-      <section id="universities">
-        <UniversitiesSection />
-      </section>
-      <section id="courses">
-        <CoursesSection />
-      </section>
-      <section id="features">
-        <FeaturesSection />
-      </section>
-      <section id="faq">
-        <FAQSection />
-      </section>
-      <CTASection />
-      <Footer />
-      <ScrollToTop />
+      <Suspense fallback={null}>
+        <IntroVideoSection />
+        <section id="how-it-works">
+          <HowItWorks />
+        </section>
+        <section id="universities">
+          <UniversitiesSection />
+        </section>
+        <section id="courses">
+          <CoursesSection />
+        </section>
+        <section id="features">
+          <FeaturesSection />
+        </section>
+        <section id="faq">
+          <FAQSection />
+        </section>
+        <CTASection />
+        <Footer />
+        <ScrollToTop />
+      </Suspense>
     </div>
   );
 };

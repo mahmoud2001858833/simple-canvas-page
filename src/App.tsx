@@ -15,12 +15,14 @@ import { createOptimizedQueryClient } from "@/lib/queryConfig";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 
-// Eagerly loaded pages (critical path)
+// Critical homepage loaded eagerly
 import Index from "./pages/Index";
-import Login from "./pages/Login";
-import Signup from "./pages/Signup";
-import NotFound from "./pages/NotFound";
-import MaintenancePage from "./pages/MaintenancePage";
+
+// Lazy loaded non-root pages
+const Login = lazyRetry(() => import("./pages/Login"));
+const Signup = lazyRetry(() => import("./pages/Signup"));
+const NotFound = lazyRetry(() => import("./pages/NotFound"));
+const MaintenancePage = lazyRetry(() => import("./pages/MaintenancePage"));
 
 // Retry wrapper for lazy imports (handles stale chunk errors after deploys)
 function lazyRetry<T extends React.ComponentType<any>>(
