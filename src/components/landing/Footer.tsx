@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Mail, Phone } from 'lucide-react';
+import { Mail, Phone, MapPin } from 'lucide-react';
 import { openChatWidget } from '@/components/ai-assistant/ChatWidget';
 import { useSocialLinks } from '@/hooks/useSocialLinks';
 import { getPlatform } from '@/lib/socialPlatforms';
