@@ -56,16 +56,7 @@
       ]
     },
     {
-      "source": "/assets/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
-        }
-      ]
-    },
-    {
-      "source": "/(.*\\.(webp|avif|png|jpg|jpeg|svg|ico|txt|xml))",
+      "source": "/(assets|hero-student.*|logo.*|favicon.*|og-image.*)/(.*)",
       "headers": [
         {
           "key": "Cache-Control",

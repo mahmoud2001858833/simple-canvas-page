@@ -7,7 +7,6 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSmoothScroll } from '@/hooks/useSmoothScroll';
 import { Globe, Menu, X, User, LogOut, LayoutDashboard } from 'lucide-react';
-import logo from '@/assets/logo.png';
 import { GlobalSearch } from '@/components/landing/GlobalSearch';
 
 const Navbar = () => {
@@ -92,8 +91,10 @@ const Navbar = () => {
           {/* Logo */}
           <Link to="/" className="flex items-center gap-3 group">
             <motion.img
-              src={logo}
+              src="/logo.webp"
               alt="Josoorkom - جسوركم"
+              width={80}
+              height={80}
               className="w-16 h-16 md:w-20 md:h-20 rounded-2xl object-contain bg-white/10 p-1.5 shadow-lg"
               whileHover={{ scale: 1.05, rotate: 5 }}
               transition={{ type: 'spring', stiffness: 300 }}

@@ -67,8 +67,11 @@ const CoursesSection = () => {
                     <img
                       src={course.thumbnail_url}
                       alt={isRTL ? course.title_ar : course.title}
+                      width={400}
+                      height={176}
                       className="w-full h-44 object-cover"
                       loading="lazy"
+                      decoding="async"
                     />
                   ) : (
                     <div className="w-full h-44 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">

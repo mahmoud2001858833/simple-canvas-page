@@ -1,7 +1,5 @@
 import { Link } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { Mail, Phone, MapPin } from 'lucide-react';
-import logo from '@/assets/logo.png';
 import { openChatWidget } from '@/components/ai-assistant/ChatWidget';
 import { useSocialLinks } from '@/hooks/useSocialLinks';
 import { getPlatform } from '@/lib/socialPlatforms';
@@ -35,7 +33,7 @@ const Footer = () => {
           {/* Brand */}
           <div className="lg:col-span-1">
             <Link to="/" className="flex items-center gap-3 mb-6">
-              <img src={logo} alt="Logo" className="w-12 h-12 rounded-lg object-contain bg-white/10 p-1" />
+              <img src="/logo.webp" alt="Logo" width={48} height={48} loading="lazy" decoding="async" className="w-12 h-12 rounded-lg object-contain bg-white/10 p-1" />
               <span className="text-2xl font-bold text-gradient-gold">{t.hero.title}</span>
             </Link>
             <p className="text-white/60 mb-6 leading-relaxed">
@@ -151,17 +149,29 @@ const Footer = () => {
               <img 
                 src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b5/PayPal.svg/124px-PayPal.svg.png" 
                 alt="PayPal" 
-                className="h-6 opacity-50 hover:opacity-100 transition-opacity"
+                width={64}
+                height={24}
+                loading="lazy"
+                decoding="async"
+                className="h-6 opacity-50 hover:opacity-100 transition-opacity object-contain"
               />
               <img 
                 src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Visa_Inc._logo.svg/200px-Visa_Inc._logo.svg.png" 
                 alt="Visa" 
-                className="h-6 opacity-50 hover:opacity-100 transition-opacity"
+                width={46}
+                height={24}
+                loading="lazy"
+                decoding="async"
+                className="h-6 opacity-50 hover:opacity-100 transition-opacity object-contain"
               />
               <img 
                 src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2a/Mastercard-logo.svg/200px-Mastercard-logo.svg.png" 
                 alt="Mastercard" 
-                className="h-6 opacity-50 hover:opacity-100 transition-opacity"
+                width={97}
+                height={24}
+                loading="lazy"
+                decoding="async"
+                className="h-6 opacity-50 hover:opacity-100 transition-opacity object-contain"
               />
             </div>
           </div>

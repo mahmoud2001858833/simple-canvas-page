@@ -209,6 +209,7 @@ const HeroSection = () => {
       {/* Scroll Down Indicator */}
       <button
         onClick={() => scrollToElement('how-it-works', { offset: -60, duration: 800 })}
+        aria-label={dir === 'rtl' ? 'اكتشف المزيد' : 'Discover More'}
         className="absolute bottom-24 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2 text-white/60 hover:text-white transition-colors cursor-pointer group animate-bounce-slow"
       >
         <span className="text-sm font-medium">{dir === 'rtl' ? 'اكتشف المزيد' : 'Discover More'}</span>

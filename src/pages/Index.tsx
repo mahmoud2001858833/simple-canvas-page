@@ -61,24 +61,26 @@ const Index = () => {
     <div className="min-h-screen scroll-smooth" dir={dir}>
       <Navbar />
       <AnnouncementBar />
-      <HeroSection />
-      <IntroVideoSection />
-      <section id="how-it-works">
-        <HowItWorks />
-      </section>
-      <section id="universities">
-        <UniversitiesSection />
-      </section>
-      <section id="courses">
-        <CoursesSection />
-      </section>
-      <section id="features">
-        <FeaturesSection />
-      </section>
-      <section id="faq">
-        <FAQSection />
-      </section>
-      <CTASection />
+      <main id="main-content">
+        <HeroSection />
+        <IntroVideoSection />
+        <section id="how-it-works">
+          <HowItWorks />
+        </section>
+        <section id="universities">
+          <UniversitiesSection />
+        </section>
+        <section id="courses">
+          <CoursesSection />
+        </section>
+        <section id="features">
+          <FeaturesSection />
+        </section>
+        <section id="faq">
+          <FAQSection />
+        </section>
+        <CTASection />
+      </main>
       <Footer />
       <ScrollToTop />
     </div>
