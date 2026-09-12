@@ -35,9 +35,11 @@ export const OptimizedImage: React.FC<OptimizedImageProps> = ({
   const computedLoading = priority ? 'eager' : (loading || 'lazy');
   const computedFetchPriority = priority ? 'high' : undefined;
 
+  const aspectRatioStyle = (width && height) ? { aspectRatio: `${width} / ${height}` } : undefined;
+
   if (avifSrc || webpSrc) {
     return (
-      <picture className="inline-block">
+      <picture className="inline-block w-full h-full">
         {avifSrc && <source srcSet={avifSrc} type="image/avif" />}
         {webpSrc && <source srcSet={webpSrc} type="image/webp" />}
         <img
@@ -50,6 +52,7 @@ export const OptimizedImage: React.FC<OptimizedImageProps> = ({
           // @ts-expect-error React 18 / DOM fetchPriority attribute support
           fetchpriority={computedFetchPriority}
           className={className}
+          style={{ ...aspectRatioStyle, ...rest.style }}
           {...rest}
         />
       </picture>
@@ -67,6 +70,7 @@ export const OptimizedImage: React.FC<OptimizedImageProps> = ({
       // @ts-expect-error React 18 / DOM fetchPriority attribute support
       fetchpriority={computedFetchPriority}
       className={className}
+      style={{ ...aspectRatioStyle, ...rest.style }}
       {...rest}
     />
   );

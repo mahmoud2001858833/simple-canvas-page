@@ -5,11 +5,6 @@ import { ChevronLeft, ChevronRight, Play, Sparkles, Star, ChevronDown } from 'lu
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useSmoothScroll } from '@/hooks/useSmoothScroll';
 import AnimatedBackground from './AnimatedBackground';
-import heroStudentPng from '@/assets/hero-student.png';
-import heroStudentWebp from '@/assets/hero-student.webp';
-import heroStudentAvif from '@/assets/hero-student.avif';
-import logoPng from '@/assets/logo.png';
-import logoWebp from '@/assets/logo.webp';
 import { OptimizedImage } from '@/components/ui/OptimizedImage';
 import { usePlatformStats } from '@/hooks/usePlatformStats';
 const HeroSection = () => {
@@ -146,16 +141,16 @@ const HeroSection = () => {
               <div className="absolute -inset-[1px] rounded-[2rem] bg-gradient-to-br from-accent/40 via-white/10 to-emerald-400/30" />
               
               <div className="relative rounded-[2rem] overflow-hidden bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-sm p-1">
-                <div className="rounded-[1.75rem] overflow-hidden">
+                <div className="rounded-[1.75rem] overflow-hidden aspect-[3/4] max-w-sm xl:max-w-md mx-auto">
                   <OptimizedImage 
-                    src={heroStudentWebp}
-                    webpSrc={heroStudentWebp}
-                    avifSrc={heroStudentAvif}
+                    src="/hero-student.webp"
+                    webpSrc="/hero-student.webp"
+                    avifSrc="/hero-student.avif"
                     alt={language === 'ar' ? "طالب يدرس على منصة جسوركم التعليمية" : "Student learning on the Josoorkom e-learning platform"}
                     width={768}
                     height={1024}
                     priority={true}
-                    className="w-full max-w-sm xl:max-w-md object-cover"
+                    className="w-full h-full object-cover"
                   />
                 </div>
               </div>
@@ -169,8 +164,8 @@ const HeroSection = () => {
               >
                 <div className="bg-white rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] p-3 border border-accent/20 ring-1 ring-accent/10">
                   <OptimizedImage 
-                    src={logoWebp}
-                    webpSrc={logoWebp}
+                    src="/logo.webp"
+                    webpSrc="/logo.webp"
                     alt={language === 'ar' ? "شعار جسوركم" : "Josoorkom Logo"}
                     width={80}
                     height={80}
