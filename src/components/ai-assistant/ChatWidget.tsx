@@ -288,22 +288,42 @@ ${coursesSummary || 'دورات أكاديمية متنوعة متوفرة في 
 - عند اقتراح رابط أو صفحة، أضف: {"navigate": "/courses"} أو المسار المناسب.
 - اكتب المعادلات بصيغة LaTeX محاطة بـ $...$ أو $$...$$.`;
 
-        response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${JOSOORCOM_AI_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "gemini-2.5-flash",
-            messages: [
-              { role: "system", content: systemPrompt },
-              ...messages.map(m => ({ role: m.role, content: m.content })),
-              { role: "user", content: input },
-            ],
-            stream: true,
-          }),
-        });
+        const CANDIDATE_MODELS = [
+          "gemini-flash-lite-latest",
+          "gemini-2.5-flash-lite",
+          "gemini-3.1-flash-lite",
+          "gemini-2.5-flash",
+        ];
+
+        for (const model of CANDIDATE_MODELS) {
+          try {
+            const candidateRes = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${JOSOORCOM_AI_KEY}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                model,
+                messages: [
+                  { role: "system", content: systemPrompt },
+                  ...messages.map(m => ({ role: m.role, content: m.content })),
+                  { role: "user", content: input },
+                ],
+                stream: true,
+              }),
+            });
+
+            if (candidateRes.ok) {
+              response = candidateRes;
+              break;
+            } else {
+              console.warn(`Gemini model ${model} returned status ${candidateRes.status}, trying next...`);
+            }
+          } catch (modelErr) {
+            console.warn(`Gemini model ${model} fetch failed:`, modelErr);
+          }
+        }
       } catch (directErr) {
         console.warn("Direct Gemini stream error, falling back to edge function:", directErr);
         response = null;

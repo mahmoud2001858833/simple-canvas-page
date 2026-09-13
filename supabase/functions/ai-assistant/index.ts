@@ -197,21 +197,44 @@ ${coursesJson}
 - عند الحل خطوة بخطوة: اشرح بالعربية خارج المعادلة، وضع كل خطوة حسابية في سطر معادلة مستقل $$...$$.
 `;
 
-    let response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${JOSOORCOM_AI_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...messages,
-        ],
-        stream: true,
-      }),
-    });
+    const CANDIDATE_MODELS = [
+      "gemini-flash-lite-latest",
+      "gemini-2.5-flash-lite",
+      "gemini-3.1-flash-lite",
+      "gemini-2.5-flash",
+    ];
+
+    let response: Response | null = null;
+    for (const model of CANDIDATE_MODELS) {
+      try {
+        const r = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${JOSOORCOM_AI_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: "system", content: systemPrompt },
+              ...messages,
+            ],
+            stream: true,
+          }),
+        });
+
+        if (r.ok) {
+          response = r;
+          break;
+        }
+      } catch {
+        // Try next candidate model
+      }
+    }
+
+    if (!response) {
+      response = new Response(JSON.stringify({ error: "Service unavailable" }), { status: 503 });
+    }
 
     if (!response.ok && LOVABLE_API_KEY) {
       response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {

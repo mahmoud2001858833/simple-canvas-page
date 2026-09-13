@@ -49,21 +49,44 @@ serve(async (req) => {
 
     const systemPrompt = `You are a professional educational translator. Translate the user text from ${src} to ${tgt}. Return ONLY the translated text, no notes, no quotes, no conversational filler.`;
 
-    let resp = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${TRANSLATION_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: text },
-        ],
-        temperature: 0.2,
-      }),
-    });
+    const CANDIDATE_MODELS = [
+      "gemini-flash-lite-latest",
+      "gemini-2.5-flash-lite",
+      "gemini-3.1-flash-lite",
+      "gemini-2.5-flash",
+    ];
+
+    let resp: Response | null = null;
+    for (const model of CANDIDATE_MODELS) {
+      try {
+        const r = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${TRANSLATION_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: text },
+            ],
+            temperature: 0.2,
+          }),
+        });
+
+        if (r.ok) {
+          resp = r;
+          break;
+        }
+      } catch {
+        // Try next candidate model
+      }
+    }
+
+    if (!resp) {
+      resp = new Response(JSON.stringify({ error: "Translation service unavailable" }), { status: 503 });
+    }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!resp.ok && LOVABLE_API_KEY) {

@@ -19,38 +19,73 @@ export async function translateTextWithAI({ text, sourceLang, targetLang }: Tran
   const src = sourceLang === 'en' ? 'English' : 'Arabic';
   const tgt = targetLang === 'ar' ? 'Arabic' : 'English';
 
-  // Primary: Direct call to Gemini OpenAI-compatible endpoint
-  try {
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${TRANSLATION_AI_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gemini-2.5-flash',
-        messages: [
-          {
-            role: 'system',
-            content: `You are a professional educational translator. Translate the text accurately and naturally from ${src} to ${tgt}. Preserve all formatting, line breaks, bullet points, and terms. Return ONLY the translation, with no preface, explanations, or enclosing quotes.`,
-          },
-          { role: 'user', content: trimmed },
-        ],
-        temperature: 0.2,
-      }),
-    });
+  // Primary: Direct call to Gemini OpenAI-compatible endpoint with model fallback
+  const TRANSLATION_MODELS = [
+    'gemini-flash-lite-latest',
+    'gemini-2.5-flash-lite',
+    'gemini-3.1-flash-lite',
+    'gemini-2.5-flash',
+  ];
 
-    if (response.ok) {
-      const data = await response.json();
-      const translated = data?.choices?.[0]?.message?.content?.trim();
-      if (translated) {
-        return translated;
+  for (const model of TRANSLATION_MODELS) {
+    try {
+      const response = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${TRANSLATION_AI_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            {
+              role: 'system',
+              content: `You are a professional educational translator. Translate the text accurately and naturally from ${src} to ${tgt}. Preserve all formatting, line breaks, bullet points, and terms. Return ONLY the translation, with no preface, explanations, or enclosing quotes.`,
+            },
+            { role: 'user', content: trimmed },
+          ],
+          temperature: 0.2,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const translated = data?.choices?.[0]?.message?.content?.trim();
+        if (translated) {
+          return translated;
+        }
+      } else {
+        console.warn(`Translation model ${model} returned status ${response.status}, trying next...`);
       }
-    } else {
-      console.warn('Direct Gemini translation returned status:', response.status);
+    } catch (err) {
+      console.warn(`Translation model ${model} call error:`, err);
     }
-  } catch (err) {
-    console.warn('Direct Gemini translation error, falling back to edge function:', err);
+  }
+
+  // Native Gemini generateContent fallback
+  try {
+    const nativeRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${TRANSLATION_AI_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            role: 'user',
+            parts: [{
+              text: `Translate the following text accurately from ${src} to ${tgt}. Return ONLY the translation:\n\n${trimmed}`
+            }]
+          }]
+        })
+      }
+    );
+    if (nativeRes.ok) {
+      const nativeData = await nativeRes.json();
+      const nativeText = nativeData?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+      if (nativeText) return nativeText;
+    }
+  } catch (nativeErr) {
+    console.warn('Native Gemini translation fallback error:', nativeErr);
   }
 
   // Fallback: Supabase Edge function
