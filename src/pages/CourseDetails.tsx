@@ -447,7 +447,7 @@ const CourseDetails = () => {
   };
 
   const isLessonAccessible = (lesson: any, _index: number) => {
-    if (lesson.is_preview) return true;
+    if (lesson.is_preview) return !!user;
     if (hasStaffFreeAccess) return true;
     if (!enrollment || enrollment.status !== 'active') return false;
     if (enrollmentExpired) return false;
@@ -837,14 +837,19 @@ const CourseDetails = () => {
                                   <div
                                     key={lesson.id}
                                     className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
-                                      accessible ? 'hover:bg-muted/60 cursor-pointer' : 'cursor-default'
+                                      accessible || (lesson.is_preview && !user) ? 'hover:bg-muted/60 cursor-pointer' : 'cursor-default'
                                     }`}
                                     onClick={() => {
                                       if (accessible) {
                                         navigate(`/courses/${courseUUID || id}/lessons/${lesson.id}`);
                                       } else if (!user) {
-                                        toast.info(isRTL ? 'سجّل دخولك أولاً ثم اشترِ الدورة لمشاهدة هذا الدرس' : 'Please login and purchase the course to watch this lesson');
-                                        navigate('/login');
+                                        if (lesson.is_preview) {
+                                          toast.info(isRTL ? 'يرجى تسجيل الدخول أولاً لمشاهدة فيديو المعاينة المجاني' : 'Please log in first to watch the free preview video');
+                                          navigate(`/login?redirect=${encodeURIComponent(`/courses/${courseUUID || id}/lessons/${lesson.id}`)}`);
+                                        } else {
+                                          toast.info(isRTL ? 'سجّل دخولك أولاً ثم اشترِ الدورة لمشاهدة هذا الدرس' : 'Please login and purchase the course to watch this lesson');
+                                          navigate('/login');
+                                        }
                                       } else if (!enrollment) {
                                         if (course?.price === 0 || course?.price === null) {
                                           handleEnroll();
@@ -872,7 +877,14 @@ const CourseDetails = () => {
                                           {isRTL ? "درس" : "Lesson"}
                                         </Badge>
                                         {lesson.is_preview && (
-                                          <Badge variant="outline" className="text-xs flex-shrink-0 text-green-600 border-green-300">{isRTL ? "معاينة مجانية" : "Free Preview"}</Badge>
+                                          <Badge variant="outline" className={`text-xs flex-shrink-0 ${!user ? 'text-amber-600 border-amber-300 dark:text-amber-400 dark:border-amber-700' : 'text-green-600 border-green-300 dark:text-green-400 dark:border-green-700'}`}>
+                                            {isRTL ? "معاينة مجانية" : "Free Preview"}
+                                            {!user && (
+                                              <span className="text-[10px] opacity-80 ms-1 font-normal">
+                                                ({isRTL ? "يلزم تسجيل الدخول" : "Login required"})
+                                              </span>
+                                            )}
+                                          </Badge>
                                         )}
                                       </div>
                                       {lesson.duration_minutes > 0 && (
@@ -883,6 +895,8 @@ const CourseDetails = () => {
                                     </div>
                                     {accessible ? (
                                       <Play className="h-4 w-4 text-primary flex-shrink-0" />
+                                    ) : lesson.is_preview && !user ? (
+                                      <Lock className="h-4 w-4 text-amber-500 flex-shrink-0" />
                                     ) : (
                                       <Lock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                                     )}

@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { GraduationCap, Mail, Lock, Loader2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { z } from 'zod';
@@ -26,6 +26,8 @@ const Login = () => {
   const { t, dir, language } = useLanguage();
   const { signIn, user, role, loading: authLoading, authReady } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectTarget = searchParams.get('redirect');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -34,6 +36,9 @@ const Login = () => {
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
   const getDashboardPath = (userRole: string | null) => {
+    if (redirectTarget && redirectTarget.startsWith('/') && !redirectTarget.startsWith('//')) {
+      return redirectTarget;
+    }
     if (userRole === 'admin') return '/admin';
     if (userRole === 'instructor') return '/instructor';
     return '/dashboard';
@@ -44,7 +49,7 @@ const Login = () => {
     if (redirecting && user && authReady && !authLoading && role) {
       navigate(getDashboardPath(role), { replace: true });
     }
-  }, [redirecting, user, role, authLoading, authReady, navigate]);
+  }, [redirecting, user, role, authLoading, authReady, navigate, redirectTarget]);
 
   // Never leave the form spinning forever if navigation is interrupted.
   useEffect(() => {
@@ -321,7 +326,7 @@ const Login = () => {
             >
               {t.auth.noAccount}{' '}
               <Link
-                to="/signup"
+                to={redirectTarget ? `/signup?redirect=${encodeURIComponent(redirectTarget)}` : '/signup'}
                 className="text-transparent bg-gradient-to-r from-primary to-ocean bg-clip-text font-semibold hover:opacity-80 transition-opacity relative after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 after:bg-gradient-to-r after:from-primary after:to-ocean after:scale-x-0 hover:after:scale-x-100 after:transition-transform after:duration-300"
               >
                 {t.auth.signup}

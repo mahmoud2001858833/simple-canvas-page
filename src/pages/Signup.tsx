@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { GraduationCap, Mail, Lock, User, Loader2, Sparkles, BookOpen, Users, Building2, Phone, CheckCircle2, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -74,6 +74,8 @@ const Signup = () => {
   const { t, dir, language } = useLanguage();
   const { signUp, user, role, loading: authLoading, authReady } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectTarget = searchParams.get('redirect');
   const { required: fieldsRequired } = useProfileFieldsRequired();
 
   const [email, setEmail] = useState('');
@@ -158,6 +160,9 @@ const Signup = () => {
   }, [resendCooldown]);
 
   const getDashboardPath = (userRole: string | null) => {
+    if (redirectTarget && redirectTarget.startsWith('/') && !redirectTarget.startsWith('//')) {
+      return redirectTarget;
+    }
     if (userRole === 'admin') return '/admin';
     if (userRole === 'instructor') return '/instructor';
     return '/dashboard';
@@ -1054,7 +1059,7 @@ const Signup = () => {
             >
               {t.auth.hasAccount}{' '}
               <Link
-                to="/login"
+                to={redirectTarget ? `/login?redirect=${encodeURIComponent(redirectTarget)}` : '/login'}
                 className="text-teal hover:text-emerald font-medium transition-colors duration-200 hover:underline"
               >
                 {t.auth.login}

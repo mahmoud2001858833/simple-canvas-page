@@ -48,6 +48,7 @@ export const ITEM_HELP: Record<string, Bilingual> = {
   'students-by-major': { ar: 'توزيع الطلاب حسب التخصص.', en: 'Student distribution by major.' },
   workflow: { ar: 'متابعة سير العمل بين السكرتارية والإنتاج والمعلمين.', en: 'Track workflow between staff, production and instructors.' },
   'video-analytics': { ar: 'إحصائيات مشاهدة الفيديوهات واستهلاك التخزين.', en: 'Video watch statistics and storage usage.' },
+  'preview-students': { ar: 'سجل الطلاب الذين شاهدوا فيديوهات المعاينة ونسب تحويلهم للمشتركين مع بيانات التواصل.', en: 'Log of students who watched preview videos, contact info and conversion rates.' },
   requests: { ar: 'إدارة طلبات الدورات المخصصة وتعيينها.', en: 'Manage and assign custom course requests.' },
   support: { ar: 'الرد على محادثات الدعم والملاحظات الداخلية.', en: 'Reply to support chats and internal notes.' },
   'abandoned-payments': { ar: 'المدفوعات المعلّقة لأكثر من 24 ساعة مع إمكانية التذكير والتصدير.', en: 'Payments pending 24h+ with reminders and export.' },
@@ -91,7 +92,7 @@ export const INSTRUCTOR_GROUPS: SidebarGroupDef[] = [
 
 export const ADMIN_GROUPS: SidebarGroupDef[] = [
   GROUP('users', 'المستخدمون', 'Users', 'إدارة الحسابات والأدوار وملفات المعلمين والطلاب.', 'Manage accounts, roles and instructor/student profiles.', ['users', 'user-insights', 'instructor-detail', 'student-detail']),
-  GROUP('content', 'المحتوى التعليمي', 'Educational Content', 'الدورات والموافقات وإحصائيات الفيديو.', 'Courses, approvals and video statistics.', ['courses', 'course-approvals', 'video-analytics']),
+  GROUP('content', 'المحتوى التعليمي', 'Educational Content', 'الدورات والموافقات وإحصائيات الفيديو وطلاب المعاينة.', 'Courses, approvals, video statistics and preview students.', ['courses', 'course-approvals', 'video-analytics', 'preview-students']),
   GROUP('academic', 'الهيكل الأكاديمي', 'Academic Structure', 'الجهات والكليات والتخصصات وتوزيع الطلاب.', 'Institutions, colleges, majors and student distribution.', ['universities', 'colleges', 'majors', 'students-by-major']),
   GROUP('finance', 'المالية', 'Finance', 'المدفوعات وطرق الدفع والمصاريف والسحوبات والكوبونات.', 'Payments, payment methods, expenses, payouts and coupons.', ['payments', 'abandoned-payments', 'payment-methods', 'financial-dashboard', 'accounting', 'withdrawals', 'coupons']),
   GROUP('support', 'الدعم والطلبات', 'Support & Requests', 'طلبات الدورات المخصصة ومحادثات الدعم وسير العمل.', 'Custom course requests, support chats and workflow.', ['requests', 'support', 'workflow']),

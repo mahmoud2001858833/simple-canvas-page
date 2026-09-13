@@ -37,6 +37,9 @@ import {
   Settings,
   Sparkles,
   StickyNote,
+  Eye,
+  LogIn,
+  UserPlus,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -258,9 +261,9 @@ const LessonViewer = () => {
   const hasStaffFreeAccess = role === 'admin'
     || (role === 'instructor' && !!user && !!(course as any)?.instructor_id && (course as any).instructor_id === user.id);
 
-  // Check access - preview lessons are accessible to everyone (even without login)
+  // Check access - preview lessons are accessible to logged-in users only
   const hasAccess = (() => {
-    if (currentLesson?.is_preview) return true;
+    if (currentLesson?.is_preview) return !!user;
     if (hasStaffFreeAccess) return true;
     if (!enrollment || enrollment.status !== 'active') return false;
     if (enrollmentExpired) return false;
@@ -272,6 +275,28 @@ const LessonViewer = () => {
     return accessibleChapterIds.has(chapterId);
   })();
 
+  // Track preview lesson access by authenticated student in video_access_logs
+  useEffect(() => {
+    if (!user?.id || !lessonId || !currentLesson?.is_preview || !hasAccess) return;
+    const sessionKey = `preview_logged_${lessonId}_${user.id}`;
+    if (sessionStorage.getItem(sessionKey)) return;
+    sessionStorage.setItem(sessionKey, 'true');
+
+    supabase
+      .from('video_access_logs')
+      .insert({
+        lesson_id: lessonId,
+        user_id: user.id,
+        user_agent: navigator.userAgent,
+        accessed_at: new Date().toISOString(),
+      })
+      .then(({ error }) => {
+        if (error) {
+          console.warn('[LessonViewer] Failed to log preview access:', error);
+        }
+      });
+  }, [user?.id, lessonId, currentLesson?.is_preview, hasAccess]);
+
   // NELC xAPI: learner initialized the course session
   useEffect(() => {
     if (!user || !resolvedCourseId || !hasAccess) return;
@@ -280,14 +305,14 @@ const LessonViewer = () => {
   }, [user?.id, resolvedCourseId, hasAccess]);
 
   // Fetch video URL using Cloudflare Worker
-  // For preview lessons, allow access even without user login
+  // Preview lessons require user login
   const { 
     videoUrl: signedUrl, 
     isLoading: isVideoLoading, 
     error: videoError,
   } = useCloudflareVideoUrl({
     lessonId: lessonId,
-    enabled: !!lessonId && hasAccess && !!currentLesson?.video_url,
+    enabled: !!lessonId && hasAccess && !!user && !!currentLesson?.video_url,
   });
 
   // Fetch lesson progress
@@ -550,7 +575,7 @@ const LessonViewer = () => {
   };
 
   const isLessonAccessible = (lesson: any, _index: number) => {
-    if (lesson.is_preview) return true;
+    if (lesson.is_preview) return !!user;
     if (hasStaffFreeAccess) return true;
     if (!enrollment || enrollment.status !== 'active') return false;
     if (enrollmentExpired) return false;
@@ -599,7 +624,54 @@ const LessonViewer = () => {
   }
 
   if (!hasAccess) {
+    const isPreviewGated = currentLesson?.is_preview && !user;
     const isLockedByInstallment = enrollment?.status === 'active' && paidPercentage < 100;
+
+    if (isPreviewGated) {
+      return (
+        <div className="min-h-screen bg-background flex items-center justify-center p-4" dir={isRTL ? 'rtl' : 'ltr'}>
+          <Card className="text-center max-w-lg p-8 shadow-2xl border-primary/30 bg-card/95 backdrop-blur">
+            <div className="w-16 h-16 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto mb-4 ring-8 ring-primary/5">
+              <Eye className="h-8 w-8" />
+            </div>
+            <Badge variant="outline" className="mb-3 text-primary border-primary/30 text-xs px-3 py-1 font-semibold">
+              {isRTL ? "معاينة مجانية متاحة" : "Free Preview Available"}
+            </Badge>
+            <h1 className="text-2xl font-bold mb-2">
+              {isRTL ? "سجّل دخولك لمشاهدة فيديو المعاينة" : "Log in to watch the free preview"}
+            </h1>
+            <p className="text-muted-foreground mb-6 text-sm leading-relaxed">
+              {isRTL
+                ? `هذا الدرس (${currentLesson.title_ar || currentLesson.title}) متاح كمعاينة مجانية للطلبة المسجلين. يرجى تسجيل الدخول بحسابك أو إنشاء حساب مجاني جديد للبدء بمشاهدة الفيديو فوراً.`
+                : `This lesson (${currentLesson.title || currentLesson.title_ar}) is available as a free preview for registered students. Please log in or create a free account to start watching immediately.`
+              }
+            </p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center mb-4">
+              <Button asChild size="lg" className="gap-2">
+                <Link to={`/login?redirect=${encodeURIComponent(window.location.pathname)}`}>
+                  <LogIn className="h-4 w-4" />
+                  {isRTL ? "تسجيل الدخول" : "Log In"}
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="lg" className="gap-2">
+                <Link to={`/signup?redirect=${encodeURIComponent(window.location.pathname)}`}>
+                  <UserPlus className="h-4 w-4" />
+                  {isRTL ? "إنشاء حساب مجاني" : "Create Free Account"}
+                </Link>
+              </Button>
+            </div>
+            <div className="pt-4 border-t">
+              <Button asChild variant="ghost" size="sm">
+                <Link to={`/courses/${courseNavigationPath}`}>
+                  {isRTL ? "العودة لتفاصيل الدورة" : "Back to Course"}
+                </Link>
+              </Button>
+            </div>
+          </Card>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center max-w-md p-6">
