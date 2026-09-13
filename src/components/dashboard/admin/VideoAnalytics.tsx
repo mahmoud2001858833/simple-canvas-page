@@ -50,7 +50,7 @@ export const VideoAnalytics = () => {
     queryFn: async () => {
       const [accessRes, progressRes, lessonsRes] = await Promise.all([
         supabase.from('video_access_logs').select('id, user_id, lesson_id, accessed_at'),
-        supabase.from('lesson_progress').select('user_id, lesson_id, progress_percent, completed, last_position'),
+        supabase.from('lesson_progress').select('user_id, lesson_id, progress_percent, completed, last_position, updated_at, created_at'),
         supabase.from('lessons').select('id, title, title_ar, duration_minutes, course_id, courses(title, title_ar)'),
       ]);
 
@@ -85,24 +85,38 @@ export const VideoAnalytics = () => {
         });
       }
 
-      // Count access logs
+      // 1. Count views and viewers from access logs
       for (const log of accessLogs) {
         const entry = lessonMap.get(log.lesson_id);
         if (entry) {
           entry.totalViews++;
-          entry.uniqueViewers.add(log.user_id);
+          if (log.user_id) entry.uniqueViewers.add(log.user_id);
         }
       }
 
-      // Add progress data
+      // 2. Cross-reference with lesson progress to ensure all student viewers are captured
       for (const prog of progressLogs) {
         const entry = lessonMap.get(prog.lesson_id);
         if (entry) {
           entry.completions.push(prog.progress_percent || 0);
-          // Estimate watch time from last_position (seconds)
+          // Estimate watch time from last_position (seconds) or duration * progress
           if (prog.last_position) {
             entry.totalWatchMinutes += Math.round(prog.last_position / 60);
+          } else if ((prog.progress_percent || 0) > 0 && entry.durationMinutes) {
+            entry.totalWatchMinutes += Math.round((entry.durationMinutes * (prog.progress_percent || 0)) / 100);
           }
+
+          // If student has progress or completed, they viewed the lesson video
+          if (prog.user_id && ((prog.progress_percent || 0) > 0 || prog.last_position || prog.completed)) {
+            entry.uniqueViewers.add(prog.user_id);
+          }
+        }
+      }
+
+      // Ensure totalViews is at least equal to uniqueViewers
+      for (const entry of lessonMap.values()) {
+        if (entry.totalViews < entry.uniqueViewers.size) {
+          entry.totalViews = entry.uniqueViewers.size;
         }
       }
 
@@ -128,8 +142,17 @@ export const VideoAnalytics = () => {
         dailyViews[d.toISOString().split('T')[0]] = 0;
       }
       for (const log of accessLogs) {
-        const day = new Date(log.accessed_at).toISOString().split('T')[0];
-        if (dailyViews[day] !== undefined) dailyViews[day]++;
+        if (log.accessed_at) {
+          const day = new Date(log.accessed_at).toISOString().split('T')[0];
+          if (dailyViews[day] !== undefined) dailyViews[day]++;
+        }
+      }
+      for (const prog of progressLogs) {
+        const ts = (prog as any).updated_at || (prog as any).created_at;
+        if (ts) {
+          const day = new Date(ts).toISOString().split('T')[0];
+          if (dailyViews[day] !== undefined) dailyViews[day]++;
+        }
       }
       const dailyChart = Object.entries(dailyViews).map(([date, count]) => ({
         date: date.slice(5), // MM-DD
@@ -145,9 +168,19 @@ export const VideoAnalytics = () => {
         { label: '76-100%', count: allCompletions.filter(c => c > 75).length },
       ];
 
-      // Summary
+      // Summary - accurate aggregate across access logs & progress records
       const totalViewsAll = lessonStats.reduce((s, l) => s + l.totalViews, 0);
-      const allUniqueViewers = new Set(accessLogs.map(l => l.user_id)).size;
+      const allUniqueViewersSet = new Set<string>();
+      for (const log of accessLogs) {
+        if (log.user_id) allUniqueViewersSet.add(log.user_id);
+      }
+      for (const prog of progressLogs) {
+        if (prog.user_id && ((prog.progress_percent || 0) > 0 || prog.last_position || prog.completed)) {
+          allUniqueViewersSet.add(prog.user_id);
+        }
+      }
+      const allUniqueViewers = allUniqueViewersSet.size;
+
       const avgCompletionAll = allCompletions.length > 0
         ? Math.round(allCompletions.reduce((a, b) => a + b, 0) / allCompletions.length)
         : 0;

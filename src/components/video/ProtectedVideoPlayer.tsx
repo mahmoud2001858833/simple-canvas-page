@@ -65,6 +65,31 @@ export const ProtectedVideoPlayer = forwardRef<ProtectedVideoPlayerRef, Protecte
   const blurTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastLoggedAttemptRef = useRef<number>(0);
 
+  // Function to record video view accurately in video_access_logs
+  const recordVideoView = useCallback(async () => {
+    if (!user?.id || !lessonId) return;
+
+    // Deduplicate within 15 minutes per lesson
+    const sessionKey = `view_logged_${lessonId}`;
+    const lastTime = sessionStorage.getItem(sessionKey);
+    const now = Date.now();
+    if (lastTime && now - parseInt(lastTime, 10) < 15 * 60 * 1000) {
+      return;
+    }
+
+    try {
+      sessionStorage.setItem(sessionKey, now.toString());
+      await supabase.from('video_access_logs').insert({
+        lesson_id: lessonId,
+        user_id: user.id,
+        user_agent: navigator.userAgent,
+        accessed_at: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.warn('Failed to record video view:', err);
+    }
+  }, [user?.id, lessonId]);
+
   // Function to log capture attempts to database
   const logCaptureAttempt = useCallback(async (attemptType: string, details?: Record<string, any>) => {
     if (!user || !protectionEnabled) return;
@@ -288,6 +313,7 @@ export const ProtectedVideoPlayer = forwardRef<ProtectedVideoPlayerRef, Protecte
         onCanPlay={onCanPlay}
         onEnded={onEnded}
         onPlay={() => {
+          recordVideoView();
           if (introTitle && !introPlayedRef.current) {
             introPlayedRef.current = true;
             videoRef.current?.pause();

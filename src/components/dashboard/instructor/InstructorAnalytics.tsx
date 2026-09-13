@@ -123,18 +123,40 @@ export const InstructorAnalytics = () => {
 
       let viewsByLessonCourse: Record<string, number> = {};
       if (lessonIds.length > 0) {
-        // Fetch views in batches if needed
-        const { data: viewsData } = await supabase
-          .from('video_access_logs')
-          .select('lesson_id')
-          .in('lesson_id', lessonIds);
+        const [viewsRes, progressRes] = await Promise.all([
+          supabase.from('video_access_logs').select('lesson_id, user_id').in('lesson_id', lessonIds),
+          supabase.from('lesson_progress').select('lesson_id, user_id, progress_percent, last_position, completed').in('lesson_id', lessonIds),
+        ]);
+
+        const viewsData = viewsRes.data || [];
+        const progressData = progressRes.data || [];
+
+        const viewersPerCourse = new Map<string, Set<string>>();
 
         (viewsData || []).forEach(v => {
           const courseId = lessonMap[v.lesson_id];
           if (courseId) {
             viewsByLessonCourse[courseId] = (viewsByLessonCourse[courseId] || 0) + 1;
+            if (v.user_id) {
+              if (!viewersPerCourse.has(courseId)) viewersPerCourse.set(courseId, new Set());
+              viewersPerCourse.get(courseId)!.add(v.user_id);
+            }
           }
         });
+
+        (progressData || []).forEach(p => {
+          const courseId = lessonMap[p.lesson_id];
+          if (courseId && p.user_id && ((p.progress_percent || 0) > 0 || p.last_position || p.completed)) {
+            if (!viewersPerCourse.has(courseId)) viewersPerCourse.set(courseId, new Set());
+            viewersPerCourse.get(courseId)!.add(p.user_id);
+          }
+        });
+
+        for (const [courseId, viewers] of viewersPerCourse.entries()) {
+          if ((viewsByLessonCourse[courseId] || 0) < viewers.size) {
+            viewsByLessonCourse[courseId] = viewers.size;
+          }
+        }
       }
 
       // Aggregate data per course

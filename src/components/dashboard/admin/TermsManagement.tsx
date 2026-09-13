@@ -7,8 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileText, Loader2, Save } from 'lucide-react';
+import { FileText, Loader2, Save, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
+import { translateTextWithAI } from '@/lib/aiTranslation';
 
 const KEYS = ['instructor_policies_ar', 'instructor_policies', 'privacy_policy_ar', 'privacy_policy'] as const;
 
@@ -18,6 +19,7 @@ export const TermsManagement = () => {
   const queryClient = useQueryClient();
   const [values, setValues] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [translatingField, setTranslatingField] = useState<string | null>(null);
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ['platform-settings-terms'],
@@ -38,6 +40,31 @@ export const TermsManagement = () => {
   }, [settings]);
 
   const set = (key: string, value: string) => setValues((p) => ({ ...p, [key]: value }));
+
+  const handleTranslate = async (sourceKey: string, targetKey: string, sourceLang: 'ar' | 'en', targetLang: 'ar' | 'en') => {
+    const sourceText = values[sourceKey];
+    if (!sourceText || !sourceText.trim()) {
+      toast.error(isRTL ? 'يرجى إدخال نص للترجمة أولاً' : 'Please enter text to translate first');
+      return;
+    }
+    setTranslatingField(targetKey);
+    try {
+      toast.info(isRTL ? 'جاري الترجمة بالذكاء الاصطناعي...' : 'Translating with AI...');
+      const translated = await translateTextWithAI({
+        text: sourceText,
+        sourceLang,
+        targetLang,
+      });
+      if (translated) {
+        set(targetKey, translated);
+        toast.success(isRTL ? 'تمت الترجمة بنجاح' : 'Translation successful');
+      }
+    } catch (e: any) {
+      toast.error(e.message || (isRTL ? 'فشلت الترجمة' : 'Translation failed'));
+    } finally {
+      setTranslatingField(null);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -96,7 +123,24 @@ export const TermsManagement = () => {
 
             <TabsContent value="terms" className="grid md:grid-cols-2 gap-6 pt-4">
               <div className="space-y-2">
-                <Label>{isRTL ? 'النص بالعربية' : 'Arabic text'}</Label>
+                <div className="flex items-center justify-between">
+                  <Label>{isRTL ? 'النص بالعربية' : 'Arabic text'}</Label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs gap-1"
+                    disabled={!values.instructor_policies || translatingField === 'instructor_policies_ar'}
+                    onClick={() => handleTranslate('instructor_policies', 'instructor_policies_ar', 'en', 'ar')}
+                  >
+                    {translatingField === 'instructor_policies_ar' ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-3 h-3 text-primary" />
+                    )}
+                    {isRTL ? 'ترجم من الإنجليزية (AI)' : 'Translate from English (AI)'}
+                  </Button>
+                </div>
                 <Textarea
                   dir="rtl"
                   rows={20}
@@ -105,7 +149,24 @@ export const TermsManagement = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label>{isRTL ? 'النص بالإنجليزية' : 'English text'}</Label>
+                <div className="flex items-center justify-between">
+                  <Label>{isRTL ? 'النص بالإنجليزية' : 'English text'}</Label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs gap-1"
+                    disabled={!values.instructor_policies_ar || translatingField === 'instructor_policies'}
+                    onClick={() => handleTranslate('instructor_policies_ar', 'instructor_policies', 'ar', 'en')}
+                  >
+                    {translatingField === 'instructor_policies' ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-3 h-3 text-primary" />
+                    )}
+                    {isRTL ? 'ترجم من العربية (AI)' : 'Translate from Arabic (AI)'}
+                  </Button>
+                </div>
                 <Textarea
                   dir="ltr"
                   rows={20}
@@ -117,7 +178,24 @@ export const TermsManagement = () => {
 
             <TabsContent value="privacy" className="grid md:grid-cols-2 gap-6 pt-4">
               <div className="space-y-2">
-                <Label>{isRTL ? 'النص بالعربية' : 'Arabic text'}</Label>
+                <div className="flex items-center justify-between">
+                  <Label>{isRTL ? 'النص بالعربية' : 'Arabic text'}</Label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs gap-1"
+                    disabled={!values.privacy_policy || translatingField === 'privacy_policy_ar'}
+                    onClick={() => handleTranslate('privacy_policy', 'privacy_policy_ar', 'en', 'ar')}
+                  >
+                    {translatingField === 'privacy_policy_ar' ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-3 h-3 text-primary" />
+                    )}
+                    {isRTL ? 'ترجم من الإنجليزية (AI)' : 'Translate from English (AI)'}
+                  </Button>
+                </div>
                 <Textarea
                   dir="rtl"
                   rows={20}
@@ -126,7 +204,24 @@ export const TermsManagement = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label>{isRTL ? 'النص بالإنجليزية' : 'English text'}</Label>
+                <div className="flex items-center justify-between">
+                  <Label>{isRTL ? 'النص بالإنجليزية' : 'English text'}</Label>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs gap-1"
+                    disabled={!values.privacy_policy_ar || translatingField === 'privacy_policy'}
+                    onClick={() => handleTranslate('privacy_policy_ar', 'privacy_policy', 'ar', 'en')}
+                  >
+                    {translatingField === 'privacy_policy' ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-3 h-3 text-primary" />
+                    )}
+                    {isRTL ? 'ترجم من العربية (AI)' : 'Translate from Arabic (AI)'}
+                  </Button>
+                </div>
                 <Textarea
                   dir="ltr"
                   rows={20}

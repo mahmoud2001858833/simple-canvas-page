@@ -8,7 +8,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { GraduationCap, BookOpen, FileText, Trophy } from 'lucide-react';
+import { GraduationCap, BookOpen, FileText, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const WelcomeModal = () => {
@@ -31,9 +31,9 @@ const WelcomeModal = () => {
           description: 'ارفع ملفاتك واحصل على شرح مخصص من أفضل المدرسين',
         },
         {
-          icon: Trophy,
-          title: 'شهادات معتمدة',
-          description: 'احصل على شهادات إتمام عند إكمال الدورات',
+          icon: Sparkles,
+          title: 'مساعد ذكي وتفاعل فوري',
+          description: 'دعم دراسي ذكي وتواصل مستمر لتحقيق أعلى الدرجات',
         },
       ],
       startButton: 'ابدأ الجولة التعريفية',
@@ -55,9 +55,9 @@ const WelcomeModal = () => {
           description: 'Upload your files and get custom explanations from top instructors',
         },
         {
-          icon: Trophy,
-          title: 'Certified Certificates',
-          description: 'Earn completion certificates when you finish courses',
+          icon: Sparkles,
+          title: 'AI Assistant & Smart Support',
+          description: 'Instant study support and continuous interaction to excel in your studies',
         },
       ],
       startButton: 'Start Guided Tour',

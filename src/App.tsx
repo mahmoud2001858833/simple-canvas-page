@@ -62,6 +62,7 @@ const WelcomeModal = lazy(() => import("./components/onboarding/WelcomeModal").t
 const OnboardingTooltip = lazy(() => import("./components/onboarding/OnboardingTooltip").then(m => ({ default: m.OnboardingTooltip })));
 const ChatWidget = lazy(() => import("./components/ai-assistant/ChatWidget").then(m => ({ default: m.ChatWidget })));
 const DirectSupportChat = lazy(() => import("./components/support/DirectSupportChat").then(m => ({ default: m.DirectSupportChat })));
+const WhatsAppButton = lazy(() => import("./components/common/WhatsAppButton").then(m => ({ default: m.WhatsAppButton })));
 
 // Create optimized query client for high-traffic scenarios
 const queryClient = createOptimizedQueryClient();
@@ -229,6 +230,7 @@ const App = () => (
                       <Suspense fallback={null}>
                         <ChatWidget />
                         <DirectSupportChat />
+                        <WhatsAppButton />
                       </Suspense>
                     </MaintenanceGuard>
                   </BrowserRouter>

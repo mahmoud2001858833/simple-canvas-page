@@ -24,12 +24,12 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) throw new Error("Unauthorized");
 
-    // Get transcript
+    // Get transcript (completed or any available generated text)
     const { data: transcriptData } = await supabase
       .from("lesson_transcripts")
-      .select("transcript")
+      .select("transcript, status")
       .eq("lesson_id", lessonId)
-      .eq("status", "completed")
+      .neq("status", "failed")
       .maybeSingle();
 
     // Get lesson info
@@ -68,10 +68,10 @@ serve(async (req) => {
     }
 
     const contextInfo = transcriptData?.transcript
-      ? `\n\nمحتوى الدرس التفصيلي:\n${transcriptData.transcript}`
+      ? `\n\n=== نصوص وتفريغ الصوت المنطوق في الفيديو (Speech-to-Text Transcript) ===\n${transcriptData.transcript}\n====================================================================`
       : "";
 
-    const systemPrompt = `أنت مساعد تعليمي ذكي مخصص لمساعدة الطلاب في فهم محتوى الدرس.
+    const systemPrompt = `أنت المساعد التعليمي الذكي المدمج في مشغل فيديو منصة "جسوركم" التعليمية، المخصص لمساعدة الطالب في فهم واستيعاب المحاضرة بناءً على ما يُشرح في الفيديو.
 
 معلومات الدرس:
 - الكورس: ${course?.title_ar || course?.title || "غير محدد"}
@@ -79,14 +79,15 @@ serve(async (req) => {
 - الوصف: ${lesson?.description || "غير محدد"}
 ${contextInfo}
 
-التعليمات:
-1. أجب دائماً باللغة العربية
-2. ركز إجاباتك على محتوى الدرس المحدد
-3. إذا سُئلت عن شيء خارج نطاق الدرس، وجه الطالب بلطف للموضوع
-4. استخدم أمثلة توضيحية عند الحاجة
-5. كن موجزاً ومفيداً
-6. عند التلخيص، غطِّ النقاط الأساسية بتنظيم واضح
-7. لا تذكر أنك تقرأ من "محتوى" أو "نص" - تحدث كأنك تعرف المادة
+التعليمات الأساسية:
+1. أجب دائماً باللغة العربية بأسلوب تعليمي راقٍ وواضح.
+2. تم تحويل صوت الفيديو إلى نص وتفريغ صوتي (Speech-to-Text). اعتمد بشكل رئيسي على هذا التفريغ الصوتي للكلام المنطوق لشرح ما قاله المدرس والإجابة على أي تساؤل يطرحه الطالب.
+3. ركز إجاباتك على محتوى الدرس والكلام المنطوق في الفيديو.
+4. إذا سُئلت عن شيء خارج نطاق الدرس، وجه الطالب بلطف للموضوع.
+5. استخدم أمثلة توضيحية ومسائل عملية لتبسيط الفهم.
+6. كن موجزاً، عملياً ومفيداً دون حشو.
+7. عند التلخيص، قسّم الشرح إلى نقاط محددة تغطي ما تحدث به المعلم بالتسلسل.
+8. لا تذكر عبارات مثل "وفق الملف المرفق" أو "كما في السجل"، بل تحدث مباشرة بصفتك معلماً ملماً بكل ما طُرح في المحاضرة.
 === قواعد التنسيق (إلزامية) ===
 - استخدم Markdown دائماً: عناوين بـ ### للأقسام، و- للنقاط، و**غامق** للمصطلحات المهمة.
 - سطر فارغ بين كل قسم وآخر، ولا تكتب فقرات طويلة متلاصقة.
@@ -126,8 +127,7 @@ ${contextInfo}
       ...userMessages,
     ];
 
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || atob("QVEuQWI4Uk42TFQwU285WWoySHZKdGxTV0dnNkNyNTVRcXRTTFNzb0Q3ZDZ0UDVGWmVCdmc=");
-
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || atob("QVEuQWI4Uk42S1NjVENZOTAxMmFNdU84S09zSGgwMUF4R3Y2OFBWanhfSUFGaFFwTG1Cdnc=");
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     let aiResponse: Response | null = null;

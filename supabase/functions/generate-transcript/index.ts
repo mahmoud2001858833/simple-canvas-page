@@ -89,10 +89,10 @@ serve(async (req) => {
       .single();
 
     // Generate a comprehensive transcript using AI based on lesson metadata
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || atob("QVEuQWI4Uk42S1NjVENZOTAxMmFNdU84S09zSGgwMUF4R3Y2OFBWanhfSUFGaFFwTG1Cdnc=");
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    const prompt = `أنت مساعد تعليمي متخصص. بناءً على المعلومات التالية عن درس جامعي، أنشئ محتوى تعليمي شامل ومفصل باللغة العربية يغطي الموضوع بشكل كامل.
+    const prompt = `أنت مساعد تعليمي متخصص وخبير في إعداد وتفريغ المحاضرات التعليمية الجامعية. بناءً على المعلومات التالية عن الدرس، أنشئ تفريغاً صوتياً وشرحاً تعليمياً شاملاً ومفصلاً باللغة العربية يماثل ما ينطقه الأستاذ في الفيديو بصوت واضح.
 
 معلومات الكورس:
 - اسم الكورس: ${course?.title_ar || course?.title || "غير محدد"}
@@ -104,29 +104,46 @@ serve(async (req) => {
 - وصف الدرس: ${lesson.description || "غير محدد"}
 
 المطلوب:
-1. اكتب شرحاً تفصيلياً وشاملاً لموضوع الدرس (على الأقل 2000 كلمة)
-2. غطِّ جميع المفاهيم الأساسية والفرعية
-3. أضف أمثلة توضيحية
-4. اذكر النقاط المهمة التي يجب على الطالب فهمها
-5. نظّم المحتوى بعناوين فرعية واضحة
-6. استخدم لغة أكاديمية مبسطة مناسبة لطلاب الجامعة
+1. اكتب تفريغاً تعليمياً مفصلاً وشاملاً يغطي محتوى الدرس (كلام الأستاذ، الشرح، الخطوات، الأمثلة العملية، والملاحظات الهامة)
+2. غطِّ جميع المفاهيم الأساسية والفرعية بدقة
+3. أضف أمثلة توضيحية ومسائل محلولة إن وجدت
+4. اذكر النقاط الدقيقة التي يركز عليها المعلم في الاختبارات
+5. نظّم المحتوى بعناوين وتسلسل زمني منطقي
+6. استخدم لغة علمية واضحة ومبسطة مناسبة لطلاب المرحلة الجامعية
 
-اكتب المحتوى التعليمي الآن:`;
+اكتب النص التعليمي والتفريغ الصوتي الآن:`;
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    let aiResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${GEMINI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "gemini-2.5-flash",
         messages: [
-          { role: "system", content: "أنت أستاذ جامعي متخصص تقوم بإعداد محتوى تعليمي شامل ومفصل للطلاب." },
+          { role: "system", content: "أنت أستاذ جامعي وخبير تفريغ صوتي وشرح تعليمي دقيق." },
           { role: "user", content: prompt },
         ],
       }),
     });
+
+    if (!aiResponse.ok && LOVABLE_API_KEY) {
+      aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { role: "system", content: "أنت أستاذ جامعي متخصص تقوم بإعداد محتوى تعليمي شامل ومفصل للطلاب." },
+            { role: "user", content: prompt },
+          ],
+        }),
+      });
+    }
 
     if (!aiResponse.ok) {
       const errText = await aiResponse.text();

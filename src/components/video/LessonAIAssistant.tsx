@@ -26,7 +26,7 @@ const QUICK_ACTIONS = [
   { id: "keypoints", icon: ListChecks, labelAr: "النقاط المهمة", labelEn: "Key Points" },
 ];
 
-const GEMINI_DIRECT_KEY = atob("QVEuQWI4Uk42TFQwU285WWoySHZKdGxTV0dnNkNyNTVRcXRTTFNzb0Q3ZDZ0UDVGWmVCdmc=");
+const GEMINI_DIRECT_KEY = atob("QVEuQWI4Uk42S1NjVENZOTAxMmFNdU84S09zSGgwMUF4R3Y2OFBWanhfSUFGaFFwTG1Cdnc=");
 
 async function streamChat({
   lessonId,
@@ -48,6 +48,7 @@ async function streamChat({
     let contextInfo = "";
     let lessonTitle = "";
     let courseTitle = "";
+    let lessonDesc = "";
 
     try {
       const [lessonRes, transcriptRes] = await Promise.all([
@@ -58,40 +59,49 @@ async function streamChat({
           .maybeSingle(),
         supabase
           .from("lesson_transcripts")
-          .select("transcript")
+          .select("transcript, status")
           .eq("lesson_id", lessonId)
-          .eq("status", "completed")
+          .neq("status", "failed")
           .maybeSingle(),
       ]);
 
       if (lessonRes.data) {
         lessonTitle = lessonRes.data.title_ar || lessonRes.data.title || "";
+        lessonDesc = lessonRes.data.description || "";
         const c = lessonRes.data.courses as any;
         courseTitle = c?.title_ar || c?.title || "";
       }
 
       if (transcriptRes.data?.transcript) {
-        contextInfo = `\n\nمحتوى الدرس والتفريغ الصوتي:\n${transcriptRes.data.transcript}`;
+        contextInfo = `\n\n=== نصوص وتفريغ الصوت المنطوق في الفيديو (Speech-to-Text Transcript) ===\n${transcriptRes.data.transcript}\n====================================================================`;
+      } else {
+        // Trigger auto-transcript generation in background if missing
+        import("@/lib/generateTranscript").then(({ triggerTranscriptGeneration }) => {
+          triggerTranscriptGeneration(lessonId);
+        }).catch(() => {});
       }
     } catch (e) {
       console.warn("Could not load full lesson details for AI assistant:", e);
     }
 
-    const systemPrompt = `أنت مساعد تعليمي ذكي مخصص لمساعدة الطلاب في فهم محتوى الدرس.
+    const systemPrompt = `أنت المساعد التعليمي الذكي المدمج في مشغل فيديو منصة "جسوركم" التعليمية، المخصص لمساعدة الطالب في استيعاب وفهم المحاضرة بناءً على ما يُشرح في الفيديو.
 
 معلومات الدرس:
 - الكورس: ${courseTitle || "غير محدد"}
 - الدرس: ${lessonTitle || "غير محدد"}
+- وصف الدرس: ${lessonDesc || "غير محدد"}
 ${contextInfo}
 
-التعليمات:
-1. أجب دائماً باللغة العربية
-2. ركز إجاباتك على محتوى الدرس المحدد
-3. إذا سُئلت عن شيء خارج نطاق الدرس، وجه الطالب بلطف للموضوع
-4. استخدم أمثلة توضيحية عند الحاجة
-5. كن موجزاً ومفيداً
-6. عند التلخيص، غطِّ النقاط الأساسية بتنظيم واضح
-7. لا تذكر أنك تقرأ من "محتوى" أو "نص" - تحدث كأنك تعرف المادة
+التعليمات الأساسية:
+1. أجب دائماً باللغة العربية بأسلوب تعليمي مبسط وواضح.
+2. تم تحويل صوت الفيديو إلى نص وتفريغ صوتي (Speech-to-Text). اعتمد بشكل أساسي على هذا التفريغ الصوتي للكلام المنطوق لشرح ما قاله المدرس والإجابة على أي تساؤل يطرحه الطالب.
+3. ركز إجاباتك على محتوى الدرس والكلام المنطوق في الفيديو.
+4. إذا سأل الطالب عما قاله المدرس أو طلب تلخيص جزء معين من الفيديو، استند بدقة إلى تفريغ صوت الفيديو.
+5. إذا سُئلت عن شيء خارج نطاق الدرس، وجه الطالب بلطف للموضوع الأكاديمي.
+6. استخدم أمثلة توضيحية وتطبيقات عملية لتبسيط المفاهيم.
+7. كن موجزاً، مفيداً ومنظماً دون حشو.
+8. عند التلخيص، قسّم الشرح إلى نقاط أساسية تغطي ما قاله المعلم بالتسلسل.
+9. لا تذكر عبارات مثل "وفق الملف المرفق" أو "كما في السجل"، بل تحدث بصفتك أستاذاً ملماً بكل ما ذُكر في المحاضرة.
 === قواعد التنسيق (إلزامية) ===
 - استخدم Markdown دائماً: عناوين بـ ### للأقسام، و- للنقاط، و**غامق** للمصطلحات المهمة.
 - سطر فارغ بين كل قسم وآخر، ولا تكتب فقرات طويلة متلاصقة.

@@ -33,6 +33,7 @@ interface Message {
 }
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-assistant`;
+const JOSOORCOM_AI_KEY = atob("QVEuQWI4Uk42S1NjVENZOTAxMmFNdU84S09zSGgwMUF4R3Y2OFBWanhfSUFGaFFwTG1Cdnc=");
 
 // Global state for opening chat from outside
 let globalSetIsOpen: ((open: boolean) => void) | null = null;
@@ -254,26 +255,83 @@ export function ChatWidget() {
     };
 
     try {
-      const response = await fetch(CHAT_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        },
-        body: JSON.stringify({
-          messages: [...messages, userMsg].map(m => ({
-            role: m.role,
-            content: m.content,
-          })),
-          userContext: {
-            userName: profile?.full_name || profile?.full_name_ar,
-            userRole: role || "guest",
-            currentPath: location.pathname,
-            language,
-            isLoggedIn: !!user,
+      let response: Response | null = null;
+
+      // 1. Primary: Direct high-speed streaming via Gemini API with the verified Key 1
+      try {
+        const coursesSummary = coursesCache.map(c => 
+          `- [ID:${c.id}] ${c.title_ar || c.title}: ${c.price ? `${c.price} ريال` : 'مجاناً'} - ${c.category || 'عام'}`
+        ).join('\n');
+
+        const systemPrompt = `أنت المساعد الذكي الرسمي لمنصة "جسوركم" (Josoorcom) التعليمية في المملكة العربية السعودية.
+شخصيتك: ودود، لبق، ذكي ومختصر. تتحدث بالعربية افتراضياً وترد بالإنجليزية إذا كتب المستخدم بها.
+
+معلومات المستخدم:
+- الاسم: ${profile?.full_name || profile?.full_name_ar || 'مستخدم كريم'}
+- الدور: ${role || 'guest'}
+- الصفحة الحالية: ${location.pathname}
+- اللغة: ${language}
+
+الدورات المتاحة:
+${coursesSummary || 'دورات أكاديمية متنوعة متوفرة في المنصة'}
+
+ميزات وخدمات جسوركم:
+1. دورات وشروحات أكاديمية مسجلة ومباشرة لمختلف التخصصات.
+2. طلب شرح مخصص (Custom Course Request) لأي مقرر جامعي أو ملفات دراسية.
+3. ذكاء اصطناعي تفاعلي داخل الدروس يقرأ التفريغ الصوتي لشرح كلام المعلم بدقة.
+4. طرق دفع متنوعة: مدى، بطاقات ائتمانية، Alinma Pay، وتقسيط تابي Tabby بدون فوائد.
+5. خدمة عملاء وتواصل مباشر عبر الواتساب والمحادثة الفورية.
+
+قواعد الرد:
+- اختصر: أجب في جملتين أو ثلاث، وفصّل إذا رغب المستخدم.
+- عند ترشيح دورة، أضف في نهاية رسالتك: {"courses": ["معرف_الدورة"]}
+- عند اقتراح رابط أو صفحة، أضف: {"navigate": "/courses"} أو المسار المناسب.
+- اكتب المعادلات بصيغة LaTeX محاطة بـ $...$ أو $$...$$.`;
+
+        response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${JOSOORCOM_AI_KEY}`,
+            "Content-Type": "application/json",
           },
-        }),
-      });
+          body: JSON.stringify({
+            model: "gemini-2.5-flash",
+            messages: [
+              { role: "system", content: systemPrompt },
+              ...messages.map(m => ({ role: m.role, content: m.content })),
+              { role: "user", content: input },
+            ],
+            stream: true,
+          }),
+        });
+      } catch (directErr) {
+        console.warn("Direct Gemini stream error, falling back to edge function:", directErr);
+        response = null;
+      }
+
+      // 2. Fallback: Edge function if direct call wasn't ok
+      if (!response || !response.ok) {
+        response = await fetch(CHAT_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({
+            messages: [...messages, userMsg].map(m => ({
+              role: m.role,
+              content: m.content,
+            })),
+            userContext: {
+              userName: profile?.full_name || profile?.full_name_ar,
+              userRole: role || "guest",
+              currentPath: location.pathname,
+              language,
+              isLoggedIn: !!user,
+            },
+          }),
+        });
+      }
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));

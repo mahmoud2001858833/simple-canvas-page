@@ -47,6 +47,7 @@ import { AdminChaptersManagement } from './AdminChaptersManagement';
 import { CourseEnrollmentsDialog } from './CourseEnrollmentsDialog';
 import { CourseQRCode } from '@/components/dashboard/CourseQRCode';
 import { CourseAdTemplate } from '@/components/dashboard/CourseAdTemplate';
+import { translateTextWithAI } from '@/lib/aiTranslation';
 
 export const CoursesManagement = () => {
   const [selectedCourse, setSelectedCourse] = useState<{ id: string; title: string } | null>(null);
@@ -480,11 +481,8 @@ export const CoursesManagement = () => {
                       onClick={async () => {
                         setTranslating('en');
                         try {
-                          const { data, error } = await supabase.functions.invoke('translate-course-description', {
-                            body: { text: formData.description_ar, sourceLang: 'ar', targetLang: 'en' },
-                          });
-                          if (error) throw error;
-                          if (data?.translated) setFormData({ ...formData, description: data.translated });
+                          const translated = await translateTextWithAI({ text: formData.description_ar, sourceLang: 'ar', targetLang: 'en' });
+                          if (translated) setFormData({ ...formData, description: translated });
                         } catch { toast.error(language === 'ar' ? 'فشل الترجمة' : 'Translation failed'); }
                         finally { setTranslating(null); }
                       }}
@@ -505,11 +503,8 @@ export const CoursesManagement = () => {
                       onClick={async () => {
                         setTranslating('ar');
                         try {
-                          const { data, error } = await supabase.functions.invoke('translate-course-description', {
-                            body: { text: formData.description, sourceLang: 'en', targetLang: 'ar' },
-                          });
-                          if (error) throw error;
-                          if (data?.translated) setFormData({ ...formData, description_ar: data.translated });
+                          const translated = await translateTextWithAI({ text: formData.description, sourceLang: 'en', targetLang: 'ar' });
+                          if (translated) setFormData({ ...formData, description_ar: translated });
                         } catch { toast.error(language === 'ar' ? 'فشل الترجمة' : 'Translation failed'); }
                         finally { setTranslating(null); }
                       }}
