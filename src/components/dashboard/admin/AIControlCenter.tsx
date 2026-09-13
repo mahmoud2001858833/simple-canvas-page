@@ -45,6 +45,7 @@ import {
   AIAgentDefinition,
   CustomKnowledgeItem,
   KnowledgeSummary,
+  INITIAL_AGENTS,
   getAgentsConfig,
   saveAgentsConfig,
   getCustomKnowledge,
@@ -55,9 +56,9 @@ import {
 
 export function AIControlCenter() {
   const [activeTab, setActiveTab] = useState("roster");
-  const [agents, setAgents] = useState<AIAgentDefinition[]>([]);
+  const [agents, setAgents] = useState<AIAgentDefinition[]>(INITIAL_AGENTS);
   const [selectedAgentId, setSelectedAgentId] = useState<string>("platform_tutor");
-  const [isLoadingAgents, setIsLoadingAgents] = useState(true);
+  const [isLoadingAgents, setIsLoadingAgents] = useState(false);
   const [isSavingPrompt, setIsSavingPrompt] = useState(false);
 
   // Custom Knowledge
@@ -112,9 +113,15 @@ export function AIControlCenter() {
         getCustomKnowledge(),
         getPlatformKnowledgeSummary(),
       ]);
-      setAgents(agentsData);
-      setKnowledgeList(knowledgeData);
-      setKnowledgeSummary(summaryData);
+      if (agentsData && agentsData.length > 0) {
+        setAgents(agentsData);
+      }
+      if (knowledgeData) {
+        setKnowledgeList(knowledgeData);
+      }
+      if (summaryData) {
+        setKnowledgeSummary(summaryData);
+      }
     } catch (err) {
       console.error(err);
       toast.error("حدث خطأ أثناء تحميل بيانات الوكلاء");
@@ -123,7 +130,10 @@ export function AIControlCenter() {
     }
   };
 
-  const selectedAgent = agents.find((a) => a.id === selectedAgentId) || agents[0];
+  const selectedAgent =
+    (agents && agents.length > 0
+      ? agents.find((a) => a.id === selectedAgentId) || agents[0]
+      : null) || INITIAL_AGENTS[0];
 
   const handleUpdateCustomPrompt = (newPrompt: string) => {
     setAgents((prev) =>
@@ -201,7 +211,7 @@ export function AIControlCenter() {
 
     try {
       const directKey = atob("QVEuQWI4Uk42S1NjVENZOTAxMmFNdU84S09zSGgwMUF4R3Y2OFBWanhfSUFGaFFwTG1Cdnc=");
-      const effectivePrompt = `${selectedAgent.defaultPrompt}\n\nتعليمات إضافية مخصصة من الإدارة:\n${selectedAgent.customPrompt || "لا توجد"}`;
+      const effectivePrompt = `${selectedAgent?.defaultPrompt || ""}\n\nتعليمات إضافية مخصصة من الإدارة:\n${selectedAgent?.customPrompt || "لا توجد"}`;
 
       const res = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
         method: "POST",
@@ -210,7 +220,7 @@ export function AIControlCenter() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: selectedAgent.model || "gemini-flash-lite-latest",
+          model: selectedAgent?.model || "gemini-flash-lite-latest",
           messages: [
             { role: "system", content: effectivePrompt },
             { role: "user", content: simQuestion },
@@ -521,7 +531,7 @@ export function AIControlCenter() {
                           كم بيقدر يظل يجاوب:
                         </span>
                         <span className="font-bold text-foreground">
-                          {agent.dailyCapacityEstimate.toLocaleString()} استفسار / يومياً
+                          {(agent.dailyCapacityEstimate ?? 12000).toLocaleString()} استفسار / يومياً
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-[11px] text-muted-foreground">
@@ -532,7 +542,7 @@ export function AIControlCenter() {
                       </div>
                       <Progress value={96} className="h-1.5 bg-muted" />
                       <div className="flex justify-between text-[10px] text-muted-foreground font-mono">
-                        <span>النموذج: {agent.model}</span>
+                        <span>النموذج: {agent.model || "gemini-flash-lite-latest"}</span>
                         <span>4 نماذج احتياطية</span>
                       </div>
                     </div>
@@ -615,7 +625,7 @@ export function AIControlCenter() {
                     <div>
                       <CardTitle className="text-lg font-bold flex items-center gap-2">
                         <Sliders className="w-5 h-5 text-primary" />
-                        <span>تعليمات: {selectedAgent.nameAr}</span>
+                        <span>تعليمات: {selectedAgent?.nameAr || "الوكيل"}</span>
                       </CardTitle>
                       <CardDescription className="text-xs text-muted-foreground mt-0.5">
                         اكتب التعليمات الإضافية أو التوجيهات الصارمة التي تود أن يلتزم بها الوكيل في كل محادثة.
@@ -641,7 +651,7 @@ export function AIControlCenter() {
                       <span className="text-[10px] text-muted-foreground font-mono">Default Built-in</span>
                     </label>
                     <div className="p-3 rounded-lg bg-muted/40 border border-border/60 text-xs font-mono text-muted-foreground leading-relaxed max-h-32 overflow-y-auto whitespace-pre-wrap">
-                      {selectedAgent.defaultPrompt}
+                      {selectedAgent?.defaultPrompt || ""}
                     </div>
                   </div>
 
@@ -655,7 +665,7 @@ export function AIControlCenter() {
                       <span className="text-[10px] text-primary font-semibold">تطبق فورياً بعد الحفظ</span>
                     </label>
                     <Textarea
-                      value={selectedAgent.customPrompt || ""}
+                      value={selectedAgent?.customPrompt || ""}
                       onChange={(e) => handleUpdateCustomPrompt(e.target.value)}
                       placeholder="أدخل أي تعليمات إضافية، مثلاً:
 - شجع الطلاب دائماً على الاستفادة من خطط التقسيط بـ تابي.
@@ -683,7 +693,7 @@ export function AIControlCenter() {
                       <Input
                         value={simQuestion}
                         onChange={(e) => setSimQuestion(e.target.value)}
-                        placeholder={`اكتب سؤالاً تجريبياً لـ ${selectedAgent.nameAr}...`}
+                        placeholder={`اكتب سؤالاً تجريبياً لـ ${selectedAgent?.nameAr || "الوكيل"}...`}
                         className="text-xs h-9"
                         onKeyDown={(e) => e.key === "Enter" && handleRunSimulator()}
                       />
@@ -1029,3 +1039,5 @@ export function AIControlCenter() {
     </div>
   );
 }
+
+export default AIControlCenter;
