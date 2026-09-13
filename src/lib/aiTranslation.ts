@@ -22,9 +22,9 @@ export async function translateTextWithAI({ text, sourceLang, targetLang }: Tran
   // Primary: Direct call to Gemini OpenAI-compatible endpoint with model fallback
   const TRANSLATION_MODELS = [
     'gemini-flash-lite-latest',
-    'gemini-2.5-flash-lite',
     'gemini-3.1-flash-lite',
-    'gemini-2.5-flash',
+    'gemini-3.5-flash-lite',
+    'gemini-flash-latest',
   ];
 
   for (const model of TRANSLATION_MODELS) {
@@ -62,30 +62,32 @@ export async function translateTextWithAI({ text, sourceLang, targetLang }: Tran
     }
   }
 
-  // Native Gemini generateContent fallback
-  try {
-    const nativeRes = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${TRANSLATION_AI_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            role: 'user',
-            parts: [{
-              text: `Translate the following text accurately from ${src} to ${tgt}. Return ONLY the translation:\n\n${trimmed}`
+  // Native Gemini generateContent fallback across candidate models
+  for (const model of ['gemini-flash-lite-latest', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite']) {
+    try {
+      const nativeRes = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${TRANSLATION_AI_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              role: 'user',
+              parts: [{
+                text: `Translate the following text accurately from ${src} to ${tgt}. Return ONLY the translation:\n\n${trimmed}`
+              }]
             }]
-          }]
-        })
+          })
+        }
+      );
+      if (nativeRes.ok) {
+        const nativeData = await nativeRes.json();
+        const nativeText = nativeData?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+        if (nativeText) return nativeText;
       }
-    );
-    if (nativeRes.ok) {
-      const nativeData = await nativeRes.json();
-      const nativeText = nativeData?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-      if (nativeText) return nativeText;
+    } catch (nativeErr) {
+      console.warn(`Native Gemini translation fallback (${model}) error:`, nativeErr);
     }
-  } catch (nativeErr) {
-    console.warn('Native Gemini translation fallback error:', nativeErr);
   }
 
   // Fallback: Supabase Edge function

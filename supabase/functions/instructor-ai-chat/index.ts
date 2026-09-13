@@ -105,27 +105,37 @@ serve(async (req) => {
 
     let response: Response | null = null;
 
+    const CANDIDATE_MODELS = [
+      "gemini-flash-lite-latest",
+      "gemini-3.1-flash-lite",
+      "gemini-3.5-flash-lite",
+      "gemini-flash-latest",
+    ];
+
     if (GEMINI_API_KEY) {
-      try {
-        response = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${GEMINI_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "gemini-2.5-flash",
-            messages: apiMessages,
-            stream: true,
-          }),
-        });
-        if (!response.ok) {
-          console.error("Gemini failed in instructor-ai-chat, trying fallback:", response.status);
-          response = null;
+      for (const model of CANDIDATE_MODELS) {
+        try {
+          const r = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${GEMINI_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model,
+              messages: apiMessages,
+              stream: true,
+            }),
+          });
+          if (r.ok) {
+            response = r;
+            break;
+          } else {
+            console.error(`Gemini ${model} failed in instructor-ai-chat:`, r.status);
+          }
+        } catch (err) {
+          console.error(`Gemini ${model} error:`, err);
         }
-      } catch (err) {
-        console.error("Gemini error:", err);
-        response = null;
       }
     }
 

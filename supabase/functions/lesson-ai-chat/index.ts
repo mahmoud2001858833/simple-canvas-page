@@ -132,24 +132,33 @@ ${contextInfo}
 
     let aiResponse: Response | null = null;
 
+    const CANDIDATE_MODELS = [
+      "gemini-flash-lite-latest",
+      "gemini-3.1-flash-lite",
+      "gemini-3.5-flash-lite",
+      "gemini-flash-latest",
+    ];
+
     if (GEMINI_API_KEY) {
-      try {
-        aiResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${GEMINI_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ model: "gemini-2.5-flash", messages: chatMessages, stream: true }),
-        });
-        if (!aiResponse.ok) {
-          const t = await aiResponse.text().catch(() => "");
-          console.error("Gemini failed, falling back:", aiResponse.status, t.slice(0, 300));
-          aiResponse = null;
+      for (const model of CANDIDATE_MODELS) {
+        try {
+          const r = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${GEMINI_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ model, messages: chatMessages, stream: true }),
+          });
+          if (r.ok) {
+            aiResponse = r;
+            break;
+          } else {
+            console.error(`Gemini ${model} failed:`, r.status);
+          }
+        } catch (err) {
+          console.error(`Gemini ${model} fetch error:`, err);
         }
-      } catch (err) {
-        console.error("Gemini fetch error:", err);
-        aiResponse = null;
       }
     }
 

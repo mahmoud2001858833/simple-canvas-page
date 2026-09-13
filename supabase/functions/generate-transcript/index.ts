@@ -118,35 +118,37 @@ serve(async (req) => {
 
 اكتب النص التعليمي والتفريغ الصوتي الآن:`;
 
-    let aiResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GEMINI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gemini-2.5-flash",
-        messages: [
-          { role: "system", content: "أنت أستاذ جامعي وخبير تفريغ صوتي وشرح تعليمي دقيق." },
-          { role: "user", content: prompt },
-        ],
-      }),
-    });
-    if (!aiResponse.ok) {
-      aiResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${GEMINI_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "gemini-2.5-flash-lite",
-          messages: [
-            { role: "system", content: "أنت أستاذ جامعي وخبير تفريغ صوتي وشرح تعليمي دقيق." },
-            { role: "user", content: prompt },
-          ],
-        }),
-      });
+    const CANDIDATE_MODELS = [
+      "gemini-flash-lite-latest",
+      "gemini-3.1-flash-lite",
+      "gemini-3.5-flash-lite",
+      "gemini-flash-latest",
+    ];
+
+    let aiResponse: Response | null = null;
+    for (const model of CANDIDATE_MODELS) {
+      try {
+        const r = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${GEMINI_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model,
+            messages: [
+              { role: "system", content: "أنت أستاذ جامعي وخبير تفريغ صوتي وشرح تعليمي دقيق." },
+              { role: "user", content: prompt },
+            ],
+          }),
+        });
+        if (r.ok) {
+          aiResponse = r;
+          break;
+        }
+      } catch (e) {
+        console.warn(`generate-transcript model ${model} error:`, e);
+      }
     }
 
     if (!aiResponse.ok && LOVABLE_API_KEY) {

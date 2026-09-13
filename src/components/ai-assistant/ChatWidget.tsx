@@ -290,9 +290,9 @@ ${coursesSummary || 'دورات أكاديمية متنوعة متوفرة في 
 
         const CANDIDATE_MODELS = [
           "gemini-flash-lite-latest",
-          "gemini-2.5-flash-lite",
           "gemini-3.1-flash-lite",
-          "gemini-2.5-flash",
+          "gemini-3.5-flash-lite",
+          "gemini-flash-latest",
         ];
 
         for (const model of CANDIDATE_MODELS) {
@@ -322,6 +322,48 @@ ${coursesSummary || 'دورات أكاديمية متنوعة متوفرة في 
             }
           } catch (modelErr) {
             console.warn(`Gemini model ${model} fetch failed:`, modelErr);
+          }
+        }
+
+        // Native Gemini SSE fallback
+        if (!response || !response.ok) {
+          for (const model of CANDIDATE_MODELS) {
+            try {
+              const contents = [
+                {
+                  role: "user",
+                  parts: [{ text: `تعليمات النظام:\n${systemPrompt}` }],
+                },
+                {
+                  role: "model",
+                  parts: [{ text: "أهلاً بك! أنا المساعد الذكي لمنصة جسوركم، كيف أستطيع مساعدتك اليوم؟" }],
+                },
+                ...messages.map(m => ({
+                  role: m.role === "assistant" ? "model" : "user",
+                  parts: [{ text: m.content }],
+                })),
+                {
+                  role: "user",
+                  parts: [{ text: input }],
+                },
+              ];
+
+              const nativeCandidateRes = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${JOSOORCOM_AI_KEY}`,
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ contents }),
+                }
+              );
+
+              if (nativeCandidateRes.ok) {
+                response = nativeCandidateRes;
+                break;
+              }
+            } catch (nativeErr) {
+              console.warn(`Native Gemini model ${model} fetch failed:`, nativeErr);
+            }
           }
         }
       } catch (directErr) {
@@ -381,10 +423,9 @@ ${coursesSummary || 'دورات أكاديمية متنوعة متوفرة في 
 
           const jsonStr = line.slice(6).trim();
           if (jsonStr === "[DONE]") break;
-
           try {
             const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+            const content = (parsed.choices?.[0]?.delta?.content ?? parsed.candidates?.[0]?.content?.parts?.[0]?.text) as string | undefined;
             if (content) updateAssistant(content);
           } catch {
             buffer = line + "\n" + buffer;

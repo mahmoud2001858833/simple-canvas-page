@@ -149,46 +149,83 @@ ${contextInfo}
       ...userMessages,
     ];
 
-    // Primary: Call Google Gemini directly using the configured key
-    let resp: Response | null = null;
-    try {
-      resp = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${GEMINI_DIRECT_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "gemini-2.5-flash",
-          messages: chatMessages,
-          stream: true,
-        }),
-      });
-    } catch (e) {
-      console.warn("Direct Gemini call error, trying backend fallback:", e);
-    }
+    const CANDIDATE_MODELS = [
+      "gemini-flash-lite-latest",
+      "gemini-3.1-flash-lite",
+      "gemini-3.5-flash-lite",
+      "gemini-flash-latest",
+    ];
 
-    // If gemini-2.5-flash is rate-limited or fails, retry immediately with gemini-2.5-flash-lite
-    if (!resp || !resp.ok) {
+    let resp: Response | null = null;
+
+    // 1. Primary: Stream via OpenAI-compatible endpoint with model fallback
+    for (const model of CANDIDATE_MODELS) {
       try {
-        resp = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+        const candidateRes = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
           method: "POST",
           headers: {
             "Authorization": `Bearer ${GEMINI_DIRECT_KEY}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            model: "gemini-2.5-flash-lite",
+            model,
             messages: chatMessages,
             stream: true,
           }),
         });
+
+        if (candidateRes.ok) {
+          resp = candidateRes;
+          break;
+        } else {
+          console.warn(`Lesson AI model ${model} returned status ${candidateRes.status}, trying next...`);
+        }
       } catch (e) {
-        console.warn("Direct Gemini lite retry error:", e);
+        console.warn(`Lesson AI model ${model} fetch failed:`, e);
       }
     }
 
-    // Fallback: If direct Gemini call failed, try backend edge function
+    // 2. Secondary fallback: Stream directly via Google Native SSE endpoint
+    if (!resp || !resp.ok) {
+      for (const model of CANDIDATE_MODELS) {
+        try {
+          const contents = [
+            {
+              role: "user",
+              parts: [{ text: `تعليمات النظام:\n${systemPrompt}\n\nيرجى مساعدة الطالب بناءً على محتوى وتفريغ الدرس المرفق.` }],
+            },
+            {
+              role: "model",
+              parts: [{ text: "أهلاً بك! أنا جاهز لمساعدتك وشرح الدرس والإجابة على استفساراتك بالتفصيل." }],
+            },
+            ...userMessages.map(m => ({
+              role: m.role === "assistant" ? "model" : "user",
+              parts: [{ text: m.content }],
+            })),
+          ];
+
+          const nativeCandidateRes = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${GEMINI_DIRECT_KEY}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ contents }),
+            }
+          );
+
+          if (nativeCandidateRes.ok) {
+            resp = nativeCandidateRes;
+            break;
+          } else {
+            console.warn(`Lesson AI Native SSE model ${model} returned status ${nativeCandidateRes.status}`);
+          }
+        } catch (e) {
+          console.warn(`Lesson AI Native SSE model ${model} error:`, e);
+        }
+      }
+    }
+
+    // 3. Tertiary fallback: Backend edge function
     if (!resp || !resp.ok) {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
@@ -241,7 +278,8 @@ ${contextInfo}
         if (jsonStr === "[DONE]") { streamDone = true; break; }
         try {
           const parsed = JSON.parse(jsonStr);
-          const content = parsed.choices?.[0]?.delta?.content;
+          // Handles OpenAI delta format AND Google Native candidates format
+          const content = parsed.choices?.[0]?.delta?.content ?? parsed.candidates?.[0]?.content?.parts?.[0]?.text;
           if (content) onDelta(content);
         } catch {
           textBuffer = line + "\n" + textBuffer;
@@ -262,7 +300,7 @@ ${contextInfo}
         if (jsonStr === "[DONE]") continue;
         try {
           const parsed = JSON.parse(jsonStr);
-          const content = parsed.choices?.[0]?.delta?.content;
+          const content = parsed.choices?.[0]?.delta?.content ?? parsed.candidates?.[0]?.content?.parts?.[0]?.text;
           if (content) onDelta(content);
         } catch { /* ignore */ }
       }
