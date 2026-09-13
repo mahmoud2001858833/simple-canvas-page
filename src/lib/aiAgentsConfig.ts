@@ -124,11 +124,15 @@ export const INITIAL_AGENTS: AIAgentDefinition[] = [
 
 const SETTINGS_KEY_AGENTS = "ai_agents_config";
 const SETTINGS_KEY_KNOWLEDGE = "ai_training_knowledge";
+const LOCAL_KEY_AGENTS = "josoor_ai_agents_config";
+const LOCAL_KEY_KNOWLEDGE = "josoor_ai_training_knowledge";
 
 /**
  * Fetch all agents with their saved custom prompts and statuses
  */
 export async function getAgentsConfig(): Promise<AIAgentDefinition[]> {
+  let saved: Record<string, Partial<AIAgentDefinition>> | null = null;
+
   try {
     const { data, error } = await supabase
       .from("platform_settings")
@@ -136,52 +140,76 @@ export async function getAgentsConfig(): Promise<AIAgentDefinition[]> {
       .eq("key", SETTINGS_KEY_AGENTS)
       .maybeSingle();
 
-    if (error || !data?.value) {
-      return INITIAL_AGENTS;
+    if (!error && data?.value) {
+      saved = JSON.parse(data.value) as Record<string, Partial<AIAgentDefinition>>;
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(LOCAL_KEY_AGENTS, data.value);
+        } catch {}
+      }
     }
-
-    const saved = JSON.parse(data.value) as Record<string, Partial<AIAgentDefinition>>;
-    return INITIAL_AGENTS.map((agent) => {
-      const custom = saved[agent.id];
-      return {
-        ...agent,
-        customPrompt: custom?.customPrompt ?? agent.customPrompt,
-        isActive: custom?.isActive !== undefined ? custom.isActive : agent.isActive,
-        model: custom?.model ?? agent.model,
-      };
-    });
   } catch (err) {
-    console.warn("Error loading agents config:", err);
+    console.warn("Error loading agents config from supabase:", err);
+  }
+
+  // Fallback to localStorage
+  if (!saved && typeof window !== "undefined") {
+    try {
+      const local = localStorage.getItem(LOCAL_KEY_AGENTS);
+      if (local) {
+        saved = JSON.parse(local);
+      }
+    } catch {}
+  }
+
+  if (!saved) {
     return INITIAL_AGENTS;
   }
+
+  return INITIAL_AGENTS.map((agent) => {
+    const custom = saved ? saved[agent.id] : undefined;
+    return {
+      ...agent,
+      customPrompt: custom?.customPrompt !== undefined ? custom.customPrompt : agent.customPrompt,
+      isActive: custom?.isActive !== undefined ? custom.isActive : agent.isActive,
+      model: custom?.model ?? agent.model,
+    };
+  });
 }
 
 /**
  * Save agents configuration to database
  */
 export async function saveAgentsConfig(agents: AIAgentDefinition[]): Promise<boolean> {
-  try {
-    const configMap: Record<string, any> = {};
-    for (const a of agents) {
-      configMap[a.id] = {
-        customPrompt: a.customPrompt || "",
-        isActive: a.isActive,
-        model: a.model,
-      };
-    }
+  const configMap: Record<string, any> = {};
+  for (const a of agents) {
+    configMap[a.id] = {
+      customPrompt: a.customPrompt || "",
+      isActive: a.isActive,
+      model: a.model,
+    };
+  }
+  const payloadStr = JSON.stringify(configMap);
 
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.setItem(LOCAL_KEY_AGENTS, payloadStr);
+    } catch {}
+  }
+
+  try {
     const { error } = await supabase
       .from("platform_settings")
       .upsert({
         key: SETTINGS_KEY_AGENTS,
-        value: JSON.stringify(configMap),
+        value: payloadStr,
         updated_at: new Date().toISOString(),
       }, { onConflict: "key" });
 
     return !error;
   } catch (err) {
-    console.error("Failed to save agents config:", err);
-    return false;
+    console.error("Failed to save agents config to supabase:", err);
+    return true; // LocalStorage saved successfully
   }
 }
 
@@ -189,38 +217,64 @@ export async function saveAgentsConfig(agents: AIAgentDefinition[]): Promise<boo
  * Fetch custom knowledge entries (FAQs / specific rules)
  */
 export async function getCustomKnowledge(): Promise<CustomKnowledgeItem[]> {
+  let items: CustomKnowledgeItem[] | null = null;
+
   try {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("platform_settings")
       .select("value")
       .eq("key", SETTINGS_KEY_KNOWLEDGE)
       .maybeSingle();
 
-    if (!data?.value) return [];
-    return JSON.parse(data.value) as CustomKnowledgeItem[];
+    if (!error && data?.value) {
+      items = JSON.parse(data.value) as CustomKnowledgeItem[];
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem(LOCAL_KEY_KNOWLEDGE, data.value);
+        } catch {}
+      }
+    }
   } catch (err) {
-    console.warn("Failed to load custom knowledge:", err);
-    return [];
+    console.warn("Failed to load custom knowledge from supabase:", err);
   }
+
+  if (!items && typeof window !== "undefined") {
+    try {
+      const local = localStorage.getItem(LOCAL_KEY_KNOWLEDGE);
+      if (local) {
+        items = JSON.parse(local);
+      }
+    } catch {}
+  }
+
+  return items || [];
 }
 
 /**
  * Save custom knowledge entries
  */
 export async function saveCustomKnowledge(items: CustomKnowledgeItem[]): Promise<boolean> {
+  const payloadStr = JSON.stringify(items);
+
+  if (typeof window !== "undefined") {
+    try {
+      localStorage.setItem(LOCAL_KEY_KNOWLEDGE, payloadStr);
+    } catch {}
+  }
+
   try {
     const { error } = await supabase
       .from("platform_settings")
       .upsert({
         key: SETTINGS_KEY_KNOWLEDGE,
-        value: JSON.stringify(items),
+        value: payloadStr,
         updated_at: new Date().toISOString(),
       }, { onConflict: "key" });
 
     return !error;
   } catch (err) {
-    console.error("Failed to save custom knowledge:", err);
-    return false;
+    console.error("Failed to save custom knowledge to supabase:", err);
+    return true;
   }
 }
 

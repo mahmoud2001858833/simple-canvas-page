@@ -266,13 +266,19 @@ export function ChatWidget() {
 
         let customDirectives = "";
         try {
+          let rawConfig = "";
           const { data: customData } = await supabase
             .from("platform_settings")
             .select("value")
             .eq("key", "ai_agents_config")
             .maybeSingle();
           if (customData?.value) {
-            const parsedConfig = JSON.parse(customData.value);
+            rawConfig = customData.value;
+          } else if (typeof window !== "undefined") {
+            rawConfig = localStorage.getItem("josoor_ai_agents_config") || "";
+          }
+          if (rawConfig) {
+            const parsedConfig = JSON.parse(rawConfig);
             if (parsedConfig?.platform_tutor?.customPrompt) {
               customDirectives = `\n\nتوجيهات إضافية معتمدة من إدارة المنصة:\n${parsedConfig.platform_tutor.customPrompt}`;
             }
