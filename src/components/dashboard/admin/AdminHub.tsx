@@ -17,6 +17,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Eye,
+  Bot,
 } from 'lucide-react';
 
 interface AdminHubProps {
@@ -101,6 +102,7 @@ export const AdminHub = ({ onNavigate }: AdminHubProps) => {
     { id: 'users', icon: Users, label: isRTL ? 'إدارة المستخدمين' : 'Manage users' },
     { id: 'courses', icon: BookOpenCheck, label: isRTL ? 'إدارة الدورات' : 'Manage courses' },
     { id: 'preview-students', icon: Eye, label: isRTL ? 'طلاب المعاينة (الفرص البيعية)' : 'Preview students (Leads)' },
+    { id: 'ai-control', icon: Bot, label: isRTL ? 'التحكم بالذكاء الاصطناعي 🤖' : 'AI Control Center' },
     { id: 'financial-dashboard', icon: Wallet, label: isRTL ? 'اللوحة المالية' : 'Financial dashboard' },
     { id: 'payment-methods', icon: CreditCard, label: isRTL ? 'طرق الدفع للدورات' : 'Course payment methods' },
     { id: 'reports', icon: FileText, label: isRTL ? 'التقارير' : 'Reports' },

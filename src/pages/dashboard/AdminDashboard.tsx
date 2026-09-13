@@ -44,8 +44,9 @@ const TermsManagement = lazy(() => import('@/components/dashboard/admin/TermsMan
 const NelcIntegration = lazy(() => import('@/components/dashboard/admin/NelcIntegration').then(m => ({ default: m.NelcIntegration })));
 const LivePaymentAlerts = lazy(() => import('@/components/dashboard/admin/LivePaymentAlerts').then(m => ({ default: m.LivePaymentAlerts })));
 const PreviewStudents = lazy(() => import('@/components/dashboard/admin/PreviewStudents').then(m => ({ default: m.PreviewStudents })));
+const AIControlCenter = lazy(() => import('@/components/dashboard/admin/AIControlCenter').then(m => ({ default: m.AIControlCenter })));
 
-type TabType = 'overview' | 'users' | 'user-insights' | 'instructor-detail' | 'student-detail' | 'courses' | 'course-approvals' | 'requests' | 'payments' | 'live-payments' | 'abandoned-payments' | 'payment-methods' | 'monthly-installments' | 'financial-dashboard' | 'accounting' | 'withdrawals' | 'coupons' | 'universities' | 'colleges' | 'majors' | 'students-by-major' | 'reports' | 'notifications' | 'logs' | 'general' | 'settings' | 'support' | 'instructor-settings' | 'instructor-payouts' | 'student-refunds' | 'terms' | 'nelc' | 'capture-attempts' | 'workflow' | 'video-analytics' | 'instructor-specialties' | 'preview-students';
+type TabType = 'overview' | 'users' | 'user-insights' | 'instructor-detail' | 'student-detail' | 'courses' | 'course-approvals' | 'requests' | 'payments' | 'live-payments' | 'abandoned-payments' | 'payment-methods' | 'monthly-installments' | 'financial-dashboard' | 'accounting' | 'withdrawals' | 'coupons' | 'universities' | 'colleges' | 'majors' | 'students-by-major' | 'reports' | 'notifications' | 'logs' | 'general' | 'settings' | 'support' | 'instructor-settings' | 'instructor-payouts' | 'student-refunds' | 'terms' | 'nelc' | 'capture-attempts' | 'workflow' | 'video-analytics' | 'instructor-specialties' | 'preview-students' | 'ai-control';
 
 
 // Fallback components for each section
@@ -294,6 +295,12 @@ const AdminDashboard = () => {
         return (
           <Suspense fallback={<LoadingFallback type="users" />}>
             <PreviewStudents onNavigateStudent={() => setActiveTab('student-detail')} />
+          </Suspense>
+        );
+      case 'ai-control':
+        return (
+          <Suspense fallback={<LoadingFallback type="overview" />}>
+            <AIControlCenter />
           </Suspense>
         );
       default:

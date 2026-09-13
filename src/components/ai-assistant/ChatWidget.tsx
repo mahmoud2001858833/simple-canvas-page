@@ -264,6 +264,21 @@ export function ChatWidget() {
           `- [ID:${c.id}] ${c.title_ar || c.title}: ${c.price ? `${c.price} ريال` : 'مجاناً'} - ${c.category || 'عام'}`
         ).join('\n');
 
+        let customDirectives = "";
+        try {
+          const { data: customData } = await supabase
+            .from("platform_settings")
+            .select("value")
+            .eq("key", "ai_agents_config")
+            .maybeSingle();
+          if (customData?.value) {
+            const parsedConfig = JSON.parse(customData.value);
+            if (parsedConfig?.platform_tutor?.customPrompt) {
+              customDirectives = `\n\nتوجيهات إضافية معتمدة من إدارة المنصة:\n${parsedConfig.platform_tutor.customPrompt}`;
+            }
+          }
+        } catch {}
+
         const systemPrompt = `أنت المساعد الذكي الرسمي لمنصة "جسوركم" (Josoorcom) التعليمية في المملكة العربية السعودية.
 شخصيتك: ودود، لبق، ذكي ومختصر. تتحدث بالعربية افتراضياً وترد بالإنجليزية إذا كتب المستخدم بها.
 
@@ -287,7 +302,7 @@ ${coursesSummary || 'دورات أكاديمية متنوعة متوفرة في 
 - اختصر: أجب في جملتين أو ثلاث، وفصّل إذا رغب المستخدم.
 - عند ترشيح دورة، أضف في نهاية رسالتك: {"courses": ["معرف_الدورة"]}
 - عند اقتراح رابط أو صفحة، أضف: {"navigate": "/courses"} أو المسار المناسب.
-- اكتب المعادلات بصيغة LaTeX محاطة بـ $...$ أو $$...$$.`;
+- اكتب المعادلات بصيغة LaTeX محاطة بـ $...$ أو $$...$$.${customDirectives}`;
 
         const CANDIDATE_MODELS = [
           "gemini-flash-lite-latest",

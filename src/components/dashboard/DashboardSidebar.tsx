@@ -48,6 +48,7 @@ import {
   ChevronDown,
   CalendarClock,
   RotateCcw,
+  Bot,
 } from 'lucide-react';
 import { Inbox } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -147,6 +148,7 @@ export const DashboardSidebar = ({ activeTab, onTabChange, isOpen, onToggle, use
     { id: 'workflow', label: { ar: 'سير العمل', en: 'Workflow' }, icon: Workflow, onboardingId: null, showBadge: false, isAction: false },
     { id: 'video-analytics', label: { ar: 'إحصائيات الفيديو', en: 'Video Analytics' }, icon: Video, onboardingId: null, showBadge: false, isAction: false },
     { id: 'preview-students', label: { ar: 'طلاب المعاينة', en: 'Preview Students' }, icon: Eye, onboardingId: null, showBadge: false, isAction: false },
+    { id: 'ai-control', label: { ar: 'التحكم بالذكاء الاصطناعي 🤖', en: 'AI Control Center' }, icon: Bot, onboardingId: null, showBadge: false, isAction: false },
     { id: 'requests', label: { ar: 'الطلبات', en: 'Requests' }, icon: FileText, onboardingId: null, showBadge: false, isAction: false },
     { id: 'support', label: { ar: 'محادثات الدعم', en: 'Support Chats' }, icon: Headphones, onboardingId: null, showBadge: false, isAction: false },
     { id: 'payments', label: { ar: 'المدفوعات', en: 'Payments' }, icon: DollarSign, onboardingId: null, showBadge: false, isAction: false },

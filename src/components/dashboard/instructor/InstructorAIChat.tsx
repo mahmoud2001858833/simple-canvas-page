@@ -125,7 +125,7 @@ export const InstructorAIChat = () => {
           if (jsonStr === '[DONE]') break;
           try {
             const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content;
+            const content = parsed.choices?.[0]?.delta?.content ?? parsed.candidates?.[0]?.content?.parts?.[0]?.text;
             if (content) upsertAssistant(content);
           } catch { buffer = line + '\n' + buffer; break; }
         }

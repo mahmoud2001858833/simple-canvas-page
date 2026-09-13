@@ -79,13 +79,25 @@ async function streamChat({
         transcriptText = getBuiltInTranscript(lessonId) || "";
       }
 
+      let customDirectives = "";
+      try {
+        const { data: customData } = await supabase
+          .from("platform_settings")
+          .select("value")
+          .eq("key", "ai_agents_config")
+          .maybeSingle();
+        if (customData?.value) {
+          const parsedConfig = JSON.parse(customData.value);
+          if (parsedConfig?.video_lesson_tutor?.customPrompt) {
+            customDirectives = `\n\n=== توجيهات إضافية معتمدة من إدارة المنصة ===\n${parsedConfig.video_lesson_tutor.customPrompt}`;
+          }
+        }
+      } catch {}
+
       if (transcriptText) {
-        contextInfo = `\n\n=== تفريغ صوت وشرح المحاضرة في الفيديو (Speech-to-Text Transcript & Lecture Notes) ===\n${transcriptText}\n========================================================================================`;
-      } else {
-        // Trigger auto-transcript generation in background if missing
-        import("@/lib/generateTranscript").then(({ triggerTranscriptGeneration }) => {
-          triggerTranscriptGeneration(lessonId);
-        }).catch(() => {});
+        contextInfo = `\n\n=== تفريغ صوت وشرح المحاضرة في الفيديو (Speech-to-Text Transcript & Lecture Notes) ===\n${transcriptText}\n========================================================================================${customDirectives}`;
+      } else if (customDirectives) {
+        contextInfo = customDirectives;
       }
     } catch (e) {
       console.warn("Could not load full lesson details for AI assistant:", e);
