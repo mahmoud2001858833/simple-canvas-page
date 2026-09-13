@@ -168,6 +168,26 @@ ${contextInfo}
       console.warn("Direct Gemini call error, trying backend fallback:", e);
     }
 
+    // If gemini-2.5-flash is rate-limited or fails, retry immediately with gemini-2.5-flash-lite
+    if (!resp || !resp.ok) {
+      try {
+        resp = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${GEMINI_DIRECT_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "gemini-2.5-flash-lite",
+            messages: chatMessages,
+            stream: true,
+          }),
+        });
+      } catch (e) {
+        console.warn("Direct Gemini lite retry error:", e);
+      }
+    }
+
     // Fallback: If direct Gemini call failed, try backend edge function
     if (!resp || !resp.ok) {
       const { data: { session } } = await supabase.auth.getSession();
