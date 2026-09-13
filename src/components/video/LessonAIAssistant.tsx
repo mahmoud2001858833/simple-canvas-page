@@ -27,6 +27,7 @@ const QUICK_ACTIONS = [
 ];
 
 const GEMINI_DIRECT_KEY = atob("QVEuQWI4Uk42S1NjVENZOTAxMmFNdU84S09zSGgwMUF4R3Y2OFBWanhfSUFGaFFwTG1Cdnc=");
+const GEMINI_FALLBACK_KEY = atob("QVEuQWI4Uk42TFZLU2xhRUdwaG5hVUd1am9kMFBqc0stOHhFMURHMEhFWGVud3p5UFZHMXc=");
 
 async function streamChat({
   lessonId,
@@ -156,71 +157,76 @@ ${contextInfo}
       "gemini-flash-latest",
     ];
 
+    const API_KEYS = [GEMINI_DIRECT_KEY, GEMINI_FALLBACK_KEY];
     let resp: Response | null = null;
 
-    // 1. Primary: Stream via OpenAI-compatible endpoint with model fallback
-    for (const model of CANDIDATE_MODELS) {
-      try {
-        const candidateRes = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${GEMINI_DIRECT_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model,
-            messages: chatMessages,
-            stream: true,
-          }),
-        });
+    for (const key of API_KEYS) {
+      if (resp && resp.ok) break;
 
-        if (candidateRes.ok) {
-          resp = candidateRes;
-          break;
-        } else {
-          console.warn(`Lesson AI model ${model} returned status ${candidateRes.status}, trying next...`);
-        }
-      } catch (e) {
-        console.warn(`Lesson AI model ${model} fetch failed:`, e);
-      }
-    }
-
-    // 2. Secondary fallback: Stream directly via Google Native SSE endpoint
-    if (!resp || !resp.ok) {
+      // 1. Primary: Stream via OpenAI-compatible endpoint with model fallback
       for (const model of CANDIDATE_MODELS) {
         try {
-          const contents = [
-            {
-              role: "user",
-              parts: [{ text: `تعليمات النظام:\n${systemPrompt}\n\nيرجى مساعدة الطالب بناءً على محتوى وتفريغ الدرس المرفق.` }],
+          const candidateRes = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${key}`,
+              "Content-Type": "application/json",
             },
-            {
-              role: "model",
-              parts: [{ text: "أهلاً بك! أنا جاهز لمساعدتك وشرح الدرس والإجابة على استفساراتك بالتفصيل." }],
-            },
-            ...userMessages.map(m => ({
-              role: m.role === "assistant" ? "model" : "user",
-              parts: [{ text: m.content }],
-            })),
-          ];
+            body: JSON.stringify({
+              model,
+              messages: chatMessages,
+              stream: true,
+            }),
+          });
 
-          const nativeCandidateRes = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${GEMINI_DIRECT_KEY}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ contents }),
-            }
-          );
-
-          if (nativeCandidateRes.ok) {
-            resp = nativeCandidateRes;
+          if (candidateRes.ok) {
+            resp = candidateRes;
             break;
           } else {
-            console.warn(`Lesson AI Native SSE model ${model} returned status ${nativeCandidateRes.status}`);
+            console.warn(`Lesson AI model ${model} returned status ${candidateRes.status}, trying next...`);
           }
         } catch (e) {
-          console.warn(`Lesson AI Native SSE model ${model} error:`, e);
+          console.warn(`Lesson AI model ${model} fetch failed:`, e);
+        }
+      }
+
+      // 2. Secondary fallback: Stream directly via Google Native SSE endpoint
+      if (!resp || !resp.ok) {
+        for (const model of CANDIDATE_MODELS) {
+          try {
+            const contents = [
+              {
+                role: "user",
+                parts: [{ text: `تعليمات النظام:\n${systemPrompt}\n\nيرجى مساعدة الطالب بناءً على محتوى وتفريغ الدرس المرفق.` }],
+              },
+              {
+                role: "model",
+                parts: [{ text: "أهلاً بك! أنا جاهز لمساعدتك وشرح الدرس والإجابة على استفساراتك بالتفصيل." }],
+              },
+              ...userMessages.map(m => ({
+                role: m.role === "assistant" ? "model" : "user",
+                parts: [{ text: m.content }],
+              })),
+            ];
+
+            const nativeCandidateRes = await fetch(
+              `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${key}`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ contents }),
+              }
+            );
+
+            if (nativeCandidateRes.ok) {
+              resp = nativeCandidateRes;
+              break;
+            } else {
+              console.warn(`Lesson AI Native SSE model ${model} returned status ${nativeCandidateRes.status}`);
+            }
+          } catch (e) {
+            console.warn(`Lesson AI Native SSE model ${model} error:`, e);
+          }
         }
       }
     }

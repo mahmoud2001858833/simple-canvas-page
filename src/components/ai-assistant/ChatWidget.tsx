@@ -34,6 +34,7 @@ interface Message {
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-assistant`;
 const JOSOORCOM_AI_KEY = atob("QVEuQWI4Uk42S1NjVENZOTAxMmFNdU84S09zSGgwMUF4R3Y2OFBWanhfSUFGaFFwTG1Cdnc=");
+const JOSOORCOM_BACKUP_KEY = atob("QVEuQWI4Uk42TFZLU2xhRUdwaG5hVUd1am9kMFBqc0stOHhFMURHMEhFWGVud3p5UFZHMXc=");
 
 // Global state for opening chat from outside
 let globalSetIsOpen: ((open: boolean) => void) | null = null;
@@ -295,74 +296,80 @@ ${coursesSummary || 'دورات أكاديمية متنوعة متوفرة في 
           "gemini-flash-latest",
         ];
 
-        for (const model of CANDIDATE_MODELS) {
-          try {
-            const candidateRes = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-              method: "POST",
-              headers: {
-                "Authorization": `Bearer ${JOSOORCOM_AI_KEY}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                model,
-                messages: [
-                  { role: "system", content: systemPrompt },
-                  ...messages.map(m => ({ role: m.role, content: m.content })),
-                  { role: "user", content: input },
-                ],
-                stream: true,
-              }),
-            });
+        const API_KEYS = [JOSOORCOM_AI_KEY, JOSOORCOM_BACKUP_KEY];
 
-            if (candidateRes.ok) {
-              response = candidateRes;
-              break;
-            } else {
-              console.warn(`Gemini model ${model} returned status ${candidateRes.status}, trying next...`);
-            }
-          } catch (modelErr) {
-            console.warn(`Gemini model ${model} fetch failed:`, modelErr);
-          }
-        }
+        for (const key of API_KEYS) {
+          if (response && response.ok) break;
 
-        // Native Gemini SSE fallback
-        if (!response || !response.ok) {
           for (const model of CANDIDATE_MODELS) {
             try {
-              const contents = [
-                {
-                  role: "user",
-                  parts: [{ text: `تعليمات النظام:\n${systemPrompt}` }],
+              const candidateRes = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+                method: "POST",
+                headers: {
+                  "Authorization": `Bearer ${key}`,
+                  "Content-Type": "application/json",
                 },
-                {
-                  role: "model",
-                  parts: [{ text: "أهلاً بك! أنا المساعد الذكي لمنصة جسوركم، كيف أستطيع مساعدتك اليوم؟" }],
-                },
-                ...messages.map(m => ({
-                  role: m.role === "assistant" ? "model" : "user",
-                  parts: [{ text: m.content }],
-                })),
-                {
-                  role: "user",
-                  parts: [{ text: input }],
-                },
-              ];
+                body: JSON.stringify({
+                  model,
+                  messages: [
+                    { role: "system", content: systemPrompt },
+                    ...messages.map(m => ({ role: m.role, content: m.content })),
+                    { role: "user", content: input },
+                  ],
+                  stream: true,
+                }),
+              });
 
-              const nativeCandidateRes = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${JOSOORCOM_AI_KEY}`,
-                {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ contents }),
-                }
-              );
-
-              if (nativeCandidateRes.ok) {
-                response = nativeCandidateRes;
+              if (candidateRes.ok) {
+                response = candidateRes;
                 break;
+              } else {
+                console.warn(`Gemini model ${model} returned status ${candidateRes.status}, trying next...`);
               }
-            } catch (nativeErr) {
-              console.warn(`Native Gemini model ${model} fetch failed:`, nativeErr);
+            } catch (modelErr) {
+              console.warn(`Gemini model ${model} fetch failed:`, modelErr);
+            }
+          }
+
+          // Native Gemini SSE fallback
+          if (!response || !response.ok) {
+            for (const model of CANDIDATE_MODELS) {
+              try {
+                const contents = [
+                  {
+                    role: "user",
+                    parts: [{ text: `تعليمات النظام:\n${systemPrompt}` }],
+                  },
+                  {
+                    role: "model",
+                    parts: [{ text: "أهلاً بك! أنا المساعد الذكي لمنصة جسوركم، كيف أستطيع مساعدتك اليوم؟" }],
+                  },
+                  ...messages.map(m => ({
+                    role: m.role === "assistant" ? "model" : "user",
+                    parts: [{ text: m.content }],
+                  })),
+                  {
+                    role: "user",
+                    parts: [{ text: input }],
+                  },
+                ];
+
+                const nativeCandidateRes = await fetch(
+                  `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${key}`,
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ contents }),
+                  }
+                );
+
+                if (nativeCandidateRes.ok) {
+                  response = nativeCandidateRes;
+                  break;
+                }
+              } catch (nativeErr) {
+                console.warn(`Native Gemini model ${model} fetch failed:`, nativeErr);
+              }
             }
           }
         }
