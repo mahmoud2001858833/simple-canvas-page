@@ -24,32 +24,37 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) throw new Error("Unauthorized");
 
-    // Check role
+    // Check role or enrollment
     const { data: roles } = await supabase
       .from("user_roles")
       .select("role")
       .eq("user_id", user.id)
-      .single();
-    
-    if (!roles || !["admin", "instructor"].includes(roles.role)) {
-      throw new Error("Only admins/instructors can generate transcripts");
-    }
+      .maybeSingle();
 
-    // Verify the lesson exists and the caller owns its course (admins exempt)
+    const isStaff = roles && ["admin", "instructor"].includes(roles.role);
+
+    // Verify the lesson exists
     const { data: lessonOwnership } = await supabase
       .from("lessons")
-      .select("course_id, courses:course_id(instructor_id)")
+      .select("course_id, is_preview, courses:course_id(instructor_id)")
       .eq("id", lessonId)
       .maybeSingle();
 
     if (!lessonOwnership) throw new Error("Lesson not found");
 
-    const ownerId = (lessonOwnership as any)?.courses?.instructor_id;
-    if (roles.role !== "admin" && ownerId !== user.id) {
-      return new Response(JSON.stringify({ error: "Forbidden - You do not own this course" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (!isStaff && !lessonOwnership.is_preview) {
+      const { data: enrollment } = await supabase
+        .from("enrollments")
+        .select("id")
+        .eq("course_id", lessonOwnership.course_id)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (!enrollment) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     // Check if transcript already exists
@@ -127,6 +132,22 @@ serve(async (req) => {
         ],
       }),
     });
+    if (!aiResponse.ok) {
+      aiResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${GEMINI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gemini-2.5-flash-lite",
+          messages: [
+            { role: "system", content: "أنت أستاذ جامعي وخبير تفريغ صوتي وشرح تعليمي دقيق." },
+            { role: "user", content: prompt },
+          ],
+        }),
+      });
+    }
 
     if (!aiResponse.ok && LOVABLE_API_KEY) {
       aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
