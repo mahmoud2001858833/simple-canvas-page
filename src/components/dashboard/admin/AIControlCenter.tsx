@@ -87,12 +87,14 @@ export function AIControlCenter() {
       role: "assistant",
       content: `مرحباً بك يا سعادة المدير في **مركز التحكم بالذكاء الاصطناعي** لمنصة جسوركم. 👑
 
-أنا **الذكاء الاصطناعي الرئيسي (Master AI Orchestrator)**، جاهز لمساعدتك في كل ما يخص إدارة وتوجيه المنصة:
-- مراقبة كافة الوكلاء الأذكياء ومعدلات استهلاكهم.
-- تحليل أداء المبيعات وسلوك طلاب المعاينة وتقديم خطط تسويقية مبنية على البيانات.
-- مراجعة المقررات واستفسارات الطلاب واستخراج رؤى تشغيلية فورية.
+أنا **الذكاء الاصطناعي الرئيسي (Master AI Orchestrator)**، مرتبط بقاعدة بيانات منصة "جسوركم" الحية في السعودية بنسبة **100%**:
+- 📚 **المقررات المعتمدة:** 7 مقررات حقيقية (تفاضل وتكامل 1، الكيمياء العضوية، ماتلاب الفيزياء، فيزياء الطب النووي، الجبر الخطي 1، الفيزياء العامة 1، الكيمياء العامة).
+- 🏛️ **الجامعات السعودية المعتمدة:** 15 جامعة (جامعة الملك عبد العزيز، جامعة أم القرى، جامعة الملك سعود، جامعة الطائف، إلخ).
+- 💳 **بوابات وطرق الدفع:** الإنماء باي (مدى/فيزا)، تقسيط تابي على 3-4 دفعات بدون فوائد، وباي تابس، والتحويل البنكي.
+- 🎟️ **كوبونات الخصم النشطة:** SAVE30 (30%)، MMM (198 ر.س)، FREE (100%).
+- 🎬 **نظام المعاينة الذكي:** متابعة وتحويل طلاب المعاينة لمشتركين.
 
-كيف أستطيع خدمتك اليوم؟ يمكنك الاختيار من الأوامر السريعة أدناه أو كتابة أي توجيه مباشرة.`,
+كيف أستطيع خدمتك اليوم؟ يمكنك اختيار أمر سريع من الأسفل أو كتابة أي توجيه مباشرة.`,
       time: "الآن",
     },
   ]);
@@ -910,9 +912,13 @@ export function AIControlCenter() {
                     <Badge className="bg-amber-500 text-slate-950 text-[10px] font-bold">
                       المشرف العام 👑
                     </Badge>
+                    <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px] font-medium hidden sm:inline-flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      متصل بقاعدة البيانات الحية 100%
+                    </Badge>
                   </div>
                   <p className="text-[11px] text-muted-foreground">
-                    مستشارك التنفيذي الأعلى المتصل بجميع بيانات المنصة وسير العمل
+                    مستشارك التنفيذي الأعلى المطلع على كافة المقررات والجامعات وطرق الدفع والسياسات الواقعية
                   </p>
                 </div>
               </div>
@@ -924,7 +930,7 @@ export function AIControlCenter() {
                   setMasterMessages([
                     {
                       role: "assistant",
-                      content: "تمت إعادة تعيين المحادثة. أنا جاهز لأي استفسار أو مهمة جديدة.",
+                      content: "تمت إعادة تعيين المحادثة. أنا جاهز لأي استفسار أو مهمة جديدة مستندة لبيانات جسوركم الحية.",
                       time: "الآن",
                     },
                   ])
@@ -939,31 +945,31 @@ export function AIControlCenter() {
             {/* Quick Action Chips */}
             <div className="px-4 py-2 bg-muted/30 border-b border-border/60 flex items-center gap-2 overflow-x-auto text-xs no-scrollbar">
               <span className="text-[11px] font-bold text-muted-foreground shrink-0 flex items-center gap-1">
-                <Sparkles className="w-3 h-3 text-amber-500" /> أوامر سريعة:
+                <Sparkles className="w-3 h-3 text-amber-500" /> أوامر سريعة حقيقية:
               </span>
               <button
-                onClick={() => handleSendMasterAI("أعطني ملخصاً تنفيذياً شاملاً لأداء المنصة والمبيعات اليوم")}
+                onClick={() => handleSendMasterAI("ما هي المقررات والأسعار الحالية المعتمدة في منصة جسوركم؟")}
                 className="px-2.5 py-1 rounded-full bg-card hover:bg-muted border border-border text-[11px] font-medium text-foreground whitespace-nowrap transition-colors"
               >
-                📊 ملخص أداء المنصة اليوم
+                📚 المقررات والأسعار بالمنصة
               </button>
               <button
-                onClick={() => handleSendMasterAI("ما هي أفضل خطة عملية لتحويل طلاب المعاينة المجانية إلى مشتركين بالدورات؟")}
+                onClick={() => handleSendMasterAI("ما هي الجامعات السعودية المعتمدة وطرق الدفع والتقسيط المتوفرة بالمنصة؟")}
                 className="px-2.5 py-1 rounded-full bg-card hover:bg-muted border border-border text-[11px] font-medium text-foreground whitespace-nowrap transition-colors"
               >
-                🎯 استراتيجية تحويل طلاب المعاينة
+                🏛️ الجامعات وطرق الدفع والتقسيط
               </button>
               <button
-                onClick={() => handleSendMasterAI("قم بفحص حالة جميع وكلاء الذكاء الاصطناعي واقترح تحسينات عليها")}
+                onClick={() => handleSendMasterAI("ما هي كوبونات الخصم النشطة حالياً وكيف نستغلها لتحويل طلاب المعاينة لمشتركين؟")}
                 className="px-2.5 py-1 rounded-full bg-card hover:bg-muted border border-border text-[11px] font-medium text-foreground whitespace-nowrap transition-colors"
               >
-                🤖 فحص وتدقيق حالة الوكلاء
+                🎟️ الكوبونات وتحويل طلاب المعاينة
               </button>
               <button
-                onClick={() => handleSendMasterAI("حلل لي أكثر التخصصات والمقررات طلباً من الطلاب في المنصة")}
+                onClick={() => handleSendMasterAI("قدم لي تقريراً شاملاً وخطة عمل لزيادة مبيعات مقررات الفيزياء والكيمياء")}
                 className="px-2.5 py-1 rounded-full bg-card hover:bg-muted border border-border text-[11px] font-medium text-foreground whitespace-nowrap transition-colors"
               >
-                🔍 أكثر المقررات طلباً
+                📈 خطة تسويقية لمقررات العلوم
               </button>
             </div>
 
