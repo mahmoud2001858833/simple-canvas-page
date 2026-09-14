@@ -23,6 +23,7 @@ const AssignmentManager = lazy(() => import('@/components/dashboard/instructor/A
 const QuestionBankManager = lazy(() => import('@/components/dashboard/instructor/QuestionBankManager').then(m => ({ default: m.QuestionBankManager })));
 const InstructorAssignedRequests = lazy(() => import('@/components/dashboard/instructor/InstructorAssignedRequests').then(m => ({ default: m.InstructorAssignedRequests })));
 const StudentEngagementAnalytics = lazy(() => import('@/components/dashboard/instructor/StudentEngagementAnalytics').then(m => ({ default: m.StudentEngagementAnalytics })));
+const TeacherFinancialStatusCard = lazy(() => import('@/components/dashboard/instructor/TeacherFinancialStatusCard').then(m => ({ default: m.TeacherFinancialStatusCard })));
 
 type TabType = 'overview' | 'courses' | 'assignments' | 'question-bank' | 'assigned-requests' | 'students' | 'student-engagement' | 'earnings' | 'withdrawals' | 'payouts' | 'messages' | 'analytics' | 'ai-assistant';
 
@@ -150,6 +151,7 @@ const InstructorDashboard = () => {
       case 'overview':
         return (
           <div className="space-y-8">
+            <TeacherFinancialStatusCard />
             <InstructorStats />
             <div className="grid lg:grid-cols-2 gap-8">
               <InstructorCourses limit={3} showViewAll onViewAll={() => setActiveTab('courses')} />

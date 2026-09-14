@@ -10,13 +10,25 @@ const corsHeaders = {
 };
 
 interface EmailRequest {
-  type: "enrollment" | "payment_confirmed" | "course_approved" | "course_rejected";
+  type: 
+    | "enrollment" 
+    | "payment_confirmed" 
+    | "course_approved" 
+    | "course_rejected"
+    | "teacher_welcome"
+    | "teacher_policy_confirmed"
+    | "teacher_offer_sent"
+    | "teacher_offer_agreed";
   to_email: string;
   to_name: string;
   course_title?: string;
   course_title_ar?: string;
   amount?: number;
   rejection_reason?: string;
+  contract_url?: string;
+  offer_details?: string;
+  fixed_amount?: number;
+  percentage_rate?: number;
 }
 
 const getEmailContent = (req: EmailRequest) => {
@@ -93,6 +105,72 @@ const getEmailContent = (req: EmailRequest) => {
              <p style="color: #991b1b; margin: 0;"><strong>سبب الرفض:</strong> ${req.rejection_reason}</p>
            </div>` : ''}
            <p style="color: #4b5563;">يمكنك تعديل الكورس وإعادة إرساله للمراجعة.</p>`
+        ),
+      };
+
+    case "teacher_welcome":
+      return {
+        subject: `مرحباً بك في كادر معلمي منصة جسوركم | Welcome to Josoorcom Teaching Faculty`,
+        html: wrapper(
+          `🎓 تهانينا بانضمامك لكادر التدريس في جسوركم!`,
+          `<p style="color: #4b5563; line-height: 1.8;">مرحباً بك الأستاذ الفاضل <strong>${req.to_name}</strong>،</p>
+           <p style="color: #4b5563; line-height: 1.8;">يسرنا ويشرفنا انضمامك إلى نخبة الكادر الأكاديمي في منصة "جسوركم". رؤيتنا هي تمكين التعليم الجامعي النوعي والوصول إلى آلاف الطلاب المتميزين.</p>
+           <p style="color: #4b5563; line-height: 1.8;">يرجى التكرم بالدخول لاستكمال بياناتك البنكية، الاطلاع على المصادر التعليمية وقالب الشرح، وتوثيق توقيعك على سياسات المنصة لبدء نشر دوراتك فوراً.</p>
+           <div style="text-align: center; margin: 28px 0;">
+             <a href="https://www.josoorcom.com/teacher/onboarding" style="background: ${brandColor}; color: white; padding: 14px 36px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 15px; display: inline-block;">إكمال ملف المعلم والتوقيع الرقمي</a>
+           </div>
+           <p style="color: #64748b; font-size: 13px; text-align: center;">فريق جسوركم الأكاديمي دائماً في خدمتك لدعم نجاحك.</p>`
+        ),
+      };
+
+    case "teacher_policy_confirmed":
+      return {
+        subject: `تم اعتماد اتفاقية انضمامك رسمياً | Policy Agreement Confirmed - Josoorcom`,
+        html: wrapper(
+          `📜 تم توثيق واعتماد اتفاقية التدريس رسمياً`,
+          `<p style="color: #4b5563; line-height: 1.8;">الأستاذ الكريم <strong>${req.to_name}</strong>،</p>
+           <p style="color: #4b5563; line-height: 1.8;">نحيطكم علماً بأنه تم توثيق توقيعكم الرقمي على السياسات والمعايير الأكاديمية بنجاح وأصبحتم رسمياً معلماً معتمداً في منصة جسوركم.</p>
+           <p style="color: #4b5563; line-height: 1.8;">الخطوة التالية هي تحديد وتأكيد نموذج توزيع الأرباح المالي الخاص بدوراتك.</p>
+           <div style="text-align: center; margin: 28px 0;">
+             <a href="https://www.josoorcom.com/teacher/payout-setup" style="background: ${brandColor}; color: white; padding: 14px 36px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 15px; display: inline-block;">تحديد نموذج الأرباح المالي</a>
+           </div>`
+        ),
+      };
+
+    case "teacher_offer_sent":
+      return {
+        subject: `عرض مالي جديد من إدارة جسوركم | Payout Offer from Josoorcom`,
+        html: wrapper(
+          `💼 عرض مالي مقترح من إدارة المنصة`,
+          `<p style="color: #4b5563; line-height: 1.8;">الأستاذ <strong>${req.to_name}</strong>،</p>
+           <p style="color: #4b5563; line-height: 1.8;">حددت إدارة منصة جسوركم العرض المالي الخاص بك لدوراتك:</p>
+           <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 18px; margin: 20px 0;">
+             ${req.fixed_amount ? `<p style="margin: 6px 0; color: #0f172a;"><strong>المبلغ المقطوع:</strong> ${req.fixed_amount} ر.س</p>` : ''}
+             ${req.percentage_rate ? `<p style="margin: 6px 0; color: #0f172a;"><strong>نسبة المبيعات:</strong> ${req.percentage_rate}%</p>` : ''}
+             ${req.offer_details ? `<p style="margin: 8px 0 0; color: #475569; font-size: 14px;"><strong>رسالة الإدارة:</strong> ${req.offer_details}</p>` : ''}
+           </div>
+           <p style="color: #4b5563; line-height: 1.8;">يمكنك مراجعة العرض والموافقة عليه أو تقديم عرض مقابل (Counter-Offer) عبر غرفة المفاوضة المباشرة في لوحة تحكمك.</p>
+           <div style="text-align: center; margin: 28px 0;">
+             <a href="https://www.josoorcom.com/instructor" style="background: ${brandColor}; color: white; padding: 14px 36px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 15px; display: inline-block;">دخول غرفة المفاوضة والرد على العرض</a>
+           </div>`
+        ),
+      };
+
+    case "teacher_offer_agreed":
+      return {
+        subject: `تهانينا! تم اعتماد الاتفاق المالي النهائي | Payout Agreement Finalized`,
+        html: wrapper(
+          `🎉 تم اعتماد وتفعيل الاتفاق المالي بنجاح!`,
+          `<p style="color: #4b5563; line-height: 1.8;">الأستاذ الفاضل <strong>${req.to_name}</strong>،</p>
+           <p style="color: #4b5563; line-height: 1.8;">يسرنا إبلاغك بأن الاتفاق المالي قد تم اعتماده وتفعيله رسمياً من قبل الإدارة، وتمت مزامنة دفتر الحسابات تلقائياً.</p>
+           <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 18px; margin: 20px 0;">
+             ${req.fixed_amount ? `<p style="margin: 6px 0; color: #166534;"><strong>المبلغ المقطوع المعتمد:</strong> ${req.fixed_amount} ر.س</p>` : ''}
+             ${req.percentage_rate ? `<p style="margin: 6px 0; color: #166534;"><strong>نسبة العمولة المعتمدة:</strong> ${req.percentage_rate}%</p>` : ''}
+           </div>
+           <p style="color: #4b5563; line-height: 1.8;">حسابك الآن نشط بالكامل، ويمكنك البدء في رفع الدروس ومتابعة مبيعات وأرباح طلابك فوراً.</p>
+           <div style="text-align: center; margin: 28px 0;">
+             <a href="https://www.josoorcom.com/instructor" style="background: ${brandColor}; color: white; padding: 14px 36px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 15px; display: inline-block;">دخول لوحة تحكم المعلم</a>
+           </div>`
         ),
       };
 

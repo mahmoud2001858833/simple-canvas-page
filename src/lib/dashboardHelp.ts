@@ -63,6 +63,8 @@ export const ITEM_HELP: Record<string, Bilingual> = {
   'capture-attempts': { ar: 'محاولات تسجيل أو التقاط شاشة الفيديوهات المحمية.', en: 'Screen capture attempts on protected videos.' },
   'instructor-specialties': { ar: 'إدارة تخصصات المعلمين المعتمدة.', en: 'Manage approved instructor specialties.' },
   'instructor-settings': { ar: 'نِسَب العمولة وإعدادات تسجيل المعلمين.', en: 'Commission rates and instructor onboarding settings.' },
+  'teachers-onboarding': { ar: 'متابعة مراحل انضمام المعلمين، توثيق البنوك، معاينة العقود، وإدارة المصادر وقالب الشرح.', en: 'Track teacher onboarding, verify bank accounts, inspect signed contracts, and manage teaching resources.' },
+  'payout-negotiations': { ar: 'غرفة المفاوضة المالية، تحديد عروض الدفع (مقطوع/نسبة/هجين)، واعتماد الاتفاق النهائي.', en: 'Payout negotiation room, offer decision engine (fixed/percentage/hybrid), and final agreement settlement.' },
   general: { ar: 'الإعدادات العامة للمنصة والسياسات.', en: 'General platform settings and policies.' },
   storage: { ar: 'إدارة مساحة التخزين والملفات.', en: 'Manage storage space and files.' },
   performance: { ar: 'مؤشرات أداء المنصة وسرعتها.', en: 'Platform performance indicators.' },
@@ -92,10 +94,10 @@ export const INSTRUCTOR_GROUPS: SidebarGroupDef[] = [
 ];
 
 export const ADMIN_GROUPS: SidebarGroupDef[] = [
-  GROUP('users', 'المستخدمون', 'Users', 'إدارة الحسابات والأدوار وملفات المعلمين والطلاب.', 'Manage accounts, roles and instructor/student profiles.', ['users', 'user-insights', 'instructor-detail', 'student-detail']),
+  GROUP('users', 'المستخدمون', 'Users', 'إدارة الحسابات والأدوار وملفات المعلمين والطلاب.', 'Manage accounts, roles and instructor/student profiles.', ['users', 'user-insights', 'instructor-detail', 'student-detail', 'teachers-onboarding']),
   GROUP('content', 'المحتوى التعليمي والذكاء', 'Educational Content & AI', 'الدورات والموافقات وإحصائيات الفيديو وطلاب المعاينة والذكاء الاصطناعي.', 'Courses, approvals, video statistics, preview students and AI Control.', ['courses', 'course-approvals', 'video-analytics', 'preview-students', 'ai-control']),
   GROUP('academic', 'الهيكل الأكاديمي', 'Academic Structure', 'الجهات والكليات والتخصصات وتوزيع الطلاب.', 'Institutions, colleges, majors and student distribution.', ['universities', 'colleges', 'majors', 'students-by-major']),
-  GROUP('finance', 'المالية', 'Finance', 'المدفوعات وطرق الدفع والمصاريف والسحوبات والكوبونات.', 'Payments, payment methods, expenses, payouts and coupons.', ['payments', 'abandoned-payments', 'payment-methods', 'financial-dashboard', 'accounting', 'withdrawals', 'coupons']),
+  GROUP('finance', 'المالية', 'Finance', 'المدفوعات وطرق الدفع والمصاريف والسحوبات والكوبونات.', 'Payments, payment methods, expenses, payouts and coupons.', ['payments', 'abandoned-payments', 'payment-methods', 'financial-dashboard', 'accounting', 'payout-negotiations', 'withdrawals', 'coupons']),
   GROUP('support', 'الدعم والطلبات', 'Support & Requests', 'طلبات الدورات المخصصة ومحادثات الدعم وسير العمل.', 'Custom course requests, support chats and workflow.', ['requests', 'support', 'workflow']),
   GROUP('analytics', 'التحليلات والتقارير', 'Analytics & Reports', 'التقارير الشاملة والإشعارات.', 'Comprehensive reports and notifications.', ['reports', 'notifications']),
   GROUP('security', 'الأمان والسجلات', 'Security & Logs', 'سجلات النظام ومحاولات التقاط الشاشة.', 'System logs and screen capture attempts.', ['logs', 'capture-attempts']),

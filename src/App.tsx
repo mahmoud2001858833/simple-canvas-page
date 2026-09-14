@@ -56,6 +56,8 @@ const QuizPage = lazyRetry(() => import("./pages/QuizPage"));
 const CertificateVerify = lazyRetry(() => import("./pages/CertificateVerify"));
 const Tutorials = lazyRetry(() => import("./pages/Tutorials"));
 const Terms = lazyRetry(() => import("./pages/Terms"));
+const TeacherOnboardingPage = lazyRetry(() => import("./pages/TeacherOnboardingPage"));
+const TeacherPayoutSetupPage = lazyRetry(() => import("./pages/TeacherPayoutSetupPage"));
 
 // Lazy loaded global components
 const WelcomeModal = lazy(() => import("./components/onboarding/WelcomeModal").then(m => ({ default: m.WelcomeModal })));
@@ -200,6 +202,38 @@ const App = () => (
                             element={
                               <ProtectedRoute allowedRoles={['instructor']}>
                                 <InstructorDashboard />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="/teacher/onboarding"
+                            element={
+                              <ProtectedRoute allowedRoles={['instructor', 'admin']}>
+                                <TeacherOnboardingPage />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="/instructor/onboarding"
+                            element={
+                              <ProtectedRoute allowedRoles={['instructor', 'admin']}>
+                                <TeacherOnboardingPage />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="/teacher/payout-setup"
+                            element={
+                              <ProtectedRoute allowedRoles={['instructor', 'admin']}>
+                                <TeacherPayoutSetupPage />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="/instructor/payout-setup"
+                            element={
+                              <ProtectedRoute allowedRoles={['instructor', 'admin']}>
+                                <TeacherPayoutSetupPage />
                               </ProtectedRoute>
                             }
                           />

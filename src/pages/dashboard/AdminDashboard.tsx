@@ -46,8 +46,10 @@ const NelcIntegration = lazy(() => import('@/components/dashboard/admin/NelcInte
 const LivePaymentAlerts = lazy(() => import('@/components/dashboard/admin/LivePaymentAlerts').then(m => ({ default: m.LivePaymentAlerts })));
 const PreviewStudents = lazy(() => import('@/components/dashboard/admin/PreviewStudents').then(m => ({ default: m.PreviewStudents })));
 const AIControlCenter = lazy(() => import('@/components/dashboard/admin/AIControlCenter').then(m => ({ default: m.AIControlCenter || m.default })));
+const TeachersOnboardingManagement = lazy(() => import('@/components/dashboard/admin/TeachersOnboardingManagement').then(m => ({ default: m.TeachersOnboardingManagement })));
+const PayoutNegotiationsManagement = lazy(() => import('@/components/dashboard/admin/PayoutNegotiationsManagement').then(m => ({ default: m.PayoutNegotiationsManagement })));
 
-type TabType = 'overview' | 'users' | 'user-insights' | 'instructor-detail' | 'student-detail' | 'courses' | 'course-approvals' | 'requests' | 'payments' | 'live-payments' | 'abandoned-payments' | 'payment-methods' | 'monthly-installments' | 'financial-dashboard' | 'accounting' | 'withdrawals' | 'coupons' | 'universities' | 'colleges' | 'majors' | 'students-by-major' | 'reports' | 'notifications' | 'logs' | 'general' | 'settings' | 'support' | 'instructor-settings' | 'instructor-payouts' | 'student-refunds' | 'terms' | 'nelc' | 'capture-attempts' | 'workflow' | 'video-analytics' | 'instructor-specialties' | 'preview-students' | 'ai-control';
+type TabType = 'overview' | 'users' | 'user-insights' | 'instructor-detail' | 'student-detail' | 'courses' | 'course-approvals' | 'requests' | 'payments' | 'live-payments' | 'abandoned-payments' | 'payment-methods' | 'monthly-installments' | 'financial-dashboard' | 'accounting' | 'withdrawals' | 'coupons' | 'universities' | 'colleges' | 'majors' | 'students-by-major' | 'reports' | 'notifications' | 'logs' | 'general' | 'settings' | 'support' | 'instructor-settings' | 'instructor-payouts' | 'student-refunds' | 'terms' | 'nelc' | 'capture-attempts' | 'workflow' | 'video-analytics' | 'instructor-specialties' | 'preview-students' | 'ai-control' | 'teachers-onboarding' | 'payout-negotiations';
 
 
 // Fallback components for each section
@@ -302,6 +304,18 @@ const AdminDashboard = () => {
         return (
           <Suspense fallback={<LoadingFallback type="overview" />}>
             <AIControlCenter />
+          </Suspense>
+        );
+      case 'teachers-onboarding':
+        return (
+          <Suspense fallback={<LoadingFallback type="users" />}>
+            <TeachersOnboardingManagement onNavigateToPayouts={() => setActiveTab('payout-negotiations')} />
+          </Suspense>
+        );
+      case 'payout-negotiations':
+        return (
+          <Suspense fallback={<LoadingFallback type="payments" />}>
+            <PayoutNegotiationsManagement />
           </Suspense>
         );
       default:

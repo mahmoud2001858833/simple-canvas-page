@@ -15,6 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { z } from 'zod';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { useProfileFieldsRequired } from '@/hooks/useProfileFieldsRequired';
+import { sendLifecycleEmail, upsertTeacherLifecycleProfile } from '@/lib/teacherLifecycleService';
 
 
 // Validation schema
@@ -369,6 +370,22 @@ const Signup = () => {
               }
               if (Object.keys(updateData).length > 0) {
                 await supabase.from('profiles').update(updateData).eq('id', newUser.id);
+              }
+
+              // If instructor, initialize teacher lifecycle profile & send welcome email
+              if (selectedRole === 'instructor') {
+                await upsertTeacherLifecycleProfile({
+                  id: newUser.id,
+                  full_name: fullName.trim(),
+                  email: email.trim(),
+                  onboarding_status: 'registered',
+                }).catch(() => {});
+
+                sendLifecycleEmail({
+                  type: 'teacher_welcome',
+                  toEmail: email.trim(),
+                  toName: fullName.trim(),
+                }).catch(() => {});
               }
             }
           }, 1000);
