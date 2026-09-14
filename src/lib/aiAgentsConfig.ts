@@ -33,9 +33,11 @@ export interface InstructorInfo {
   phone: string;
   specialty: string;
   institution?: string;
+  university?: string;
   teachingYear?: string;
   coursesCount: number;
   courses: Array<{ id: string; title: string; title_ar: string; code?: string; price: number }>;
+  assignedCourses?: string[];
   commissionRate: number;
 }
 
@@ -822,7 +824,11 @@ export async function fetchPlatformFullContext(): Promise<LivePlatformContext> {
     const rawRoles = (rolesRes as any)?.data || [];
     const instructorRoleSet = new Set(rawRoles.filter((r: any) => r.role === "instructor").map((r: any) => r.user_id));
 
-    const mergedInstructors: InstructorInfo[] = [...VERIFIED_INSTRUCTORS_ROSTER];
+    const mergedInstructors: InstructorInfo[] = VERIFIED_INSTRUCTORS_ROSTER.map(ins => ({
+      ...ins,
+      university: ins.institution || ins.university || "جامعة معتمدة",
+      assignedCourses: ins.courses.map(c => c.title_ar || c.title),
+    }));
 
     for (const prof of rawProfiles) {
       if (instructorRoleSet.has(prof.id) && !mergedInstructors.some(ins => ins.id === prof.id || ins.email === prof.email)) {
@@ -837,9 +843,11 @@ export async function fetchPlatformFullContext(): Promise<LivePlatformContext> {
           phone: prof.phone || "غير متوفر",
           specialty: prof.specialty || "تخصص أكاديمي معتمد",
           institution: prof.institution_name || "جامعة سعودية معتمدة",
+          university: prof.institution_name || "جامعة سعودية معتمدة",
           teachingYear: prof.teaching_year || "كادر معتمد",
           coursesCount: assignedCourses.length,
           courses: assignedCourses,
+          assignedCourses: assignedCourses.map(c => c.title_ar || c.title),
           commissionRate: 60,
         });
       }

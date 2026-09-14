@@ -479,10 +479,11 @@ export function AIControlCenter() {
     const q = instructorSearch.toLowerCase().trim();
     return list.filter(
       (ins) =>
-        ins.name.toLowerCase().includes(q) ||
-        ins.specialty.toLowerCase().includes(q) ||
-        ins.email.toLowerCase().includes(q) ||
-        ins.phone.includes(q)
+        (ins.name && ins.name.toLowerCase().includes(q)) ||
+        (ins.specialty && ins.specialty.toLowerCase().includes(q)) ||
+        (ins.email && ins.email.toLowerCase().includes(q)) ||
+        (ins.phone && ins.phone.includes(q)) ||
+        (ins.institution && ins.institution.toLowerCase().includes(q))
     );
   }, [knowledgeSummary, instructorSearch]);
 
@@ -939,72 +940,87 @@ export function AIControlCenter() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredInstructors.map((ins) => (
-                  <Card key={ins.id} className="border-border/80 bg-card hover:shadow-md transition-all">
-                    <CardHeader className="p-4 pb-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <CardTitle className="text-sm font-bold text-foreground flex items-center gap-1.5">
-                            <GraduationCap className="w-4 h-4 text-amber-500 shrink-0" />
-                            <span>{ins.name}</span>
-                          </CardTitle>
-                          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                            <Building2 className="w-3.5 h-3.5 shrink-0 text-indigo-500" />
-                            <span>{ins.university}</span>
-                          </p>
-                        </div>
-                        <Badge variant="outline" className="text-[10px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30 shrink-0">
-                          عمولة {ins.commissionRate}%
-                        </Badge>
-                      </div>
-                    </CardHeader>
+                {filteredInstructors.map((ins) => {
+                  const courseTitles = Array.isArray(ins.courses)
+                    ? ins.courses.map((c) => (typeof c === "string" ? c : c.title_ar || c.title))
+                    : Array.isArray((ins as any).assignedCourses)
+                    ? (ins as any).assignedCourses
+                    : [];
 
-                    <CardContent className="p-4 pt-1 space-y-3">
-                      <div className="space-y-1.5 text-xs text-muted-foreground">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-foreground/80">التخصص:</span>
-                          <span>{ins.specialty}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Mail className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                          <span className="font-mono text-[11px] text-foreground">{ins.email}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Phone className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                          <span className="font-mono text-[11px] text-foreground" dir="ltr">{ins.phone}</span>
-                        </div>
-                      </div>
+                  const uniName = ins.institution || (ins as any).university || "جامعة معتمدة";
 
-                      {/* Assigned Courses */}
-                      <div className="pt-2 border-t border-border/60">
-                        <p className="text-[11px] font-semibold text-muted-foreground mb-1.5">المقررات المسندة:</p>
-                        <div className="flex flex-wrap gap-1">
-                          {ins.assignedCourses.map((c, i) => (
-                            <Badge key={i} variant="secondary" className="text-[10px] font-medium bg-muted">
-                              {c}
-                            </Badge>
-                          ))}
+                  return (
+                    <Card key={ins.id} className="border-border/80 bg-card hover:shadow-md transition-all">
+                      <CardHeader className="p-4 pb-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <CardTitle className="text-sm font-bold text-foreground flex items-center gap-1.5">
+                              <GraduationCap className="w-4 h-4 text-amber-500 shrink-0" />
+                              <span>{ins.name}</span>
+                            </CardTitle>
+                            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                              <Building2 className="w-3.5 h-3.5 shrink-0 text-indigo-500" />
+                              <span>{uniName}</span>
+                            </p>
+                          </div>
+                          <Badge variant="outline" className="text-[10px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30 shrink-0">
+                            عمولة {ins.commissionRate}%
+                          </Badge>
                         </div>
-                      </div>
+                      </CardHeader>
 
-                      {/* Quick Task Action */}
-                      <div className="pt-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setMasterInput(`أريد تكليف المعلم "${ins.name}" بمهمة إدارية وأكاديمية لمقرره (${ins.assignedCourses.join("، ")}): `);
-                            setActiveTab("master");
-                          }}
-                          className="w-full gap-1.5 text-xs font-semibold h-8 hover:bg-primary/5 hover:border-primary/40"
-                        >
-                          <FileText className="w-3.5 h-3.5 text-primary" />
-                          <span>إسناد مهمة للمعلّم</span>
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      <CardContent className="p-4 pt-1 space-y-3">
+                        <div className="space-y-1.5 text-xs text-muted-foreground">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-foreground/80">التخصص:</span>
+                            <span>{ins.specialty}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Mail className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                            <span className="font-mono text-[11px] text-foreground">{ins.email}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Phone className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                            <span className="font-mono text-[11px] text-foreground" dir="ltr">{ins.phone}</span>
+                          </div>
+                        </div>
+
+                        {/* Assigned Courses */}
+                        <div className="pt-2 border-t border-border/60">
+                          <p className="text-[11px] font-semibold text-muted-foreground mb-1.5">المقررات المسندة:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {courseTitles.length > 0 ? (
+                              courseTitles.map((c: string, i: number) => (
+                                <Badge key={i} variant="secondary" className="text-[10px] font-medium bg-muted">
+                                  {c}
+                                </Badge>
+                              ))
+                            ) : (
+                              <span className="text-[11px] text-muted-foreground">لا توجد مقررات مسندة حالياً</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Quick Task Action */}
+                        <div className="pt-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              const coursesText = courseTitles.length > 0 ? courseTitles.join("، ") : "مقرراته الأكاديمية";
+                              setMasterInput(`أريد تكليف المعلم "${ins.name}" بمهمة إدارية وأكاديمية لمقرره (${coursesText}): `);
+                              setActiveTab("master");
+                            }}
+                            className="w-full gap-1.5 text-xs font-semibold h-8 hover:bg-primary/5 hover:border-primary/40"
+                          >
+                            <FileText className="w-3.5 h-3.5 text-primary" />
+                            <span>إسناد مهمة للمعلّم</span>
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             </div>
           )}
