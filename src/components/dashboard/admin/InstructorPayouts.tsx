@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Wallet, CalendarClock, AlertTriangle, Receipt, Loader2, CheckCircle2, History } from 'lucide-react';
+import { Wallet, CalendarClock, AlertTriangle, Receipt, Loader2, CheckCircle2, History, Building2, CreditCard, Copy, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, addDays, addMonths, differenceInCalendarDays } from 'date-fns';
 import { ar, enUS } from 'date-fns/locale';
@@ -32,6 +32,11 @@ interface DueRow {
   nextDue: Date | null;
   overdue: boolean;
   daysLeft: number | null;
+  bank_name?: string;
+  account_holder_name?: string;
+  iban?: string;
+  account_number?: string;
+  bank_verified?: boolean;
 }
 
 export const InstructorPayouts = () => {
@@ -46,6 +51,14 @@ export const InstructorPayouts = () => {
   const [notes, setNotes] = useState('');
   const [receipt, setReceipt] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  const [copiedIban, setCopiedIban] = useState<string | null>(null);
+
+  const handleCopyIban = (iban: string) => {
+    navigator.clipboard.writeText(iban);
+    setCopiedIban(iban);
+    toast.success(isRTL ? 'تم نسخ الآيبان إلى الحافظة' : 'IBAN copied to clipboard');
+    setTimeout(() => setCopiedIban(null), 2500);
+  };
 
   const { data: settings } = useQuery({
     queryKey: ['payout-settings'],
@@ -59,7 +72,7 @@ export const InstructorPayouts = () => {
   const { data, isLoading } = useQuery({
     queryKey: ['instructor-payout-dues'],
     queryFn: async () => {
-      const [{ data: earnings }, { data: payouts }, { data: profiles }] = await Promise.all([
+      const [{ data: earnings }, { data: payouts }, { data: profiles }, { data: bankSettings }] = await Promise.all([
         supabase
           .from('instructor_earnings')
           .select('id, instructor_id, amount, status, created_at, course_id, courses:course_id (title, title_ar)')
@@ -67,9 +80,15 @@ export const InstructorPayouts = () => {
           .is('payout_id', null)
           .order('created_at', { ascending: true }),
         supabase.from('instructor_payouts').select('*').order('paid_at', { ascending: false }),
-        supabase.from('profiles').select('id, full_name, full_name_ar, email'),
+        supabase.from('profiles').select('id, full_name, full_name_ar, email, teaching_experience_details'),
+        supabase.from('platform_settings').select('key, value').ilike('key', 'teacher_bank_%'),
       ]);
-      return { earnings: earnings || [], payouts: payouts || [], profiles: profiles || [] };
+      return {
+        earnings: earnings || [],
+        payouts: payouts || [],
+        profiles: profiles || [],
+        bankSettings: bankSettings || [],
+      };
     },
   });
 
@@ -80,6 +99,16 @@ export const InstructorPayouts = () => {
     const lastPayoutMap: Record<string, string> = {};
     (data.payouts as any[]).forEach(p => {
       if (!lastPayoutMap[p.instructor_id]) lastPayoutMap[p.instructor_id] = p.paid_at;
+    });
+
+    const bankSettingsMap: Record<string, any> = {};
+    (data.bankSettings as any[]).forEach(s => {
+      if (typeof s.key === 'string' && s.key.startsWith('teacher_bank_')) {
+        const id = s.key.replace('teacher_bank_', '');
+        try {
+          bankSettingsMap[id] = typeof s.value === 'string' ? JSON.parse(s.value) : s.value;
+        } catch {}
+      }
     });
 
     const grouped: Record<string, any[]> = {};
@@ -105,6 +134,17 @@ export const InstructorPayouts = () => {
       else if (period === 'monthly' && anchor) nextDue = addMonths(anchor, 1);
       else if (period === 'per_course' && oldest) nextDue = new Date(oldest);
       const daysLeft = nextDue ? differenceInCalendarDays(nextDue, new Date()) : null;
+
+      // Resolve bank details
+      const settingBank = bankSettingsMap[id] || {};
+      const expDetails = typeof prof.teaching_experience_details === 'object' ? prof.teaching_experience_details : {};
+      const profBank = expDetails?.bank_details || {};
+      const bankName = settingBank.bank_name || profBank.bank_name || '';
+      const accountHolder = settingBank.account_holder_name || profBank.account_holder_name || (isRTL ? prof.full_name_ar || prof.full_name : prof.full_name) || '';
+      const iban = settingBank.iban || profBank.iban || '';
+      const accountNumber = settingBank.account_number || profBank.account_number || '';
+      const bankVerified = !!(settingBank.verified || profBank.verified || iban);
+
       return {
         instructor_id: id,
         name: (isRTL ? prof.full_name_ar || prof.full_name : prof.full_name) || prof.email || id.slice(0, 8),
@@ -117,6 +157,11 @@ export const InstructorPayouts = () => {
         nextDue,
         overdue: daysLeft !== null && daysLeft < 0,
         daysLeft,
+        bank_name: bankName,
+        account_holder_name: accountHolder,
+        iban,
+        account_number: accountNumber,
+        bank_verified: bankVerified,
       };
     }).sort((a, b) => b.total - a.total);
   }, [data, period, isRTL]);
@@ -308,6 +353,65 @@ export const InstructorPayouts = () => {
                           </div>
                         ))}
                       </div>
+
+                      {/* Bank Details Card */}
+                      <div className="rounded-xl border bg-gradient-to-r from-amber-500/5 via-primary/5 to-transparent p-3.5 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-xs font-bold text-foreground">
+                            <Building2 className="w-4 h-4 text-amber-500" />
+                            <span>{row.bank_name || (isRTL ? 'الحساب البنكي المعتمد' : 'Registered Bank')}</span>
+                          </div>
+                          {row.iban ? (
+                            <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30 text-[10px]">
+                              <CheckCircle2 className="w-3 h-3 ml-1" />
+                              {isRTL ? 'موثق' : 'Verified'}
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30 text-[10px]">
+                              {isRTL ? 'قيد التوثيق' : 'Pending'}
+                            </Badge>
+                          )}
+                        </div>
+
+                        {row.account_holder_name && (
+                          <p className="text-xs text-muted-foreground">
+                            <span className="font-semibold text-foreground/80">{isRTL ? 'اسم المستفيد: ' : 'Beneficiary: '}</span>
+                            {row.account_holder_name}
+                          </p>
+                        )}
+
+                        {row.iban ? (
+                          <div className="flex items-center justify-between bg-card border rounded-lg px-3 py-1.5 text-xs font-mono">
+                            <div className="flex items-center gap-2 overflow-hidden">
+                              <CreditCard className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                              <span className="tracking-wider font-bold text-foreground truncate">{row.iban}</span>
+                            </div>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleCopyIban(row.iban!)}
+                              className="h-7 px-2 text-xs gap-1 text-primary hover:bg-primary/10 shrink-0"
+                            >
+                              {copiedIban === row.iban ? (
+                                <>
+                                  <Check className="w-3.5 h-3.5 text-emerald-500" />
+                                  <span>{isRTL ? 'تم النسخ' : 'Copied'}</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3.5 h-3.5" />
+                                  <span>{isRTL ? 'نسخ الآيبان' : 'Copy IBAN'}</span>
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        ) : (
+                          <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-500/10 rounded-lg p-2">
+                            {isRTL ? 'لم يتم تسجيل الحساب البنكي بعد من قبل المعلم' : 'No bank details submitted yet by instructor'}
+                          </p>
+                        )}
+                      </div>
+
                       <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <History className="w-3 h-3" />
@@ -343,6 +447,31 @@ export const InstructorPayouts = () => {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
+            {dialogFor?.iban && (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-amber-900 dark:text-amber-200 flex items-center gap-1.5">
+                    <Building2 className="w-4 h-4 text-amber-500" />
+                    {dialogFor.bank_name || (isRTL ? 'البنك المعتمد' : 'Bank')}
+                  </span>
+                  {dialogFor.account_holder_name && (
+                    <span className="text-muted-foreground font-medium">{dialogFor.account_holder_name}</span>
+                  )}
+                </div>
+                <div className="flex items-center justify-between font-mono bg-background border rounded-lg px-2.5 py-1 text-xs">
+                  <span className="truncate">{dialogFor.iban}</span>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleCopyIban(dialogFor.iban!)}
+                    className="h-6 px-1.5 text-[11px] gap-1 shrink-0"
+                  >
+                    <Copy className="w-3 h-3" />
+                    <span>{isRTL ? 'نسخ' : 'Copy'}</span>
+                  </Button>
+                </div>
+              </div>
+            )}
             <div>
               <Label>{isRTL ? 'المبلغ المراد دفعه (ر.س)' : 'Amount to pay (SAR)'}</Label>
               <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} />

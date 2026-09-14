@@ -58,6 +58,7 @@ const Tutorials = lazyRetry(() => import("./pages/Tutorials"));
 const Terms = lazyRetry(() => import("./pages/Terms"));
 const TeacherOnboardingPage = lazyRetry(() => import("./pages/TeacherOnboardingPage"));
 const TeacherPayoutSetupPage = lazyRetry(() => import("./pages/TeacherPayoutSetupPage"));
+const TeacherNegotiationPage = lazyRetry(() => import("./pages/TeacherNegotiationPage"));
 
 // Lazy loaded global components
 const WelcomeModal = lazy(() => import("./components/onboarding/WelcomeModal").then(m => ({ default: m.WelcomeModal })));
@@ -234,6 +235,22 @@ const App = () => (
                             element={
                               <ProtectedRoute allowedRoles={['instructor', 'admin']}>
                                 <TeacherPayoutSetupPage />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="/instructor/negotiation"
+                            element={
+                              <ProtectedRoute allowedRoles={['instructor', 'admin']}>
+                                <TeacherNegotiationPage />
+                              </ProtectedRoute>
+                            }
+                          />
+                          <Route
+                            path="/teacher/negotiation"
+                            element={
+                              <ProtectedRoute allowedRoles={['instructor', 'admin']}>
+                                <TeacherNegotiationPage />
                               </ProtectedRoute>
                             }
                           />

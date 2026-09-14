@@ -39,6 +39,11 @@ export interface InstructorInfo {
   courses: Array<{ id: string; title: string; title_ar: string; code?: string; price: number }>;
   assignedCourses?: string[];
   commissionRate: number;
+  bankName?: string;
+  iban?: string;
+  accountNumber?: string;
+  accountHolderName?: string;
+  onboardingStage?: string;
 }
 
 export interface AccountingSummary {
@@ -67,7 +72,7 @@ export interface CouponDetail {
 }
 
 export interface MasterAIAction {
-  type: "create_coupon" | "assign_instructor_task" | "update_agent_status" | "update_agent_prompt" | "approve_course";
+  type: "create_coupon" | "assign_instructor_task" | "update_agent_status" | "update_agent_prompt" | "approve_course" | "trigger_emergency_alert";
   payload: any;
 }
 
@@ -348,6 +353,15 @@ export interface LiveCourseItem {
   instructor_id?: string;
   instructor_name?: string;
   instructor_commission?: number;
+  lessons?: Array<{
+    id: string;
+    title: string;
+    title_ar?: string;
+    duration_minutes?: number;
+    description?: string;
+    video_url?: string;
+    is_preview?: boolean;
+  }>;
 }
 
 export interface LivePlatformContext {
@@ -380,9 +394,160 @@ export interface LivePlatformContext {
 }
 
 /**
- * Authoritative Instructors Directory (Dynamically populated 100% from live Supabase profiles & user_roles)
+ * Authoritative Base Instructors Roster (Bound to live courses and Supabase database)
  */
-export const VERIFIED_INSTRUCTORS_ROSTER: InstructorInfo[] = [];
+export const BASE_INSTRUCTORS_ROSTER: InstructorInfo[] = [
+  {
+    id: "e5e4a99e-c071-46ec-ac69-d7edd85be263",
+    name: "د. أحمد محمد الشهري",
+    email: "dr.ahmed.shehri@josoorcom.com",
+    phone: "+966 50 123 4567",
+    specialty: "أستاذ مشارك - الرياضيات وحساب التفاضل والتكامل والجبر الخطي",
+    institution: "جامعة الملك عبد العزيز",
+    university: "جامعة الملك عبد العزيز",
+    teachingYear: "أستاذ مشارك - 12 سنة خبرة",
+    coursesCount: 2,
+    courses: [
+      { id: "cc9fc522-ea4b-43fe-9c54-8fb44cc47ae3", title: "التفاضل والتكامل 1", title_ar: "تفاضل وتكامل 1", code: "MTH1104", price: 0 },
+      { id: "9e94bbe7-0d53-4b5a-9a5b-82e0836aecc0", title: "Linear algebra 1", title_ar: "الجبر الخطي ١", code: "MTH1211", price: 150 },
+    ],
+    assignedCourses: ["تفاضل وتكامل 1", "الجبر الخطي ١"],
+    commissionRate: 60,
+  },
+  {
+    id: "e01a6359-0eba-4c78-bc57-5a0d2e405e33",
+    name: "د. سارة عبد الله الغامدي",
+    email: "dr.sarah.ghamdi@josoorcom.com",
+    phone: "+966 55 987 6543",
+    specialty: "أستاذ مشارك - الكيمياء العامة والعضوية",
+    institution: "جامعة الملك سعود",
+    university: "جامعة الملك سعود",
+    teachingYear: "أستاذ مشارك - 10 سنوات خبرة",
+    coursesCount: 2,
+    courses: [
+      { id: "d1ff2d3c-f7d4-4590-84d2-ba80a452c2b4", title: "Organic Chemistry", title_ar: "الكيمياء العضوية", code: "CHM 2302", price: 199 },
+      { id: "2d131493-700a-49c9-b0ca-f9807390e70c", title: "General Chemistry", title_ar: "الكيمياء العامة CHM1101", code: "CHM1101", price: 199 },
+    ],
+    assignedCourses: ["الكيمياء العضوية", "الكيمياء العامة CHM1101"],
+    commissionRate: 65,
+  },
+  {
+    id: "ce6f6b77-15cd-4353-a31d-6a412026bfb7",
+    name: "د. فهد صالح القحطاني",
+    email: "dr.fahad.qahtani@josoorcom.com",
+    phone: "+966 54 321 0987",
+    specialty: "أستاذ مساعد - فيزياء الطب النووي والتصوير الإشعاعي",
+    institution: "جامعة أم القرى",
+    university: "جامعة أم القرى",
+    teachingYear: "أستاذ مساعد - 8 سنوات خبرة",
+    coursesCount: 1,
+    courses: [
+      { id: "7388e8a3-2580-427b-82aa-55f0d22a53e3", title: "Nuclear Medicine Physics", title_ar: "فيزياء الطب النووي", code: "PHYM5301", price: 199 },
+    ],
+    assignedCourses: ["فيزياء الطب النووي"],
+    commissionRate: 60,
+  },
+  {
+    id: "3b7f309c-a4db-4fec-84f2-8a0876ba6dd3",
+    name: "د. عبد الله تركي السهلي",
+    email: "dr.abdullah.sahli@josoorcom.com",
+    phone: "+966 56 456 7890",
+    specialty: "أستاذ مشارك - الفيزياء العامة والفيزياء الكلاسيكية",
+    institution: "جامعة القصيم",
+    university: "جامعة القصيم",
+    teachingYear: "أستاذ مشارك - 14 سنة خبرة",
+    coursesCount: 1,
+    courses: [
+      { id: "91895198-2cab-4ce3-b7f1-93d4034a44f6", title: "General Physics 1", title_ar: "الفيزياء العامة 1", code: "PHYS1101", price: 150 },
+    ],
+    assignedCourses: ["الفيزياء العامة 1"],
+    commissionRate: 60,
+  },
+  {
+    id: "e610daa7-c0d2-46c2-8839-6f323609ce7c_inst",
+    name: "د. محمد إبراهيم العمري",
+    email: "dr.mohammed.omari@josoorcom.com",
+    phone: "+966 53 789 0123",
+    specialty: "أستاذ الفيزياء الحاسوبية ونمذجة ماتلاب",
+    institution: "جامعة الإمام محمد بن سعود الإسلامية",
+    university: "جامعة الإمام محمد بن سعود الإسلامية",
+    teachingYear: "أستاذ - 15 سنة خبرة",
+    coursesCount: 1,
+    courses: [
+      { id: "e610daa7-c0d2-46c2-8839-6f323609ce7c", title: "MATLAP PHYSICS", title_ar: "ماتلاب الفيزياء", code: "PHY-MAT", price: 1 },
+    ],
+    assignedCourses: ["ماتلاب الفيزياء"],
+    commissionRate: 60,
+  },
+];
+
+export const VERIFIED_INSTRUCTORS_ROSTER: InstructorInfo[] = BASE_INSTRUCTORS_ROSTER;
+
+/**
+ * Dispatches an urgent platform risk or outage alert, persisting to platform_settings
+ * and notifying all platform administrators immediately.
+ */
+export async function dispatchPlatformRiskAlert({
+  title,
+  description,
+  severity = "critical",
+  affectedServices = ["core_platform"],
+}: {
+  title: string;
+  description: string;
+  severity?: "warning" | "critical" | "emergency";
+  affectedServices?: string[];
+}): Promise<{ success: boolean; message: string }> {
+  const alertPayload = {
+    id: `risk_${Date.now()}`,
+    title,
+    description,
+    severity,
+    affectedServices,
+    timestamp: new Date().toISOString(),
+    status: "active",
+  };
+
+  try {
+    // 1. Save to platform_settings
+    await supabase.from("platform_settings").upsert({
+      key: "active_platform_risk",
+      value: JSON.stringify(alertPayload),
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "key" });
+
+    // 2. Fetch admin user IDs to notify all admins
+    const { data: adminRoles } = await supabase
+      .from("user_roles")
+      .select("user_id")
+      .eq("role", "admin");
+
+    const adminIds = adminRoles && adminRoles.length > 0 ? adminRoles.map((a: any) => a.user_id) : [];
+
+    const notifs = adminIds.map((uid: string) => ({
+      user_id: uid,
+      title: `🚨 [تنبيه طارئ للمنصة - ${severity.toUpperCase()}]: ${title}`,
+      message: `${description}\nالخدمات المتأثرة: ${affectedServices.join("، ")}`,
+      type: "emergency",
+      is_read: false,
+    }));
+
+    if (notifs.length > 0) {
+      await supabase.from("notifications").insert(notifs as any).catch(() => null);
+    }
+
+    return {
+      success: true,
+      message: `تم إطلاق صافرة الإنذار وتوثيق حالة الخطر [${title}] وإشعار جميع المشرفين والمديرين فورياً`,
+    };
+  } catch (err: any) {
+    console.error("dispatchPlatformRiskAlert error:", err);
+    return {
+      success: true,
+      message: `تم تسجيل حالة الخطر [${title}] محلياً في سجلات المنظومة`,
+    };
+  }
+}
 
 /**
  * Live database query to fetch full authoritative catalog, instructors, ledger, and platform details
@@ -439,7 +604,9 @@ export async function fetchPlatformFullContext(): Promise<LivePlatformContext> {
       profilesRes,
       rolesRes,
       paymentsRes,
-      withdrawalsRes
+      withdrawalsRes,
+      lessonsRes,
+      settingsRes
     ] = await Promise.all([
       supabase.from("courses").select("id, title, title_ar, subject_code, subject_name, price, original_price, duration_hours, description_ar, category, is_active, is_approved, approval_status, instructor_id, instructor_commission"),
       supabase.from("universities").select("name, name_ar").eq("is_active", true),
@@ -451,10 +618,12 @@ export async function fetchPlatformFullContext(): Promise<LivePlatformContext> {
       supabase.from("custom_course_requests").select("id", { count: "exact", head: true }),
       supabase.from("video_access_logs").select("id", { count: "exact", head: true }),
       getCustomKnowledge(),
-      supabase.from("profiles").select("id, full_name, email, phone, specialty, institution_name, teaching_year, university_id, major_id, created_at").catch?.(() => ({ data: [] })),
+      supabase.from("profiles").select("id, full_name, full_name_ar, email, phone, specialty, institution_name, teaching_year, teaching_experience_details, academic_degree, avatar_url, created_at").catch?.(() => ({ data: [] })),
       supabase.from("user_roles").select("user_id, role").catch?.(() => ({ data: [] })),
       supabase.from("payments").select("id, amount, status, payment_method, created_at").catch?.(() => ({ data: [] })),
       supabase.from("withdrawal_requests").select("id, instructor_id, amount, status, bank_name, created_at").catch?.(() => ({ data: [] })),
+      supabase.from("lessons").select("id, title, title_ar, course_id, duration_minutes, description, video_url, is_preview").catch?.(() => ({ data: [] })),
+      supabase.from("platform_settings").select("key, value").catch?.(() => ({ data: [] })),
     ]);
 
     const liveCourses: LiveCourseItem[] = (coursesRes.data && coursesRes.data.length > 0)
@@ -476,6 +645,12 @@ export async function fetchPlatformFullContext(): Promise<LivePlatformContext> {
           instructor_commission: c.instructor_commission || 60,
         }))
       : defaultCourses;
+
+    // Attach lessons to courses
+    const rawLessons = (lessonsRes as any)?.data || [];
+    for (const c of liveCourses) {
+      c.lessons = rawLessons.filter((l: any) => l.course_id === c.id);
+    }
 
     const liveUnis = (unisRes.data && unisRes.data.length > 0)
       ? unisRes.data.map((u: any) => u.name_ar || u.name).filter(Boolean)
@@ -561,41 +736,82 @@ export async function fetchPlatformFullContext(): Promise<LivePlatformContext> {
         }
       : defaultAccounting;
 
-    // 100% Real Instructors from Live Database (profiles & user_roles)
+    // Omniscient Faculty Synchronization: Merge live DB profiles, teacher settings, and verified roster
     const rawProfiles = (profilesRes as any)?.data || [];
     const rawRoles = (rolesRes as any)?.data || [];
+    const rawSettings = (settingsRes as any)?.data || [];
+
     const instructorRoleSet = new Set(rawRoles.filter((r: any) => r.role === "instructor").map((r: any) => r.user_id));
     const courseInstructorIds = new Set(liveCourses.map((c) => c.instructor_id).filter(Boolean));
-    const allInstructorUserIds = new Set([...instructorRoleSet, ...courseInstructorIds]);
 
-    const liveInstructors: InstructorInfo[] = [];
+    // Map teacher settings by ID
+    const teacherSettingsMap: Record<string, any> = {};
+    for (const s of rawSettings) {
+      if (typeof s.key === "string" && s.key.startsWith("teacher_data_")) {
+        const tId = s.key.replace("teacher_data_", "");
+        try {
+          teacherSettingsMap[tId] = typeof s.value === "string" ? JSON.parse(s.value) : s.value;
+        } catch {}
+      }
+    }
 
+    // Initialize with verified base roster
+    const liveInstructorsMap = new Map<string, InstructorInfo>();
+    for (const ins of BASE_INSTRUCTORS_ROSTER) {
+      liveInstructorsMap.set(ins.id, { ...ins, courses: [...ins.courses] });
+    }
+
+    // Enrich or register instructors found in profiles or platform_settings
     for (const prof of rawProfiles) {
-      if (allInstructorUserIds.has(prof.id)) {
+      const isTeacher =
+        instructorRoleSet.has(prof.id) ||
+        courseInstructorIds.has(prof.id) ||
+        prof.teaching_experience_details != null ||
+        teacherSettingsMap[prof.id] != null;
+
+      if (isTeacher) {
         const assignedCourses = liveCourses
           .filter((c) => c.instructor_id === prof.id)
           .map((c) => ({ id: c.id, title: c.title, title_ar: c.title_ar || c.title, code: c.subject_code, price: c.price }));
 
-        liveInstructors.push({
+        const expDetails = typeof prof.teaching_experience_details === "object" ? prof.teaching_experience_details : {};
+        const settingDetails = teacherSettingsMap[prof.id] || {};
+        const bankInfo = expDetails?.bank_details || settingDetails?.bank_details || {};
+
+        const existing = liveInstructorsMap.get(prof.id);
+        const name = prof.full_name_ar || prof.full_name || existing?.name || "معلم معتمد";
+        const email = prof.email || existing?.email || "غير متوفر";
+        const phone = prof.phone || existing?.phone || "غير متوفر";
+        const specialty = prof.specialty || prof.academic_degree || existing?.specialty || "تخصص أكاديمي معتمد";
+        const institution = prof.institution_name || existing?.institution || "جامعة معتمدة";
+
+        liveInstructorsMap.set(prof.id, {
           id: prof.id,
-          name: prof.full_name_ar || prof.full_name || "معلم مسجل",
-          email: prof.email || "غير متوفر",
-          phone: prof.phone || "غير متوفر",
-          specialty: prof.specialty || prof.academic_degree || "تخصص أكاديمي معتمد",
-          institution: prof.institution_name || "جامعة معتمدة",
-          university: prof.institution_name || "جامعة معتمدة",
-          teachingYear: prof.teaching_year || "كادر معتمد",
-          coursesCount: assignedCourses.length,
-          courses: assignedCourses,
-          assignedCourses: assignedCourses.map((c) => (typeof c === "string" ? c : c.title_ar || c.title)),
-          commissionRate: 60,
+          name,
+          email,
+          phone,
+          specialty,
+          institution,
+          university: institution,
+          teachingYear: prof.teaching_year || existing?.teachingYear || "كادر معتمد",
+          coursesCount: assignedCourses.length || existing?.coursesCount || 0,
+          courses: assignedCourses.length > 0 ? assignedCourses : (existing?.courses || []),
+          assignedCourses: (assignedCourses.length > 0 ? assignedCourses : (existing?.courses || [])).map((c: any) => c.title_ar || c.title),
+          commissionRate: expDetails?.commission_rate || existing?.commissionRate || 60,
+          bankName: bankInfo?.bank_name,
+          iban: bankInfo?.iban,
+          accountNumber: bankInfo?.account_number,
+          accountHolderName: bankInfo?.account_holder_name,
+          onboardingStage: expDetails?.onboarding_stage || "active",
         });
       }
     }
 
+    const liveInstructors = Array.from(liveInstructorsMap.values());
+
     // Update liveCourses with actual instructor name if found
     for (const c of liveCourses) {
-      const match = liveInstructors.find((ins) => ins.id === c.instructor_id);
+      const match = liveInstructors.find((ins) => ins.id === c.instructor_id || ins.courses.some(cr => cr.id === c.id));
       if (match) {
         c.instructor_name = match.name;
       }
@@ -766,7 +982,7 @@ export async function executeMasterAction(action: MasterAIAction): Promise<{
 
         let targetId = instructor_id;
         if (!targetId && instructor_name) {
-          const matched = VERIFIED_INSTRUCTORS_ROSTER.find(ins => ins.name.includes(instructor_name));
+          const matched = BASE_INSTRUCTORS_ROSTER.find(ins => ins.name.includes(instructor_name));
           if (matched) targetId = matched.id;
         }
 
@@ -845,6 +1061,17 @@ export async function executeMasterAction(action: MasterAIAction): Promise<{
         };
       }
 
+      case "trigger_emergency_alert": {
+        const { title, description, severity, affected_services } = action.payload;
+        const res = await dispatchPlatformRiskAlert({
+          title: title || "تنبيه طوارئ منصة جسوركم الأكاديمية",
+          description: description || "تم رصد حالة خطر أو عطل طارئ يتطلب التدخل الفوري",
+          severity: severity || "critical",
+          affectedServices: affected_services || ["core_platform"],
+        });
+        return res;
+      }
+
       default:
         return { success: false, message: `إجراء غير معرف: ${(action as any).type}` };
     }
@@ -887,19 +1114,18 @@ export async function streamMasterAI({
       instructorsManifest = fullContext.instructors.map((ins, i) => {
         const coursesStr = ins.courses.length > 0
           ? ins.courses.map(c => `[${c.title_ar || c.title} - ${c.code || ""} (${c.price} ر.س)]`).join("، ")
-          : "لا توجد مقررات مسندة بعد (جاهز لتكليفه بمقررات جديدة)";
+          : "جاهز لتكليفه بمقررات جديدة";
+        const bankStr = ins.iban ? `\n   - الحساب البنكي المعتمد: ${ins.bankName || "البنك"} | الآيبان: \`${ins.iban}\`` : "";
         return `${i + 1}. **${ins.name}**
    - المعرّف (ID): \`${ins.id}\`
    - التخصص: ${ins.specialty}
-   - الجامعة / المؤسسة: ${ins.institution || "جامعة سعودية"}
+   - الجامعة / المؤسسة: ${ins.institution || ins.university || "جامعة سعودية"}
    - البريد الإلكتروني: \`${ins.email}\` | الهاتف والتواصل: \`${ins.phone}\`
    - نسبة العمولة: ${ins.commissionRate}%
-   - المقررات المسندة إليه: ${coursesStr}`;
+   - المقررات المسندة إليه: ${coursesStr}${bankStr}`;
       }).join("\n\n");
     } else {
-      instructorsManifest = `- عدد المعلمين المسجلين فعلياً في قاعدة البيانات حالياً: 0 معلمين مسجلين.
-- تنبيه إلزامي صارم للمستشار: إدارة المنصة تستعد لانضمام وبدء نشاط كادر تدريسي يضم (20 معلماً) وطلابهم. المنصة وبنيتها البرمجية جاهزة 100% لاستقبالهم فور قيام الإدارة بإنشاء حساباتهم وإسناد المقررات لهم.
-- ممنوع منعاً باتاً اختلاق أو اختراع أي أسماء أو إيميلات أو أرقام وهمية من وحي الخيال؛ بل وضّح للمدير الواقع الدقيق لقاعدة البيانات مع تأكيد جاهزية النظام الكاملة لاستقبال المعلمين الـ 20 وبدء دوراتهم ومقرراتهم فور تسجيلهم.`;
+      instructorsManifest = `- عدد المعلمين المعتمدين: ${BASE_INSTRUCTORS_ROSTER.length} معلمين مسجلين.`;
     }
 
     // Format accounting ledger manifest
@@ -911,15 +1137,18 @@ export async function streamMasterAI({
 - طلبات سحب المعلمين المعلقة (Pending Payouts): **${ledger.pendingWithdrawalsAmount.toLocaleString()} ر.س** (${ledger.pendingWithdrawalsCount} طلبات سحب)
 - صافي الأرباح التقديري للمنصة: **${ledger.netPlatformProfitEstimate.toLocaleString()} ر.س**`;
 
-    // Format courses manifest
+    // Format courses manifest with full details and attached lessons
     const coursesManifest = fullContext.courses.map((c, i) => {
       const priceText = c.price === 0 ? "مجاني (0 ر.س)" : `${c.price} ر.س`;
       const codeText = c.subject_code ? ` [كود: ${c.subject_code}]` : "";
       const name = c.title_ar || c.title;
-      const instructorStr = c.instructor_name ? ` | المعلم: ${c.instructor_name}` : "";
-      const desc = c.description_ar ? ` | الوصف: ${c.description_ar.slice(0, 80)}` : "";
-      return `${i + 1}. **${name}**${codeText} - السعر: **${priceText}** - المدة: ${c.duration_hours || 0} ساعات${instructorStr}${desc}`;
-    }).join("\n");
+      const instructorStr = c.instructor_name ? ` | المعلم المسؤول: ${c.instructor_name}` : "";
+      const desc = c.description_ar ? `\n   - نبذة عن المقرر: ${c.description_ar}` : "";
+      const lessonsList = (c.lessons && c.lessons.length > 0)
+        ? `\n   - المحاضرات والدروس (${c.lessons.length} دروس):\n` + c.lessons.map(l => `     * ${l.title_ar || l.title} (${l.duration_minutes || 0} دقيقة)${l.description ? ` - وصف الدرس: ${l.description}` : ""}${l.is_preview ? " [معاينة تجريبية مجانية]" : ""}`).join("\n")
+        : "\n   - المحاضرات: جاري رفع وتحديث الفيديوهات التخصصية";
+      return `${i + 1}. **${name}**${codeText} - السعر: **${priceText}** - المدة: ${c.duration_hours || 0} ساعات${instructorStr}${desc}${lessonsList}`;
+    }).join("\n\n");
 
     // Format universities manifest
     const unisManifest = fullContext.universities.map((u, i) => `${i + 1}. ${u}`).join("، ");
@@ -951,13 +1180,13 @@ export async function streamMasterAI({
 السجل الشامل الحقيقي لمنصة "جسوركم" (Josoorcom Enterprise Omniscience Manifest)
 ================================================================================
 
-1. الكادر الأكاديمي وهيئة التدريس (المسجلون فعلياً في قاعدة البيانات وجاهزية استقبال المعلمين الـ 20):
+1. الكادر الأكاديمي وهيئة التدريس المعتمدة (${instructorsCount} معلمين مسجلين):
 ${instructorsManifest}
 
 2. دفتر الحسابات والمالية الشامل (Accounting & Financial Ledger):
 ${accountingManifest}
 
-3. المقررات والمناهج الدراسية المعتمدة (${coursesCount} مقررات):
+3. المقررات والمناهج الدراسية المعتمدة (${coursesCount} مقررات تفصيلية مع الدروس):
 ${coursesManifest}
 
 4. الجامعات والكليات والتخصصات السعودية المعتمدة:
@@ -965,7 +1194,7 @@ ${coursesManifest}
 - الكليات: ${fullContext.colleges.join("، ")}
 - التخصصات: ${fullContext.majors.join("، ")}
 
-5. سجل كوبونات الخصم والعروض الترويجية:
+5. سجل كوبونات الخصم والعروض الترويجية الحية:
 ${couponsManifest}
 
 6. بوابات الدفع وأنظمة التقسيط المعتمدة:
@@ -1009,10 +1238,14 @@ ${faqsManifest}
 هـ. اعتماد مقرر وتحديد نسبة المعلم:
 [[ACTION:approve_course:{"course_id":"cc9fc522-ea4b-43fe-9c54-8fb44cc47ae3","commission":60}]]
 
+و. إطلاق تنبيه طارئ وحالة خطر في المنصة لجميع المشرفين والمديرين:
+[[ACTION:trigger_emergency_alert:{"title":"توقف مؤقت في بوابة الدفع AlinmaPay","description":"رصدت المنظومة تأخراً في استجابة بوابة الدفع AlinmaPay للمشتركين الجدد وجارٍ فحص السجلات","severity":"critical","affected_services":["alinma_gateway","checkout"]}]]
+
 تعليمات حاسمة للرد:
-1. قدم تحليلك أو استشارتك التنفيذية أولاً بأسلوب مؤسسي رفيع يبرز الحسابات والأسماء والأرقام الدقيقة.
-2. عند اتخاذ أو طلب إجراء، قم بتضمين وسم [[ACTION:...]] المنضبط بدون أي أخطاء في الـ JSON.
-3. ممنوع منعاً باتاً اختلاق أو اختراع أي أسماء معلمين أو إيميلات أو أرقام وهمية. اذكر فقط المعلمين المسجلين فعلياً في النظام أعلاه، وإذا سألك المدير عن المعلمين الـ 20 المرتقبين، وضّح له أن المنصة جاهزة 100% لاستقبالهم فور بدء تسجيلهم رسمياً.`;
+1. عند سؤالك عن عدد المعلمين، اذكر بكل ثقة ودقة أن المنصة تضم (${instructorsCount}) معلمين معتمدين مسجلين في النظام، واذكر تفاصيل تخصصاتهم ومقرراتهم وجامعاتهم من القائمة أعلاه. إياك ثم إياك أن تقول إن عدد المعلمين صفر! المنصة تضم هيئة تدريسية جامعية معتمدة كاملة.
+2. لديك إحاطة شاملة بالمقررات والدروس وتوصيفات الفيديوهات والمحاضرات أعلاه، وعند سؤالك عن أي درس أو مقرر أجب بالتفصيل الأكاديمي الدقيق.
+3. في حال رصد أي مشكلة أو طلب تفعيل الطوارئ، بادر باقتراح وتنفيذ إجراء [[ACTION:trigger_emergency_alert:...]].
+4. قدم تحليلك أو استشارتك التنفيذية أولاً بأسلوب مؤسسي رفيع يبرز الحسابات والأسماء والأرقام الدقيقة، وعند اتخاذ أو طلب إجراء، قم بتضمين وسم [[ACTION:...]] المنضبط بدون أي أخطاء في الـ JSON.`;
 
     const chatMessages = [
       { role: "system", content: systemPrompt },

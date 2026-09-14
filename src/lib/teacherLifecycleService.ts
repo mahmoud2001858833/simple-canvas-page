@@ -877,6 +877,7 @@ export async function sendAdminPayoutOffer(params: {
     created_at: new Date().toISOString(),
   };
 
+  // 1. Try database table
   try {
     await (supabase as any).from('payout_negotiations').insert(negotiation);
     await (supabase as any)
@@ -888,14 +889,25 @@ export async function sendAdminPayoutOffer(params: {
         updated_at: new Date().toISOString(),
       })
       .eq('teacher_id', params.teacherId);
-  } catch {
-    // ignore
+  } catch {}
+
+  // 2. Fetch current messages and append
+  const currentMsgs = await getPayoutNegotiations(params.teacherId);
+  const updatedMsgs = [...currentMsgs.filter(m => m.id !== negotiation.id), negotiation];
+
+  // 3. Sync to platform_settings
+  try {
+    await supabase.from('platform_settings').upsert({
+      key: `teacher_negotiations_${params.teacherId}`,
+      value: JSON.stringify(updatedMsgs),
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'key' });
+  } catch (e) {
+    console.warn('Sync negotiation to platform_settings non-fatal:', e);
   }
 
-  // Update local & cloud
-  const history = getLocalStore<PayoutNegotiationMessage[]>(`neg_${params.teacherId}`, []);
-  history.push(negotiation);
-  setLocalStore(`neg_${params.teacherId}`, history);
+  // 4. Update local & cloud store
+  setLocalStore(`neg_${params.teacherId}`, updatedMsgs);
 
   const payout = getLocalStore<TeacherPayoutSettings | null>(`payout_${params.teacherId}`, null) || {
     id: 'payout-' + params.teacherId,
@@ -907,12 +919,26 @@ export async function sendAdminPayoutOffer(params: {
   payout.status = 'offer_sent';
   payout.fixed_amount = params.proposedFixed ?? payout.fixed_amount;
   payout.percentage_rate = params.proposedPercentage ?? payout.percentage_rate;
+  payout.notes = params.message;
   payout.updated_at = new Date().toISOString();
   setLocalStore(`payout_${params.teacherId}`, payout);
 
   await syncTeacherDataToCloud(params.teacherId, { payout });
 
-  // Trigger Email
+  // 5. In-app notification for the teacher
+  try {
+    await supabase.from('notifications').insert({
+      user_id: params.teacherId,
+      title: 'عرض مالي ومفاوضة من الإدارة',
+      title_ar: 'عرض مالي ومفاوضة من الإدارة',
+      message: `قدمت لك الإدارة عرضاً مالياً: ${params.proposedPercentage ? `${params.proposedPercentage}% نسبة` : ''} ${params.proposedFixed ? `${params.proposedFixed} ر.س` : ''}. الملاحظة: "${params.message}"`,
+      message_ar: `قدمت لك الإدارة عرضاً مالياً: ${params.proposedPercentage ? `${params.proposedPercentage}% نسبة` : ''} ${params.proposedFixed ? `${params.proposedFixed} ر.س` : ''}. الملاحظة: "${params.message}"`,
+      link: '/instructor/negotiation',
+      type: 'warning',
+    });
+  } catch {}
+
+  // 6. Trigger Email
   if (params.teacherEmail) {
     sendLifecycleEmail({
       type: 'teacher_offer_sent',
@@ -944,6 +970,7 @@ export async function sendTeacherCounterOffer(params: {
     created_at: new Date().toISOString(),
   };
 
+  // 1. Try database table
   try {
     await (supabase as any).from('payout_negotiations').insert(negotiation);
     await (supabase as any)
@@ -953,25 +980,59 @@ export async function sendTeacherCounterOffer(params: {
         updated_at: new Date().toISOString(),
       })
       .eq('teacher_id', params.teacherId);
-  } catch {
-    // ignore
+  } catch {}
+
+  // 2. Fetch current messages and append
+  const currentMsgs = await getPayoutNegotiations(params.teacherId);
+  const updatedMsgs = [...currentMsgs.filter(m => m.id !== negotiation.id), negotiation];
+
+  // 3. Sync to platform_settings
+  try {
+    await supabase.from('platform_settings').upsert({
+      key: `teacher_negotiations_${params.teacherId}`,
+      value: JSON.stringify(updatedMsgs),
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'key' });
+  } catch (e) {
+    console.warn('Sync negotiation to platform_settings non-fatal:', e);
   }
 
-  const history = getLocalStore<PayoutNegotiationMessage[]>(`neg_${params.teacherId}`, []);
-  history.push(negotiation);
-  setLocalStore(`neg_${params.teacherId}`, history);
+  // 4. Update local & cloud store
+  setLocalStore(`neg_${params.teacherId}`, updatedMsgs);
 
   const payout = getLocalStore<TeacherPayoutSettings | null>(`payout_${params.teacherId}`, null);
   if (payout) {
     payout.status = 'in_negotiation';
+    payout.notes = `عرض مقابل من المعلم: ${params.message}`;
+    if (params.proposedFixed !== undefined && params.proposedFixed !== null) payout.fixed_amount = params.proposedFixed;
+    if (params.proposedPercentage !== undefined && params.proposedPercentage !== null) payout.percentage_rate = params.proposedPercentage;
+    payout.updated_at = new Date().toISOString();
     setLocalStore(`payout_${params.teacherId}`, payout);
     await syncTeacherDataToCloud(params.teacherId, { payout });
   }
+
+  // 5. Notify all admins in notifications table
+  try {
+    const { data: adminRoles } = await supabase.from('user_roles').select('user_id').eq('role', 'admin');
+    if (adminRoles && adminRoles.length > 0) {
+      const notifs = adminRoles.map((a: any) => ({
+        user_id: a.user_id,
+        title: 'عرض مقابل جديد من المعلم',
+        title_ar: 'عرض مقابل جديد من المعلم',
+        message: `قدم المعلم رداً وعرضاً مقابلاً: "${params.message}".`,
+        message_ar: `قدم المعلم رداً وعرضاً مقابلاً: "${params.message}".`,
+        link: '/admin',
+        type: 'info',
+      }));
+      await supabase.from('notifications').insert(notifs);
+    }
+  } catch {}
 
   return true;
 }
 
 export async function getPayoutNegotiations(teacherId: string): Promise<PayoutNegotiationMessage[]> {
+  // 1. Try DB table
   try {
     const { data, error } = await (supabase as any)
       .from('payout_negotiations')
@@ -980,10 +1041,31 @@ export async function getPayoutNegotiations(teacherId: string): Promise<PayoutNe
       .order('created_at', { ascending: true });
 
     if (!error && data && data.length > 0) return data as PayoutNegotiationMessage[];
-  } catch {
-    // ignore
-  }
+  } catch {}
 
+  // 2. Try platform_settings
+  try {
+    const { data: ps } = await supabase
+      .from('platform_settings')
+      .select('value')
+      .eq('key', `teacher_negotiations_${teacherId}`)
+      .maybeSingle();
+
+    if (ps?.value) {
+      const parsed = JSON.parse(ps.value);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+
+  // 3. Try profiles.teaching_experience_details
+  try {
+    const cloud = await getTeacherDataFromCloud(teacherId);
+    if ((cloud as any)?.negotiations && Array.isArray((cloud as any).negotiations)) {
+      return (cloud as any).negotiations;
+    }
+  } catch {}
+
+  // 4. Local storage fallback
   return getLocalStore<PayoutNegotiationMessage[]>(`neg_${teacherId}`, []);
 }
 
@@ -1235,8 +1317,10 @@ export async function deleteOnboardingResource(id: string): Promise<boolean> {
 }
 
 // ====================================================================
-// Email & In-App Notification Dispatch Helper
+// Email & In-App Notification Dispatch Helper (with Deduplication)
 // ====================================================================
+
+const emailDispatchDebounceMap: Record<string, number> = {};
 
 export async function sendLifecycleEmail(params: {
   type: 
@@ -1258,6 +1342,14 @@ export async function sendLifecycleEmail(params: {
   iban?: string;
   userId?: string;
 }): Promise<boolean> {
+  // Deduplication: prevent sending the same email type to the same address within 45 seconds
+  const debounceKey = `${params.toEmail?.toLowerCase()}_${params.type}`;
+  const now = Date.now();
+  if (emailDispatchDebounceMap[debounceKey] && (now - emailDispatchDebounceMap[debounceKey] < 45000)) {
+    console.log(`[Email Deduplication] Suppressed duplicate email dispatch: ${debounceKey}`);
+    return true;
+  }
+  emailDispatchDebounceMap[debounceKey] = now;
   const payload = {
     ...params,
     to_email: params.toEmail,

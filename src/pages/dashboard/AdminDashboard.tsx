@@ -48,8 +48,9 @@ const PreviewStudents = lazy(() => import('@/components/dashboard/admin/PreviewS
 const AIControlCenter = lazy(() => import('@/components/dashboard/admin/AIControlCenter').then(m => ({ default: m.AIControlCenter || m.default })));
 const TeachersOnboardingManagement = lazy(() => import('@/components/dashboard/admin/TeachersOnboardingManagement').then(m => ({ default: m.TeachersOnboardingManagement })));
 const PayoutNegotiationsManagement = lazy(() => import('@/components/dashboard/admin/PayoutNegotiationsManagement').then(m => ({ default: m.PayoutNegotiationsManagement })));
+const MegaAIOperationsHub = lazy(() => import('@/components/dashboard/admin/MegaAIOperationsHub').then(m => ({ default: m.MegaAIOperationsHub })));
 
-type TabType = 'overview' | 'users' | 'user-insights' | 'instructor-detail' | 'student-detail' | 'courses' | 'course-approvals' | 'requests' | 'payments' | 'live-payments' | 'abandoned-payments' | 'payment-methods' | 'monthly-installments' | 'financial-dashboard' | 'accounting' | 'withdrawals' | 'coupons' | 'universities' | 'colleges' | 'majors' | 'students-by-major' | 'reports' | 'notifications' | 'logs' | 'general' | 'settings' | 'support' | 'instructor-settings' | 'instructor-payouts' | 'student-refunds' | 'terms' | 'nelc' | 'capture-attempts' | 'workflow' | 'video-analytics' | 'instructor-specialties' | 'preview-students' | 'ai-control' | 'teachers-onboarding' | 'payout-negotiations';
+type TabType = 'overview' | 'users' | 'user-insights' | 'instructor-detail' | 'student-detail' | 'courses' | 'course-approvals' | 'requests' | 'payments' | 'live-payments' | 'abandoned-payments' | 'payment-methods' | 'monthly-installments' | 'financial-dashboard' | 'accounting' | 'withdrawals' | 'coupons' | 'universities' | 'colleges' | 'majors' | 'students-by-major' | 'reports' | 'notifications' | 'logs' | 'general' | 'settings' | 'support' | 'instructor-settings' | 'instructor-payouts' | 'student-refunds' | 'terms' | 'nelc' | 'capture-attempts' | 'workflow' | 'video-analytics' | 'instructor-specialties' | 'preview-students' | 'ai-control' | 'mega-ai-ops' | 'teachers-onboarding' | 'payout-negotiations';
 
 
 // Fallback components for each section
@@ -316,6 +317,12 @@ const AdminDashboard = () => {
         return (
           <Suspense fallback={<LoadingFallback type="payments" />}>
             <PayoutNegotiationsManagement />
+          </Suspense>
+        );
+      case 'mega-ai-ops':
+        return (
+          <Suspense fallback={<LoadingFallback type="overview" />}>
+            <MegaAIOperationsHub onNavigate={(t) => setActiveTab(t as TabType)} />
           </Suspense>
         );
       default:

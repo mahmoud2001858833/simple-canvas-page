@@ -42,6 +42,7 @@ import {
   Phone,
   Mail,
   Settings2,
+  AlertTriangle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -51,8 +52,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { MathMarkdown } from "@/components/ai/MathMarkdown";
+import { supabase } from "@/integrations/supabase/client";
 import {
   AIAgentDefinition,
   CustomKnowledgeItem,
@@ -69,6 +79,7 @@ import {
   getPlatformKnowledgeSummary,
   streamMasterAI,
   executeMasterAction,
+  dispatchPlatformRiskAlert,
 } from "@/lib/aiAgentsConfig";
 
 interface ExecutedActionRecord {
@@ -143,6 +154,14 @@ export function AIControlCenter() {
   const [isMasterStreaming, setIsMasterStreaming] = useState(false);
   const masterChatEndRef = useRef<HTMLDivElement>(null);
 
+  // Platform Risk & Emergency Alert State
+  const [activeRiskAlert, setActiveRiskAlert] = useState<any | null>(null);
+  const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
+  const [emergencyTitle, setEmergencyTitle] = useState("");
+  const [emergencyDescription, setEmergencyDescription] = useState("");
+  const [emergencySeverity, setEmergencySeverity] = useState<"warning" | "critical" | "emergency">("critical");
+  const [isTriggeringAlert, setIsTriggeringAlert] = useState(false);
+
   // Load Initial Data
   useEffect(() => {
     loadData();
@@ -151,10 +170,11 @@ export function AIControlCenter() {
   const loadData = async () => {
     setIsLoadingAgents(true);
     try {
-      const [agentsData, knowledgeData, summaryData] = await Promise.all([
+      const [agentsData, knowledgeData, summaryData, riskRes] = await Promise.all([
         getAgentsConfig(),
         getCustomKnowledge(),
         getPlatformKnowledgeSummary(),
+        supabase.from("platform_settings").select("value").eq("key", "active_platform_risk").maybeSingle(),
       ]);
       if (agentsData && agentsData.length > 0) {
         setAgents(agentsData);
@@ -165,11 +185,65 @@ export function AIControlCenter() {
       if (summaryData) {
         setKnowledgeSummary(summaryData);
       }
+      if (riskRes?.data?.value) {
+        try {
+          const parsed = JSON.parse(riskRes.data.value);
+          if (parsed.status === "active") setActiveRiskAlert(parsed);
+        } catch {}
+      }
     } catch (err) {
       console.error(err);
       toast.error("حدث خطأ أثناء تحميل بيانات الوكلاء");
     } finally {
       setIsLoadingAgents(false);
+    }
+  };
+
+  const handleTriggerEmergency = async () => {
+    if (!emergencyTitle.trim() || !emergencyDescription.trim()) {
+      toast.error("يرجى إدخال عنوان وتفاصيل الحالة الطارئة");
+      return;
+    }
+    setIsTriggeringAlert(true);
+    try {
+      const res = await dispatchPlatformRiskAlert({
+        title: emergencyTitle.trim(),
+        description: emergencyDescription.trim(),
+        severity: emergencySeverity,
+      });
+      if (res.success) {
+        toast.success(res.message);
+        setActiveRiskAlert({
+          title: emergencyTitle.trim(),
+          description: emergencyDescription.trim(),
+          severity: emergencySeverity,
+          status: "active",
+          timestamp: new Date().toISOString(),
+        });
+        setIsEmergencyModalOpen(false);
+        setEmergencyTitle("");
+        setEmergencyDescription("");
+      } else {
+        toast.error(res.message);
+      }
+    } catch (e: any) {
+      toast.error(e.message || "فشل إرسال التنبيه الطارئ");
+    } finally {
+      setIsTriggeringAlert(false);
+    }
+  };
+
+  const handleResolveRisk = async () => {
+    try {
+      await supabase.from("platform_settings").upsert({
+        key: "active_platform_risk",
+        value: JSON.stringify({ status: "resolved", resolved_at: new Date().toISOString() }),
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "key" });
+      setActiveRiskAlert(null);
+      toast.success("تم إنهاء حالة الطوارئ بنجاح وتحديث النظام إلى الوضع المستقر");
+    } catch {
+      setActiveRiskAlert(null);
     }
   };
 
@@ -519,6 +593,13 @@ export function AIControlCenter() {
               <span>مزامنة السجل الحي</span>
             </Button>
             <Button
+              onClick={() => setIsEmergencyModalOpen(true)}
+              className="bg-red-600 hover:bg-red-700 text-white font-bold gap-2 text-xs h-10 shadow-md shadow-red-600/20"
+            >
+              <AlertTriangle className="w-4 h-4 animate-pulse" />
+              <span>إطلاق تنبيه طارئ</span>
+            </Button>
+            <Button
               onClick={() => setActiveTab("master")}
               className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-bold gap-2 text-xs h-10 shadow-md shadow-amber-500/10"
             >
@@ -532,6 +613,34 @@ export function AIControlCenter() {
         <div className="absolute -top-12 -left-12 w-80 h-80 bg-amber-500/5 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-12 -right-12 w-80 h-80 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
       </div>
+
+      {/* Active Platform Risk Alert Banner */}
+      {activeRiskAlert && (
+        <div className="rounded-xl border-2 border-red-500/50 bg-red-950/40 p-4 md:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 text-red-200 shadow-xl backdrop-blur">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-red-600/30 flex items-center justify-center text-red-400 shrink-0">
+              <AlertTriangle className="w-6 h-6 animate-bounce" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <Badge variant="destructive" className="font-bold text-xs uppercase">
+                  {activeRiskAlert.severity || "CRITICAL"}
+                </Badge>
+                <h3 className="font-black text-red-100 text-base">{activeRiskAlert.title}</h3>
+              </div>
+              <p className="text-sm text-red-200/90 mt-1">{activeRiskAlert.description}</p>
+            </div>
+          </div>
+          <Button
+            onClick={handleResolveRisk}
+            variant="outline"
+            className="border-red-500/50 bg-red-900/40 hover:bg-red-900 text-red-100 font-bold text-xs h-9"
+          >
+            <CheckCircle2 className="w-4 h-4 ml-1 text-emerald-400" />
+            <span>إنهاء حالة الطوارئ (تم الحل)</span>
+          </Button>
+        </div>
+      )}
 
       {/* Executive Key Metrics Strip */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1732,6 +1841,95 @@ export function AIControlCenter() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Emergency Platform Risk Trigger Dialog */}
+      <Dialog open={isEmergencyModalOpen} onOpenChange={setIsEmergencyModalOpen}>
+        <DialogContent className="max-w-md text-right" dir="rtl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600 dark:text-red-400 font-black text-lg">
+              <AlertTriangle className="w-5 h-5 animate-pulse" />
+              <span>إطلاق تنبيه طارئ وحالة خطر في المنصة</span>
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground text-xs leading-relaxed pt-1">
+              سيتم بث هذا التنبيه فورياً إلى جميع حسابات المشرفين والمديرين وتوثيقه في السجل الحي لحالة المنظومة.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-3">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-foreground">عنوان الحالة الطارئة</label>
+              <Input
+                placeholder="مثال: تعطل مؤقت في بوابة الدفع AlinmaPay"
+                value={emergencyTitle}
+                onChange={(e) => setEmergencyTitle(e.target.value)}
+                className="text-xs h-9"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-foreground">مستوى الخطورة</label>
+              <div className="grid grid-cols-3 gap-2">
+                <Button
+                  type="button"
+                  variant={emergencySeverity === "warning" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setEmergencySeverity("warning")}
+                  className={`text-xs h-8 ${emergencySeverity === "warning" ? "bg-amber-600 text-white" : ""}`}
+                >
+                  تحذير متوسط
+                </Button>
+                <Button
+                  type="button"
+                  variant={emergencySeverity === "critical" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setEmergencySeverity("critical")}
+                  className={`text-xs h-8 ${emergencySeverity === "critical" ? "bg-red-600 text-white" : ""}`}
+                >
+                  حرج عالي
+                </Button>
+                <Button
+                  type="button"
+                  variant={emergencySeverity === "emergency" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setEmergencySeverity("emergency")}
+                  className={`text-xs h-8 ${emergencySeverity === "emergency" ? "bg-red-800 text-white" : ""}`}
+                >
+                  طوارئ قصوى
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-foreground">التفاصيل وخطة التعامل الفورية</label>
+              <Textarea
+                placeholder="اكتب وصف العطل أو الخطر والخدمات المتأثرة وخطة العمل الفورية لحماية الطلاب والمعلمين..."
+                value={emergencyDescription}
+                onChange={(e) => setEmergencyDescription(e.target.value)}
+                rows={3}
+                className="text-xs leading-relaxed resize-none"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0 flex flex-row-reverse justify-start">
+            <Button
+              onClick={handleTriggerEmergency}
+              disabled={isTriggeringAlert || !emergencyTitle.trim()}
+              className="bg-red-600 hover:bg-red-700 text-white font-bold text-xs h-9 gap-1.5"
+            >
+              {isTriggeringAlert ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <AlertTriangle className="w-3.5 h-3.5" />}
+              <span>إطلاق الإنذار وإشعار المديرين</span>
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setIsEmergencyModalOpen(false)}
+              className="text-xs h-9"
+            >
+              إلغاء
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

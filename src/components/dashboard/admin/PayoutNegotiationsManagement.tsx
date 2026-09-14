@@ -571,7 +571,21 @@ export const PayoutNegotiationsManagement: React.FC = () => {
                           <span>{msg.sender_type === 'admin' ? 'الإدارة' : 'المعلم'}</span>
                           <span>{new Date(msg.created_at).toLocaleTimeString('ar-SA')}</span>
                         </div>
-                        <p>{msg.message}</p>
+                        <p className="text-xs leading-relaxed">{msg.message}</p>
+                        {(msg.proposed_percentage || msg.proposed_fixed) && (
+                          <div className="flex items-center gap-2 pt-1.5 font-mono text-[11px] font-bold">
+                            {msg.proposed_percentage && (
+                              <span className="bg-amber-100 text-amber-900 px-2 py-0.5 rounded border border-amber-300">
+                                النسبة المطلوبة: {msg.proposed_percentage}%
+                              </span>
+                            )}
+                            {msg.proposed_fixed && (
+                              <span className="bg-slate-200 text-slate-800 px-2 py-0.5 rounded">
+                                المبلغ المطلوب: {msg.proposed_fixed} ر.س
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))
                   )}

@@ -220,16 +220,14 @@ export const TeacherFinancialStatusCard: React.FC = () => {
                 <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
               </Button>
 
-              {payoutSettings?.status === 'offer_sent' && (
-                <Button
-                  size="sm"
-                  onClick={() => setIsModalOpen(true)}
-                  className="bg-amber-500 hover:bg-amber-600 text-white font-bold h-8 text-xs shadow-xs"
-                >
-                  <MessageSquare className="w-3.5 h-3.5 ml-1.5" />
-                  مراجعة عرض الإدارة
-                </Button>
-              )}
+              <Button
+                size="sm"
+                onClick={() => navigate('/instructor/negotiation')}
+                className="bg-amber-500 hover:bg-amber-600 text-white font-bold h-8 text-xs shadow-xs"
+              >
+                <MessageSquare className="w-3.5 h-3.5 ml-1.5" />
+                {payoutSettings?.status === 'offer_sent' ? 'مراجعة عرض الإدارة (غرفة المفاوضة)' : 'غرفة المفاوضة والتوافق'}
+              </Button>
             </div>
           </div>
         </CardHeader>
