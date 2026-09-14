@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
@@ -66,19 +67,22 @@ export const TeacherFinancialStatusCard: React.FC = () => {
   const [acceptingOffer, setAcceptingOffer] = useState(false);
 
   const loadData = async () => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
-      const [settings, bank, ctr, msgs] = await Promise.all([
+      const [settings, bank, ctr, msgs] = await Promise.allSettled([
         getTeacherPayoutSettings(user.id),
         getTeacherBankDetails(user.id),
         getTeacherContract(user.id),
         getPayoutNegotiations(user.id),
       ]);
-      setPayoutSettings(settings);
-      setBankDetails(bank);
-      setContract(ctr);
-      setNegotiations(msgs);
+      if (settings.status === 'fulfilled') setPayoutSettings(settings.value);
+      if (bank.status === 'fulfilled') setBankDetails(bank.value);
+      if (ctr.status === 'fulfilled') setContract(ctr.value);
+      if (msgs.status === 'fulfilled') setNegotiations(msgs.value || []);
     } catch (e) {
       console.error('Error fetching financial status:', e);
     } finally {
@@ -182,7 +186,8 @@ export const TeacherFinancialStatusCard: React.FC = () => {
     }
   };
 
-  const TypeIcon = getPayoutTypeIcon(payoutSettings?.agreed_type || payoutSettings?.requested_type);
+  const ResolvedIcon = getPayoutTypeIcon(payoutSettings?.agreed_type || payoutSettings?.requested_type) || Wallet;
+  const TypeIcon = ResolvedIcon;
 
   return (
     <>
@@ -241,14 +246,14 @@ export const TeacherFinancialStatusCard: React.FC = () => {
                 {getPayoutTypeLabel(payoutSettings?.agreed_type || payoutSettings?.requested_type)}
               </p>
               <div className="pt-1">
-                {payoutSettings?.percentage_rate && (
+                {payoutSettings?.percentage_rate !== undefined && payoutSettings?.percentage_rate !== null && (
                   <span className="text-xs font-black text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 font-mono">
                     نسبتك: {payoutSettings.percentage_rate}%
                   </span>
                 )}
-                {payoutSettings?.fixed_amount && (
+                {payoutSettings?.fixed_amount !== undefined && payoutSettings?.fixed_amount !== null && (
                   <span className="text-xs font-black text-slate-800 bg-slate-200/70 px-2 py-0.5 rounded font-mono mr-1">
-                    {payoutSettings.fixed_amount.toLocaleString()} ر.س
+                    {Number(payoutSettings.fixed_amount || 0).toLocaleString()} ر.س
                   </span>
                 )}
               </div>
@@ -264,7 +269,7 @@ export const TeacherFinancialStatusCard: React.FC = () => {
                 {bankDetails?.bank_name || 'غير مسجل بعد'}
               </p>
               <p className="text-xs text-slate-600 font-mono" dir="ltr">
-                {bankDetails?.iban ? `${bankDetails.iban.slice(0, 4)} **** ${bankDetails.iban.slice(-4)}` : 'SA-- ---- ----'}
+                {bankDetails?.iban ? `${String(bankDetails.iban).slice(0, 4)} **** ${String(bankDetails.iban).slice(-4)}` : 'SA-- ---- ----'}
               </p>
             </div>
 
@@ -323,14 +328,14 @@ export const TeacherFinancialStatusCard: React.FC = () => {
             <div className="p-4 rounded-xl bg-amber-50/70 border border-amber-200 text-start space-y-2">
               <span className="text-xs font-bold text-amber-800">العرض المقترح حالياً:</span>
               <div className="flex flex-wrap items-center gap-2">
-                {payoutSettings?.percentage_rate && (
+                {payoutSettings?.percentage_rate !== undefined && payoutSettings?.percentage_rate !== null && (
                   <Badge className="bg-amber-600 text-white font-mono text-sm px-3 py-1">
                     نسبة: {payoutSettings.percentage_rate}%
                   </Badge>
                 )}
-                {payoutSettings?.fixed_amount && (
+                {payoutSettings?.fixed_amount !== undefined && payoutSettings?.fixed_amount !== null && (
                   <Badge className="bg-slate-800 text-white font-mono text-sm px-3 py-1">
-                    المبلغ: {payoutSettings.fixed_amount.toLocaleString()} ر.س
+                    المبلغ: {Number(payoutSettings.fixed_amount || 0).toLocaleString()} ر.س
                   </Badge>
                 )}
               </div>

@@ -7,6 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { ResearchParticipationModal } from '@/components/dashboard/ResearchParticipationModal';
+import { DashboardErrorBoundary } from '@/components/dashboard/DashboardErrorBoundary';
 
 // Lazy load heavy components for better initial load performance
 const InstructorStats = lazy(() => import('@/components/dashboard/instructor/InstructorStats').then(m => ({ default: m.InstructorStats })));
@@ -23,7 +24,7 @@ const AssignmentManager = lazy(() => import('@/components/dashboard/instructor/A
 const QuestionBankManager = lazy(() => import('@/components/dashboard/instructor/QuestionBankManager').then(m => ({ default: m.QuestionBankManager })));
 const InstructorAssignedRequests = lazy(() => import('@/components/dashboard/instructor/InstructorAssignedRequests').then(m => ({ default: m.InstructorAssignedRequests })));
 const StudentEngagementAnalytics = lazy(() => import('@/components/dashboard/instructor/StudentEngagementAnalytics').then(m => ({ default: m.StudentEngagementAnalytics })));
-const TeacherFinancialStatusCard = lazy(() => import('@/components/dashboard/instructor/TeacherFinancialStatusCard').then(m => ({ default: m.TeacherFinancialStatusCard })));
+const TeacherFinancialStatusCard = lazy(() => import('@/components/dashboard/instructor/TeacherFinancialStatusCard').then(m => ({ default: m.TeacherFinancialStatusCard || m.default })));
 
 type TabType = 'overview' | 'courses' | 'assignments' | 'question-bank' | 'assigned-requests' | 'students' | 'student-engagement' | 'earnings' | 'withdrawals' | 'payouts' | 'messages' | 'analytics' | 'ai-assistant';
 
@@ -52,34 +53,44 @@ const InstructorDashboard = () => {
   const [showResearchModal, setShowResearchModal] = useState(false);
 
   // Fetch platform settings to check if onboarding should be skipped
-  const { data: platformSettings } = useQuery({
+  const { data: platformSettings, isError: isSettingsError } = useQuery({
     queryKey: ['platform-settings-instructor'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('platform_settings')
-        .select('*')
-        .in('key', ['instructor_skip_onboarding', 'instructor_hide_intro_video', 'profile_fields_required']);
-      
-      if (error) throw error;
-      
-      const settingsMap: Record<string, string> = {};
-      (data as any[])?.forEach((s: any) => {
-        settingsMap[s.key] = s.value;
-      });
-      return settingsMap;
+      try {
+        const { data, error } = await supabase
+          .from('platform_settings')
+          .select('*')
+          .in('key', ['instructor_skip_onboarding', 'instructor_hide_intro_video', 'profile_fields_required']);
+        
+        if (error) throw error;
+        
+        const settingsMap: Record<string, string> = {};
+        (data as any[])?.forEach((s: any) => {
+          settingsMap[s.key] = s.value;
+        });
+        return settingsMap;
+      } catch (e) {
+        console.warn('Platform settings query non-fatal fallback:', e);
+        return {};
+      }
     },
+    retry: 1,
   });
 
   // Check if instructor needs onboarding
   useEffect(() => {
+    let mounted = true;
+
     const checkOnboarding = async () => {
-      if (!user) return;
+      if (!user) {
+        if (mounted) setCheckingOnboarding(false);
+        return;
+      }
       
       try {
         // Only an explicit admin setting can skip instructor onboarding
         const skipOnboarding = platformSettings?.instructor_skip_onboarding === 'true';
 
-        
         if (skipOnboarding) {
           // Auto-accept policies for the instructor
           await supabase
@@ -87,8 +98,10 @@ const InstructorDashboard = () => {
             .update({ has_accepted_policies: true })
             .eq('id', user.id);
           
-          setShowOnboarding(false);
-          setCheckingOnboarding(false);
+          if (mounted) {
+            setShowOnboarding(false);
+            setCheckingOnboarding(false);
+          }
           return;
         }
         
@@ -96,8 +109,10 @@ const InstructorDashboard = () => {
           .from('profiles')
           .select('has_accepted_policies')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
         
+        if (!mounted) return;
+
         if (data && !data.has_accepted_policies) {
           setShowOnboarding(true);
         } else {
@@ -106,23 +121,35 @@ const InstructorDashboard = () => {
             .from('profiles')
             .select('research_participation')
             .eq('id', user.id)
-            .single();
+            .maybeSingle();
           
-          if (profileData && (profileData as any).research_participation === null) {
+          if (mounted && profileData && (profileData as any).research_participation === null) {
             setShowResearchModal(true);
           }
         }
       } catch (error) {
         console.error('Error checking onboarding:', error);
       } finally {
-        setCheckingOnboarding(false);
+        if (mounted) {
+          setCheckingOnboarding(false);
+        }
       }
     };
 
-    if (platformSettings !== undefined) {
+    if (platformSettings !== undefined || isSettingsError) {
       checkOnboarding();
     }
-  }, [user, platformSettings]);
+
+    // Safety fallback timer so instructor dashboard never hangs on loading screen
+    const safetyTimer = setTimeout(() => {
+      if (mounted) setCheckingOnboarding(false);
+    }, 2500);
+
+    return () => {
+      mounted = false;
+      clearTimeout(safetyTimer);
+    };
+  }, [user, platformSettings, isSettingsError]);
 
   const handleOnboardingComplete = () => {
     setShowOnboarding(false);
@@ -151,7 +178,9 @@ const InstructorDashboard = () => {
       case 'overview':
         return (
           <div className="space-y-8">
-            <TeacherFinancialStatusCard />
+            <DashboardErrorBoundary fallbackTitle="بيانات الحالة المالية للمعلم">
+              <TeacherFinancialStatusCard />
+            </DashboardErrorBoundary>
             <InstructorStats />
             <div className="grid lg:grid-cols-2 gap-8">
               <InstructorCourses limit={3} showViewAll onViewAll={() => setActiveTab('courses')} />
@@ -237,9 +266,11 @@ const InstructorDashboard = () => {
         
         <main className="p-6 pt-24">
           <div className="max-w-7xl mx-auto">
-            <Suspense fallback={<DashboardSkeleton />}>
-              {renderContent()}
-            </Suspense>
+            <DashboardErrorBoundary fallbackTitle="لوحة تحكم المعلم">
+              <Suspense fallback={<DashboardSkeleton />}>
+                {renderContent()}
+              </Suspense>
+            </DashboardErrorBoundary>
           </div>
         </main>
       </div>
