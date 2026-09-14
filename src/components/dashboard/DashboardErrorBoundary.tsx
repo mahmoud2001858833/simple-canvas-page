@@ -30,6 +30,19 @@ export class DashboardErrorBoundary extends Component<Props, State> {
     this.setState({ hasError: false, error: null });
   };
 
+  private handleHardReload = () => {
+    try {
+      if (typeof window !== "undefined") {
+        sessionStorage.clear();
+        const url = new URL(window.location.href);
+        url.searchParams.set("_v", Date.now().toString());
+        window.location.href = url.toString();
+      }
+    } catch {
+      window.location.reload();
+    }
+  };
+
   public render() {
     if (this.state.hasError) {
       return (
@@ -48,8 +61,8 @@ export class DashboardErrorBoundary extends Component<Props, State> {
               <RefreshCw className="w-4 h-4" />
               <span>إعادة المحاولة</span>
             </Button>
-            <Button variant="outline" onClick={() => window.location.reload()}>
-              تحديث الصفحة بالكامل
+            <Button variant="outline" onClick={this.handleHardReload} className="gap-2 font-medium">
+              <span>تحديث فوري وتطهير الكاش</span>
             </Button>
           </div>
         </div>

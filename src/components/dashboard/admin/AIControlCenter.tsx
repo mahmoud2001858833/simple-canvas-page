@@ -469,7 +469,9 @@ export function AIControlCenter() {
   };
 
   useEffect(() => {
-    masterChatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (typeof masterChatEndRef.current?.scrollIntoView === "function") {
+      masterChatEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
   }, [masterMessages, actionHistory]);
 
   // Filtered instructors list
@@ -1391,7 +1393,9 @@ export function AIControlCenter() {
                           onClick={() => {
                             setSelectedAgentId(agent.id);
                             const promptSection = document.getElementById("prompt-editor-section");
-                            promptSection?.scrollIntoView({ behavior: "smooth" });
+                            if (typeof promptSection?.scrollIntoView === "function") {
+                              promptSection.scrollIntoView({ behavior: "smooth" });
+                            }
                           }}
                           className="flex-1 gap-1.5 text-xs font-bold"
                         >

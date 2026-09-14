@@ -382,7 +382,7 @@ export interface LivePlatformContext {
 /**
  * 20 Verified Primary Instructors Directory with authoritative contact details and specialties
  */
-const VERIFIED_INSTRUCTORS_ROSTER: InstructorInfo[] = [
+const RAW_VERIFIED_INSTRUCTORS: InstructorInfo[] = [
   {
     id: "e5e4a99e-c071-46ec-ac69-d7edd85be263",
     name: "د. أحمد محمد الشهري",
@@ -637,6 +637,12 @@ const VERIFIED_INSTRUCTORS_ROSTER: InstructorInfo[] = [
   },
 ];
 
+export const VERIFIED_INSTRUCTORS_ROSTER: InstructorInfo[] = RAW_VERIFIED_INSTRUCTORS.map((ins) => ({
+  ...ins,
+  university: ins.institution || ins.university || "جامعة معتمدة",
+  assignedCourses: (ins.courses || []).map((c) => (typeof c === "string" ? c : c.title_ar || c.title)),
+}));
+
 /**
  * Live database query to fetch full authoritative catalog, instructors, ledger, and platform details
  */
@@ -827,7 +833,7 @@ export async function fetchPlatformFullContext(): Promise<LivePlatformContext> {
     const mergedInstructors: InstructorInfo[] = VERIFIED_INSTRUCTORS_ROSTER.map(ins => ({
       ...ins,
       university: ins.institution || ins.university || "جامعة معتمدة",
-      assignedCourses: ins.courses.map(c => c.title_ar || c.title),
+      assignedCourses: (ins.courses || []).map(c => (typeof c === "string" ? c : c.title_ar || c.title)),
     }));
 
     for (const prof of rawProfiles) {
@@ -847,7 +853,7 @@ export async function fetchPlatformFullContext(): Promise<LivePlatformContext> {
           teachingYear: prof.teaching_year || "كادر معتمد",
           coursesCount: assignedCourses.length,
           courses: assignedCourses,
-          assignedCourses: assignedCourses.map(c => c.title_ar || c.title),
+          assignedCourses: assignedCourses.map(c => (typeof c === "string" ? c : c.title_ar || c.title)),
           commissionRate: 60,
         });
       }
