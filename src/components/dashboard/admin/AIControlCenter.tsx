@@ -122,7 +122,7 @@ export function AIControlCenter() {
 
 أنا **المنسق والذكاء الاصطناعي الرئيسي (Executive Master AI Orchestrator)**، مرتبط مباشرة وحياً بقاعدة بيانات المنظومة بنسبة **100%**، ومخول بتنفيذ الإجراءات الإدارية والتشغيلية المباشرة:
 
-- **الكادر الأكاديمي وهيئة التدريس:** إشراف كامل على ملفات **20 معلماً معتمداً** بتخصصاتهم وإيميلاتهم وأرقام التواصل ونسب عمولاتهم.
+- **الكادر الأكاديمي وهيئة التدريس:** ربط حي بالمعلمين المسجلين فعلياً في قاعدة البيانات، مع كامل الجاهزية التقنية لاستقبال المعلمين الـ 20 المرتقبين وربط دوراتهم وطلابهم.
 - **دفتر الحسابات والمالية:** تدقيق حي لكافة الإيرادات المحصلة، المدفوعات المعلقة، وأرباح وسحوبات المعلمين وصافي أرباح المنصة.
 - **المقررات المعتمدة:** 7 مقررات دراسية نشطة (تفاضل وتكامل 1، كيمياء عضوية، ماتلاب الفيزياء، فيزياء الطب النووي، جبر خطي 1، فيزياء عامة 1، كيمياء عامة).
 - **الجامعات السعودية:** 15 جامعة حكومية وخاصة متوافقة مع الخطط الدراسية.
@@ -573,12 +573,12 @@ export function AIControlCenter() {
         <Card className="border-border/60 bg-card/95 shadow-sm">
           <CardContent className="p-4 flex items-center justify-between">
             <div>
-              <p className="text-xs font-semibold text-muted-foreground">الكادر الأكاديمي وهيئة التدريس</p>
+              <p className="text-xs font-semibold text-muted-foreground">الكادر الأكاديمي المسجل</p>
               <p className="text-2xl font-black text-foreground mt-1">
-                {knowledgeSummary?.instructorsList?.length || 20} معلماً
+                {knowledgeSummary?.instructorsList?.length ?? 0} معلماً
               </p>
               <span className="text-[11px] text-indigo-600 dark:text-indigo-400 font-semibold inline-flex items-center gap-1 mt-0.5">
-                <GraduationCap className="w-3 h-3" /> {knowledgeSummary?.coursesCount || 7} مقررات معتمدة
+                <GraduationCap className="w-3 h-3" /> {knowledgeSummary?.coursesCount ?? 7} مقررات معتمدة
               </span>
             </div>
             <div className="w-11 h-11 rounded-xl bg-muted border border-border flex items-center justify-center text-foreground">
@@ -680,11 +680,11 @@ export function AIControlCenter() {
                 <Sparkles className="w-3.5 h-3.5 text-amber-500" /> إجراءات سريعة:
               </span>
               <button
-                onClick={() => handleSendMasterAI("قدم لي كشفاً تفصيلياً بجميع المعلمين الـ 20 وتخصصاتهم والمقررات المسندة إليهم")}
+                onClick={() => handleSendMasterAI("وضح لي حالة المعلمين المسجلين في المنصة ومدى جاهزية النظام لاستقبال المعلمين الـ 20 ودوراتهم وطلابهم")}
                 className="px-3 py-1.5 rounded-lg bg-card hover:bg-muted border border-border text-[11px] font-semibold text-foreground whitespace-nowrap transition-colors flex items-center gap-1.5"
               >
                 <Users className="w-3 h-3 text-amber-500" />
-                <span>كشف وتوزيع هيئة التدريس</span>
+                <span>جاهزية المنصة للمعلمين الـ 20</span>
               </button>
               <button
                 onClick={() => handleSendMasterAI("قدم تحليلاً مالياً شاملاً لدفتر الحسابات، متضمناً إجمالي الإيرادات، العمولات المستحقة للأساتذة، وصافي أرباح المنصة التقديرية")}
@@ -701,11 +701,11 @@ export function AIControlCenter() {
                 <span>إصدار كوبون خصم 20%</span>
               </button>
               <button
-                onClick={() => handleSendMasterAI("قم بإسناد مهمة رسمية إلى د. فهد الدوسري لإعداد بنك أسئلة شامل للاختبار النهائي لمقرر الفيزياء")}
+                onClick={() => handleSendMasterAI("ما هي التوصيات والخطوات المتبعة لتوزيع المهام الأكاديمية وإعداد بنوك الأسئلة للمقررات الدراسية؟")}
                 className="px-3 py-1.5 rounded-lg bg-card hover:bg-muted border border-border text-[11px] font-semibold text-foreground whitespace-nowrap transition-colors flex items-center gap-1.5"
               >
                 <FileText className="w-3 h-3 text-blue-500" />
-                <span>تكليف أستاذ الفيزياء ببنك أسئلة</span>
+                <span>خطة بنوك الأسئلة للمقررات</span>
               </button>
               <button
                 onClick={() => handleSendMasterAI("ضع خطة تسويقية واقتراح كوبونات حصرية لاستهداف طلاب المعاينة وتحويلهم لمشتركين")}
@@ -921,27 +921,53 @@ export function AIControlCenter() {
                 <div>
                   <h3 className="text-base font-bold text-foreground flex items-center gap-2">
                     <Users className="w-5 h-5 text-amber-500" />
-                    <span>سجل الكادر الأكاديمي وهيئة التدريس المعتمدة (20 معلماً)</span>
+                    <span>الكادر الأكاديمي وهيئة التدريس المسجلة ({filteredInstructors.length})</span>
                   </h3>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    جميع الأساتذة معتمدون بهويات رسمية، تخصصات دقيقة، وقنوات تواصل معتمدة ومقررات مرتبطة.
+                    البيانات الحقيقية الموثقة للمعلمين المسجلين في قاعدة بيانات المنصة، مع كامل الجاهزية التقنية لاستيعاب المعلمين الـ 20.
                   </p>
                 </div>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => {
-                    setMasterInput("قدم مقترحاً لتوزيع التكليفات الأكاديمية ومتابعة تحضير الاختبارات لكافة المعلمين الـ 20");
+                    setMasterInput("ما هي خطوات وجاهزية النظام لتسجيل حسابات المعلمين الـ 20 وربط دوراتهم وطلابهم في المنصة؟");
                     setActiveTab("master");
                   }}
                   className="gap-1.5 text-xs font-bold h-8 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
                 >
-                  <Command className="w-3.5 h-3.5" />
-                  <span>تكليف جماعي عبر المستشار</span>
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>فحص جاهزية المعلمين الـ 20</span>
                 </Button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredInstructors.length === 0 ? (
+                <Card className="p-8 text-center bg-card/80 border border-dashed border-border space-y-4">
+                  <div className="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto">
+                    <Users className="w-7 h-7" />
+                  </div>
+                  <div className="space-y-1.5 max-w-md mx-auto">
+                    <h4 className="text-base font-bold text-foreground">لا يوجد معلمون مسجلون في قاعدة البيانات حالياً</h4>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      المنصة بكامل بنيتها التحتية، بوابات الدفع، ومشغلات الفيديو مهيأة 100% لاستيعاب المعلمين الـ 20 المرتقبين وربط طلابهم ومقرراتهم فور تسجيل حساباتهم في النظام.
+                    </p>
+                  </div>
+                  <div className="pt-2 flex justify-center gap-3">
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setMasterInput("اشرح لي كيف يمكننا تسجيل المعلمين الـ 20 وإنشاء حساباتهم وإسناد دوراتهم وطلابهم في المنصة؟");
+                        setActiveTab("master");
+                      }}
+                      className="gap-2 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-slate-950"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      <span>خطة استيعاب المعلمين الـ 20</span>
+                    </Button>
+                  </div>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredInstructors.map((ins) => {
                   const courseTitles = Array.isArray(ins.courses)
                     ? ins.courses.map((c) => (typeof c === "string" ? c : c.title_ar || c.title))
@@ -1024,8 +1050,9 @@ export function AIControlCenter() {
                   );
                 })}
               </div>
-            </div>
-          )}
+            )}
+          </div>
+        )}
 
           {/* Section 2: Accounting Ledger */}
           {ledgerSection === "accounting" && (

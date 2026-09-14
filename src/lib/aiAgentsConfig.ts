@@ -380,281 +380,22 @@ export interface LivePlatformContext {
 }
 
 /**
- * 20 Verified Primary Instructors Directory with authoritative contact details and specialties
+ * Authoritative Instructors Directory (Dynamically populated 100% from live Supabase profiles & user_roles)
  */
-const RAW_VERIFIED_INSTRUCTORS: InstructorInfo[] = [
-  {
-    id: "e5e4a99e-c071-46ec-ac69-d7edd85be263",
-    name: "د. أحمد محمد الشهري",
-    email: "ahmed.shehri@josoorcom.com",
-    phone: "+966501234567",
-    specialty: "الرياضيات التطبيقية والتحليل الحسابي (Calculus & Linear Algebra)",
-    institution: "جامعة الملك عبد العزيز",
-    teachingYear: "أستاذ مشارك - 10 سنوات خبرة",
-    coursesCount: 2,
-    courses: [
-      { id: "cc9fc522-ea4b-43fe-9c54-8fb44cc47ae3", title: "التفاضل والتكامل 1", title_ar: "تفاضل وتكامل 1", code: "MTH1104", price: 0 },
-      { id: "9e94bbe7-0d53-4b5a-9a5b-82e0836aecc0", title: "Linear algebra 1", title_ar: "الجبر الخطي ١", code: "MTH1211", price: 150 },
-    ],
-    commissionRate: 60,
-  },
-  {
-    id: "e01a6359-0eba-4c78-bc57-5a0d2e405e33",
-    name: "د. سارة عبد الله الغامدي",
-    email: "sara.ghamdi@josoorcom.com",
-    phone: "+966559876543",
-    specialty: "الكيمياء العضوية والتحليل الطيفي (Organic & General Chemistry)",
-    institution: "جامعة الملك سعود",
-    teachingYear: "أستاذ مشارك - 8 سنوات خبرة",
-    coursesCount: 2,
-    courses: [
-      { id: "d1ff2d3c-f7d4-4590-84d2-ba80a452c2b4", title: "Organic Chemistry", title_ar: "الكيمياء العضوية", code: "CHM 2302", price: 199 },
-      { id: "2d131493-700a-49c9-b0ca-f9807390e70c", title: "General Chemistry", title_ar: "الكيمياء العامة CHM1101", code: "CHM1101", price: 199 },
-    ],
-    commissionRate: 60,
-  },
-  {
-    id: "ce6f6b77-15cd-4353-a31d-6a412026bfb7",
-    name: "د. فهد صالح القحطاني",
-    email: "fahad.qahtani@josoorcom.com",
-    phone: "+966541122334",
-    specialty: "الفيزياء النووية والطبية والتصوير الإشعاعي (Nuclear & Medical Physics)",
-    institution: "جامعة أم القرى",
-    teachingYear: "أستاذ مساعد - 7 سنوات خبرة",
-    coursesCount: 1,
-    courses: [
-      { id: "7388e8a3-2580-427b-82aa-55f0d22a53e3", title: "Nuclear Medicine Physics", title_ar: "فيزياء الطب النووي", code: "PHYM5301", price: 199 },
-    ],
-    commissionRate: 60,
-  },
-  {
-    id: "3b7f309c-a4db-4fec-84f2-8a0876ba6dd3",
-    name: "د. عبد الله تركي السهلي",
-    email: "abdullah.sehli@josoorcom.com",
-    phone: "+966564455667",
-    specialty: "الفيزياء الكلاسيكية والميكانيكا والكهرومغناطيسية (General Physics)",
-    institution: "جامعة طيبة",
-    teachingYear: "أستاذ مشارك - 9 سنوات خبرة",
-    coursesCount: 1,
-    courses: [
-      { id: "91895198-2cab-4ce3-b7f1-93d4034a44f6", title: "General Physics 1", title_ar: "الفيزياء العامة 1", code: "PHYS1101", price: 150 },
-    ],
-    commissionRate: 60,
-  },
-  {
-    id: "inst-05-matlab",
-    name: "د. محمد إبراهيم العمري",
-    email: "m.omari@josoorcom.com",
-    phone: "+966567788990",
-    specialty: "الفيزياء الحاسوبية والمحاكاة الرقمية بلغة الماتلاب (Computational Physics & MATLAB)",
-    institution: "جامعة الملك فهد للبترول والمعادن",
-    teachingYear: "محاضر أول - 6 سنوات خبرة",
-    coursesCount: 1,
-    courses: [
-      { id: "e2598090-b251-4875-ae12-7bea2ea9fd38", title: "MATLAP PHYSICS", title_ar: "ماتلاب الفيزياء", code: "PHY-MAT", price: 1 },
-    ],
-    commissionRate: 60,
-  },
-  {
-    id: "inst-06-cs",
-    name: "د. عبد الرحمن العتيبي",
-    email: "a.otaibi@josoorcom.com",
-    phone: "+966538899001",
-    specialty: "علوم الحاسب وهندسة البرمجيات وهياكل البيانات",
-    institution: "جامعة الملك سعود",
-    teachingYear: "أستاذ مساعد",
-    coursesCount: 0,
-    courses: [],
-    commissionRate: 60,
-  },
-  {
-    id: "inst-07-biochem",
-    name: "د. نورة فهد الدوسري",
-    email: "noura.dossary@josoorcom.com",
-    phone: "+966549922110",
-    specialty: "الكيمياء الحيوية والصيدلانية والإنزيمات",
-    institution: "جامعة الأميرة نورة",
-    teachingYear: "أستاذ مشارك",
-    coursesCount: 0,
-    courses: [],
-    commissionRate: 60,
-  },
-  {
-    id: "inst-08-finmath",
-    name: "د. سلطان عبد العزيز الحربي",
-    email: "sultan.harbi@josoorcom.com",
-    phone: "+966506677889",
-    specialty: "الرياضيات المالية وبحوث العمليات والاحتمالات",
-    institution: "جامعة القصيم",
-    teachingYear: "أستاذ مشارك",
-    coursesCount: 0,
-    courses: [],
-    commissionRate: 60,
-  },
-  {
-    id: "inst-09-solidphys",
-    name: "د. منى خالد المطيري",
-    email: "muna.mutairi@josoorcom.com",
-    phone: "+966552233445",
-    specialty: "فيزياء الجوامد والليزر والمواد النانوية",
-    institution: "جامعة الإمام محمد بن سعود",
-    teachingYear: "أستاذ مساعد",
-    coursesCount: 0,
-    courses: [],
-    commissionRate: 60,
-  },
-  {
-    id: "inst-10-ai",
-    name: "د. خالد عثمان الزهراني",
-    email: "khalid.zahrani@josoorcom.com",
-    phone: "+966561144778",
-    specialty: "علوم البيانات والذكاء الاصطناعي والتعلم الآلي",
-    institution: "جامعة الملك عبد العزيز",
-    teachingYear: "أستاذ مساعد",
-    coursesCount: 0,
-    courses: [],
-    commissionRate: 60,
-  },
-  {
-    id: "inst-11-genetics",
-    name: "د. ريم سليمان السبيعي",
-    email: "reem.subaie@josoorcom.com",
-    phone: "+966548811223",
-    specialty: "البيولوجيا الجزيئية وعلم الوراثة الجينومي",
-    institution: "جامعة حائل",
-    teachingYear: "أستاذ مساعد",
-    coursesCount: 0,
-    courses: [],
-    commissionRate: 60,
-  },
-  {
-    id: "inst-12-ee",
-    name: "د. ياسر ناصر الغامدي",
-    email: "yasser.ghamdi@josoorcom.com",
-    phone: "+966533344556",
-    specialty: "الهندسة الكهربائية ومعالجة الإشارات والدارات",
-    institution: "جامعة الطائف",
-    teachingYear: "أستاذ مشارك",
-    coursesCount: 0,
-    courses: [],
-    commissionRate: 60,
-  },
-  {
-    id: "inst-13-pedagogy",
-    name: "د. هدى عبد الله الشمري",
-    email: "huda.shammari@josoorcom.com",
-    phone: "+966555566778",
-    specialty: "مناهج وطرق تدريس العلوم الجامعية والتقويم الأكاديمي",
-    institution: "جامعة حائل",
-    teachingYear: "أستاذ مشارك",
-    coursesCount: 0,
-    courses: [],
-    commissionRate: 60,
-  },
-  {
-    id: "inst-14-algebra",
-    name: "د. وليد مسفر المالكي",
-    email: "waleed.malki@josoorcom.com",
-    phone: "+966509988776",
-    specialty: "الجبر المجرد ونظرية الأعداد والهندسة التفاضلية",
-    institution: "جامعة الباحة",
-    teachingYear: "أستاذ مساعد",
-    coursesCount: 0,
-    courses: [],
-    commissionRate: 60,
-  },
-  {
-    id: "inst-15-analytical",
-    name: "د. لطيفة حمد البقمي",
-    email: "latifa.buqami@josoorcom.com",
-    phone: "+966547788990",
-    specialty: "الكيمياء التحليلية المتقدمة والكروماتوغرافيا",
-    institution: "جامعة الطائف",
-    teachingYear: "أستاذ مشارك",
-    coursesCount: 0,
-    courses: [],
-    commissionRate: 60,
-  },
-  {
-    id: "inst-16-biostat",
-    name: "د. بدر سعد الرشيدي",
-    email: "bader.rashidi@josoorcom.com",
-    phone: "+966531122334",
-    specialty: "الإحصاء الحيوي والتحليل الإحصائي SPSS و R",
-    institution: "جامعة القصيم",
-    teachingYear: "محاضر أول",
-    coursesCount: 0,
-    courses: [],
-    commissionRate: 60,
-  },
-  {
-    id: "inst-17-thermo",
-    name: "د. أمل محمد السالم",
-    email: "amal.salem@josoorcom.com",
-    phone: "+966558899112",
-    specialty: "الكيمياء الفيزيائية والديناميكا الحرارية والاتزان الكيميائي",
-    institution: "جامعة المجمعة",
-    teachingYear: "أستاذ مساعد",
-    coursesCount: 0,
-    courses: [],
-    commissionRate: 60,
-  },
-  {
-    id: "inst-18-quantum",
-    name: "د. زياد فيصل العازمي",
-    email: "ziad.azmi@josoorcom.com",
-    phone: "+966543322114",
-    specialty: "ميكانيكا الكم وفيزياء الجسيمات والطاقة العالية",
-    institution: "جامعة تبوك",
-    teachingYear: "أستاذ مساعد",
-    coursesCount: 0,
-    courses: [],
-    commissionRate: 60,
-  },
-  {
-    id: "inst-19-numerical",
-    name: "د. فاطمة عادل الصالح",
-    email: "fatima.saleh@josoorcom.com",
-    phone: "+966562233441",
-    specialty: "التحليل العددي والمعادلات التفاضلية الجزئية",
-    institution: "جامعة جازان",
-    teachingYear: "أستاذ مساعد",
-    coursesCount: 0,
-    courses: [],
-    commissionRate: 60,
-  },
-  {
-    id: "inst-20-security",
-    name: "د. تركي عبد الرحمن الحازمي",
-    email: "turki.hazmi@josoorcom.com",
-    phone: "+966504433221",
-    specialty: "الأمن السيبراني والتعمية ونظم حماية الشبكات",
-    institution: "جامعة جازان",
-    teachingYear: "أستاذ مشارك",
-    coursesCount: 0,
-    courses: [],
-    commissionRate: 60,
-  },
-];
-
-export const VERIFIED_INSTRUCTORS_ROSTER: InstructorInfo[] = RAW_VERIFIED_INSTRUCTORS.map((ins) => ({
-  ...ins,
-  university: ins.institution || ins.university || "جامعة معتمدة",
-  assignedCourses: (ins.courses || []).map((c) => (typeof c === "string" ? c : c.title_ar || c.title)),
-}));
+export const VERIFIED_INSTRUCTORS_ROSTER: InstructorInfo[] = [];
 
 /**
  * Live database query to fetch full authoritative catalog, instructors, ledger, and platform details
  */
 export async function fetchPlatformFullContext(): Promise<LivePlatformContext> {
   const defaultCourses: LiveCourseItem[] = [
-    { id: "cc9fc522-ea4b-43fe-9c54-8fb44cc47ae3", title: "التفاضل والتكامل 1", title_ar: "تفاضل وتكامل 1", subject_code: "MTH1104", subject_name: "التفاضل والتكامل 1", price: 0, duration_hours: 2, description_ar: "الدوال والمنحنيات، النهايات والاتصال، الاشتقاق وتطبيقاته، مقدمة في التكامل", instructor_id: "e5e4a99e-c071-46ec-ac69-d7edd85be263", instructor_name: "د. أحمد محمد الشهري", is_active: true, is_approved: true },
-    { id: "d1ff2d3c-f7d4-4590-84d2-ba80a452c2b4", title: "Organic Chemistry", title_ar: "الكيمياء العضوية", subject_code: "CHM 2302", subject_name: "الكيمياء العضوية", price: 199, duration_hours: 0, instructor_id: "e01a6359-0eba-4c78-bc57-5a0d2e405e33", instructor_name: "د. سارة عبد الله الغامدي", is_active: true, is_approved: true },
-    { id: "e2598090-b251-4875-ae12-7bea2ea9fd38", title: "MATLAP PHYSICS", title_ar: "ماتلاب الفيزياء", subject_code: "PHY-MAT", subject_name: "فيزياء حاسوبية", price: 1, duration_hours: 1, instructor_id: "inst-05-matlab", instructor_name: "د. محمد إبراهيم العمري", is_active: true, is_approved: true },
-    { id: "7388e8a3-2580-427b-82aa-55f0d22a53e3", title: "Nuclear Medicine Physics", title_ar: "فيزياء الطب النووي", subject_code: "PHYM5301", subject_name: "فيزياء الطب النووي", price: 199, duration_hours: 1, instructor_id: "ce6f6b77-15cd-4353-a31d-6a412026bfb7", instructor_name: "د. فهد صالح القحطاني", is_active: true, is_approved: true },
-    { id: "9e94bbe7-0d53-4b5a-9a5b-82e0836aecc0", title: "Linear algebra 1", title_ar: "الجبر الخطي ١", subject_code: "MTH1211", subject_name: "الجبر الخطي ١", price: 150, duration_hours: 15, instructor_id: "e5e4a99e-c071-46ec-ac69-d7edd85be263", instructor_name: "د. أحمد محمد الشهري", is_active: true, is_approved: true },
-    { id: "91895198-2cab-4ce3-b7f1-93d4034a44f6", title: "General Physics 1", title_ar: "الفيزياء العامة 1", subject_code: "PHYS1101", subject_name: "الفيزياء العامة 1", price: 150, duration_hours: 1, instructor_id: "3b7f309c-a4db-4fec-84f2-8a0876ba6dd3", instructor_name: "د. عبد الله تركي السهلي", is_active: true, is_approved: true },
-    { id: "2d131493-700a-49c9-b0ca-f9807390e70c", title: "General Chemistry", title_ar: "الكيمياء العامة CHM1101", subject_code: "CHM1101", subject_name: "الكيمياء", price: 199, duration_hours: 0, instructor_id: "e01a6359-0eba-4c78-bc57-5a0d2e405e33", instructor_name: "د. سارة عبد الله الغامدي", is_active: true, is_approved: true },
+    { id: "cc9fc522-ea4b-43fe-9c54-8fb44cc47ae3", title: "التفاضل والتكامل 1", title_ar: "تفاضل وتكامل 1", subject_code: "MTH1104", subject_name: "التفاضل والتكامل 1", price: 0, duration_hours: 2, description_ar: "الدوال والمنحنيات، النهايات والاتصال، الاشتقاق وتطبيقاته، مقدمة في التكامل", instructor_id: "e5e4a99e-c071-46ec-ac69-d7edd85be263", is_active: true, is_approved: true },
+    { id: "d1ff2d3c-f7d4-4590-84d2-ba80a452c2b4", title: "Organic Chemistry", title_ar: "الكيمياء العضوية", subject_code: "CHM 2302", subject_name: "الكيمياء العضوية", price: 199, duration_hours: 0, instructor_id: "e01a6359-0eba-4c78-bc57-5a0d2e405e33", is_active: true, is_approved: true },
+    { id: "e2598090-b251-4875-ae12-7bea2ea9fd38", title: "MATLAP PHYSICS", title_ar: "ماتلاب الفيزياء", subject_code: "PHY-MAT", subject_name: "فيزياء حاسوبية", price: 1, duration_hours: 1, is_active: true, is_approved: true },
+    { id: "7388e8a3-2580-427b-82aa-55f0d22a53e3", title: "Nuclear Medicine Physics", title_ar: "فيزياء الطب النووي", subject_code: "PHYM5301", subject_name: "فيزياء الطب النووي", price: 199, duration_hours: 1, instructor_id: "ce6f6b77-15cd-4353-a31d-6a412026bfb7", is_active: true, is_approved: true },
+    { id: "9e94bbe7-0d53-4b5a-9a5b-82e0836aecc0", title: "Linear algebra 1", title_ar: "الجبر الخطي ١", subject_code: "MTH1211", subject_name: "الجبر الخطي ١", price: 150, duration_hours: 15, instructor_id: "e5e4a99e-c071-46ec-ac69-d7edd85be263", is_active: true, is_approved: true },
+    { id: "91895198-2cab-4ce3-b7f1-93d4034a44f6", title: "General Physics 1", title_ar: "الفيزياء العامة 1", subject_code: "PHYS1101", subject_name: "الفيزياء العامة 1", price: 150, duration_hours: 1, instructor_id: "3b7f309c-a4db-4fec-84f2-8a0876ba6dd3", is_active: true, is_approved: true },
+    { id: "2d131493-700a-49c9-b0ca-f9807390e70c", title: "General Chemistry", title_ar: "الكيمياء العامة CHM1101", subject_code: "CHM1101", subject_name: "الكيمياء", price: 199, duration_hours: 0, instructor_id: "e01a6359-0eba-4c78-bc57-5a0d2e405e33", is_active: true, is_approved: true },
   ];
 
   const defaultUnis = [
@@ -717,28 +458,23 @@ export async function fetchPlatformFullContext(): Promise<LivePlatformContext> {
     ]);
 
     const liveCourses: LiveCourseItem[] = (coursesRes.data && coursesRes.data.length > 0)
-      ? coursesRes.data.map((c: any) => {
-          const instructor = VERIFIED_INSTRUCTORS_ROSTER.find(ins => ins.id === c.instructor_id) ||
-            VERIFIED_INSTRUCTORS_ROSTER.find(ins => ins.courses.some(cr => cr.id === c.id));
-          return {
-            id: c.id,
-            title: c.title,
-            title_ar: c.title_ar,
-            subject_code: c.subject_code,
-            subject_name: c.subject_name,
-            price: Number(c.price || 0),
-            original_price: c.original_price ? Number(c.original_price) : undefined,
-            duration_hours: c.duration_hours,
-            description_ar: c.description_ar,
-            category: c.category,
-            is_active: c.is_active,
-            is_approved: c.is_approved,
-            approval_status: c.approval_status,
-            instructor_id: c.instructor_id,
-            instructor_name: instructor?.name || "معلم معتمد",
-            instructor_commission: c.instructor_commission || 60,
-          };
-        })
+      ? coursesRes.data.map((c: any) => ({
+          id: c.id,
+          title: c.title,
+          title_ar: c.title_ar,
+          subject_code: c.subject_code,
+          subject_name: c.subject_name,
+          price: Number(c.price || 0),
+          original_price: c.original_price ? Number(c.original_price) : undefined,
+          duration_hours: c.duration_hours,
+          description_ar: c.description_ar,
+          category: c.category,
+          is_active: c.is_active,
+          is_approved: c.is_approved,
+          approval_status: c.approval_status,
+          instructor_id: c.instructor_id,
+          instructor_commission: c.instructor_commission || 60,
+        }))
       : defaultCourses;
 
     const liveUnis = (unisRes.data && unisRes.data.length > 0)
@@ -825,37 +561,43 @@ export async function fetchPlatformFullContext(): Promise<LivePlatformContext> {
         }
       : defaultAccounting;
 
-    // Merge Instructors (Live database profiles + Verified primary roster)
+    // 100% Real Instructors from Live Database (profiles & user_roles)
     const rawProfiles = (profilesRes as any)?.data || [];
     const rawRoles = (rolesRes as any)?.data || [];
     const instructorRoleSet = new Set(rawRoles.filter((r: any) => r.role === "instructor").map((r: any) => r.user_id));
+    const courseInstructorIds = new Set(liveCourses.map((c) => c.instructor_id).filter(Boolean));
+    const allInstructorUserIds = new Set([...instructorRoleSet, ...courseInstructorIds]);
 
-    const mergedInstructors: InstructorInfo[] = VERIFIED_INSTRUCTORS_ROSTER.map(ins => ({
-      ...ins,
-      university: ins.institution || ins.university || "جامعة معتمدة",
-      assignedCourses: (ins.courses || []).map(c => (typeof c === "string" ? c : c.title_ar || c.title)),
-    }));
+    const liveInstructors: InstructorInfo[] = [];
 
     for (const prof of rawProfiles) {
-      if (instructorRoleSet.has(prof.id) && !mergedInstructors.some(ins => ins.id === prof.id || ins.email === prof.email)) {
+      if (allInstructorUserIds.has(prof.id)) {
         const assignedCourses = liveCourses
-          .filter(c => c.instructor_id === prof.id)
-          .map(c => ({ id: c.id, title: c.title, title_ar: c.title_ar || c.title, code: c.subject_code, price: c.price }));
+          .filter((c) => c.instructor_id === prof.id)
+          .map((c) => ({ id: c.id, title: c.title, title_ar: c.title_ar || c.title, code: c.subject_code, price: c.price }));
 
-        mergedInstructors.push({
+        liveInstructors.push({
           id: prof.id,
-          name: prof.full_name || "معلم مسجل",
+          name: prof.full_name_ar || prof.full_name || "معلم مسجل",
           email: prof.email || "غير متوفر",
           phone: prof.phone || "غير متوفر",
-          specialty: prof.specialty || "تخصص أكاديمي معتمد",
-          institution: prof.institution_name || "جامعة سعودية معتمدة",
-          university: prof.institution_name || "جامعة سعودية معتمدة",
+          specialty: prof.specialty || prof.academic_degree || "تخصص أكاديمي معتمد",
+          institution: prof.institution_name || "جامعة معتمدة",
+          university: prof.institution_name || "جامعة معتمدة",
           teachingYear: prof.teaching_year || "كادر معتمد",
           coursesCount: assignedCourses.length,
           courses: assignedCourses,
-          assignedCourses: assignedCourses.map(c => (typeof c === "string" ? c : c.title_ar || c.title)),
+          assignedCourses: assignedCourses.map((c) => (typeof c === "string" ? c : c.title_ar || c.title)),
           commissionRate: 60,
         });
+      }
+    }
+
+    // Update liveCourses with actual instructor name if found
+    for (const c of liveCourses) {
+      const match = liveInstructors.find((ins) => ins.id === c.instructor_id);
+      if (match) {
+        c.instructor_name = match.name;
       }
     }
 
@@ -869,7 +611,7 @@ export async function fetchPlatformFullContext(): Promise<LivePlatformContext> {
       majors: liveMajs,
       coupons: simpleCoupons,
       couponsDetailed: liveCouponsDetailed,
-      instructors: mergedInstructors,
+      instructors: liveInstructors,
       accounting: liveAccounting,
       students: {
         total: finalStudentCount,
@@ -1138,18 +880,27 @@ export async function streamMasterAI({
     const fullContext = await fetchPlatformFullContext();
 
     // Format instructors manifest
-    const instructorsManifest = fullContext.instructors.map((ins, i) => {
-      const coursesStr = ins.courses.length > 0
-        ? ins.courses.map(c => `[${c.title_ar || c.title} - ${c.code || ""} (${c.price} ر.س)]`).join("، ")
-        : "لا توجد مقررات مسندة بعد (جاهز لتكليفه بمقررات جديدة)";
-      return `${i + 1}. **${ins.name}**
+    const instructorsCount = fullContext.instructors.length;
+    let instructorsManifest = "";
+
+    if (instructorsCount > 0) {
+      instructorsManifest = fullContext.instructors.map((ins, i) => {
+        const coursesStr = ins.courses.length > 0
+          ? ins.courses.map(c => `[${c.title_ar || c.title} - ${c.code || ""} (${c.price} ر.س)]`).join("، ")
+          : "لا توجد مقررات مسندة بعد (جاهز لتكليفه بمقررات جديدة)";
+        return `${i + 1}. **${ins.name}**
    - المعرّف (ID): \`${ins.id}\`
    - التخصص: ${ins.specialty}
    - الجامعة / المؤسسة: ${ins.institution || "جامعة سعودية"}
    - البريد الإلكتروني: \`${ins.email}\` | الهاتف والتواصل: \`${ins.phone}\`
    - نسبة العمولة: ${ins.commissionRate}%
    - المقررات المسندة إليه: ${coursesStr}`;
-    }).join("\n\n");
+      }).join("\n\n");
+    } else {
+      instructorsManifest = `- عدد المعلمين المسجلين فعلياً في قاعدة البيانات حالياً: 0 معلمين مسجلين.
+- تنبيه إلزامي صارم للمستشار: إدارة المنصة تستعد لانضمام وبدء نشاط كادر تدريسي يضم (20 معلماً) وطلابهم. المنصة وبنيتها البرمجية جاهزة 100% لاستقبالهم فور قيام الإدارة بإنشاء حساباتهم وإسناد المقررات لهم.
+- ممنوع منعاً باتاً اختلاق أو اختراع أي أسماء أو إيميلات أو أرقام وهمية من وحي الخيال؛ بل وضّح للمدير الواقع الدقيق لقاعدة البيانات مع تأكيد جاهزية النظام الكاملة لاستقبال المعلمين الـ 20 وبدء دوراتهم ومقرراتهم فور تسجيلهم.`;
+    }
 
     // Format accounting ledger manifest
     const ledger = fullContext.accounting;
@@ -1200,7 +951,7 @@ export async function streamMasterAI({
 السجل الشامل الحقيقي لمنصة "جسوركم" (Josoorcom Enterprise Omniscience Manifest)
 ================================================================================
 
-1. الكادر الأكاديمي وهيئة التدريس (دليل المعلمين الـ 20 المعتمدين وتخصصاتهم وبيانات تواصلهم):
+1. الكادر الأكاديمي وهيئة التدريس (المسجلون فعلياً في قاعدة البيانات وجاهزية استقبال المعلمين الـ 20):
 ${instructorsManifest}
 
 2. دفتر الحسابات والمالية الشامل (Accounting & Financial Ledger):
@@ -1247,7 +998,7 @@ ${faqsManifest}
 (ملاحظة: discount_type إما "percentage" للنسبة المئوية أو "fixed" لمبلغ ثابت بالريال).
 
 ب. إسناد وتكليف مهمة إدارية رسمية لمعلم:
-[[ACTION:assign_instructor_task:{"instructor_id":"e5e4a99e-c071-46ec-ac69-d7edd85be263","instructor_name":"د. أحمد محمد الشهري","title":"إعداد بنك أسئلة لمقرر التفاضل والتكامل 1","message":"يرجى رفع 20 سؤالاً اختيار من متعدد لمقرر التفاضل والتكامل قبل نهاية الأسبوع الحالي."}]]
+[[ACTION:assign_instructor_task:{"instructor_id":"USER_ID","instructor_name":"اسم المعلم المسجل","title":"إعداد بنك أسئلة لمقرر التفاضل والتكامل 1","message":"يرجى رفع أسئلة الاختبار التفاعلي للمقرر."}]]
 
 ج. التحكم بحالة وكيل ذكاء اصطناعي (تشغيل / إيقاف):
 [[ACTION:update_agent_status:{"agent_id":"academic_translator","is_active":false}]]
@@ -1261,7 +1012,7 @@ ${faqsManifest}
 تعليمات حاسمة للرد:
 1. قدم تحليلك أو استشارتك التنفيذية أولاً بأسلوب مؤسسي رفيع يبرز الحسابات والأسماء والأرقام الدقيقة.
 2. عند اتخاذ أو طلب إجراء، قم بتضمين وسم [[ACTION:...]] المنضبط بدون أي أخطاء في الـ JSON.
-3. كل اسم معلم، رقم هاتف، إيميل، مقرر، أو رقم مالي تذكره يجب أن يكون مطابقاً لبيانات المنصة الرسمية أعلاه بنسبة 100%.`;
+3. ممنوع منعاً باتاً اختلاق أو اختراع أي أسماء معلمين أو إيميلات أو أرقام وهمية. اذكر فقط المعلمين المسجلين فعلياً في النظام أعلاه، وإذا سألك المدير عن المعلمين الـ 20 المرتقبين، وضّح له أن المنصة جاهزة 100% لاستقبالهم فور بدء تسجيلهم رسمياً.`;
 
     const chatMessages = [
       { role: "system", content: systemPrompt },
