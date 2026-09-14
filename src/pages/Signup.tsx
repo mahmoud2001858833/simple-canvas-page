@@ -352,9 +352,9 @@ const Signup = () => {
         toast.error(errorMessage);
         setLoading(false);
       } else {
-        // Update profile with university, major, and year
-        if (selectedUniversity || selectedMajor || selectedYear) {
-          setTimeout(async () => {
+        // Update profile and initialize instructor lifecycle
+        setTimeout(async () => {
+          try {
             const { data: { user: newUser } } = await supabase.auth.getUser();
             if (newUser) {
               const updateData: any = {};
@@ -372,7 +372,7 @@ const Signup = () => {
                 await supabase.from('profiles').update(updateData).eq('id', newUser.id);
               }
 
-              // If instructor, initialize teacher lifecycle profile & send welcome email
+              // If instructor, initialize teacher lifecycle profile & send welcome email with handbook
               if (selectedRole === 'instructor') {
                 await upsertTeacherLifecycleProfile({
                   id: newUser.id,
@@ -381,15 +381,17 @@ const Signup = () => {
                   onboarding_status: 'registered',
                 }).catch(() => {});
 
-                sendLifecycleEmail({
+                await sendLifecycleEmail({
                   type: 'teacher_welcome',
                   toEmail: email.trim(),
                   toName: fullName.trim(),
                 }).catch(() => {});
               }
             }
-          }, 1000);
-        }
+          } catch (e) {
+            console.warn('Signup post-processing non-fatal:', e);
+          }
+        }, 800);
         
         // Success - Supabase will send verification email automatically
         toast.success(

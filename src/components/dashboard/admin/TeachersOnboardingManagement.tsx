@@ -13,16 +13,11 @@ import {
   Plus,
   Trash2,
   Edit2,
-  Upload,
   ExternalLink,
-  Layers,
   Search,
-  Filter,
   RefreshCw,
   Wallet,
   Sparkles,
-  ToggleLeft,
-  ToggleRight,
   FileText,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -94,13 +89,14 @@ export const TeachersOnboardingManagement: React.FC<{
   const loadData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch instructors from profiles & user_roles
-      const [profilesRes, rolesRes, contractsRes, banksRes, lifecycleProfRes] = await Promise.all([
+      // 1. Fetch instructors from profiles & user_roles & tables & platform_settings
+      const [profilesRes, rolesRes, contractsRes, banksRes, lifecycleProfRes, platformSettingsRes] = await Promise.all([
         supabase.from('profiles').select('*'),
         supabase.from('user_roles').select('*').eq('role', 'instructor'),
         (supabase as any).from('teacher_contracts').select('*'),
         (supabase as any).from('teacher_bank_details').select('*'),
         (supabase as any).from('teacher_profiles').select('*'),
+        supabase.from('platform_settings').select('*').like('key', 'teacher_%'),
       ]);
 
       const instructorIds = new Set((rolesRes.data || []).map((r: any) => r.user_id));
@@ -108,14 +104,44 @@ export const TeachersOnboardingManagement: React.FC<{
       const contracts = contractsRes.data || [];
       const banks = banksRes.data || [];
       const lifecycleProfiles = lifecycleProfRes.data || [];
+      const settingsList = platformSettingsRes.data || [];
+
+      // Create settings lookup map
+      const settingsMap: Record<string, any> = {};
+      for (const s of settingsList) {
+        try {
+          settingsMap[s.key] = JSON.parse(s.value || '{}');
+        } catch {}
+      }
 
       const merged: TeacherItem[] = [];
 
       for (const p of profiles) {
         if (instructorIds.has(p.id) || p.teaching_year || p.specialty) {
-          const contract = contracts.find((c: any) => c.teacher_id === p.id);
-          const bank = banks.find((b: any) => b.teacher_id === p.id);
-          const lProfile = lifecycleProfiles.find((lp: any) => lp.id === p.id);
+          let contract = contracts.find((c: any) => c.teacher_id === p.id);
+          let bank = banks.find((b: any) => b.teacher_id === p.id);
+          let lProfile = lifecycleProfiles.find((lp: any) => lp.id === p.id);
+
+          // Check cloud JSON store in profiles.teaching_experience_details
+          if (p.teaching_experience_details) {
+            try {
+              const parsed = JSON.parse(p.teaching_experience_details);
+              if (!bank && parsed.bank) bank = parsed.bank;
+              if (!contract && parsed.contract) contract = parsed.contract;
+              if (parsed.onboarding_status) lProfile = { onboarding_status: parsed.onboarding_status };
+            } catch {}
+          }
+
+          // Check platform_settings key
+          if (!bank && settingsMap[`teacher_bank_${p.id}`]) {
+            bank = settingsMap[`teacher_bank_${p.id}`];
+          }
+          if (settingsMap[`teacher_data_${p.id}`]) {
+            const td = settingsMap[`teacher_data_${p.id}`];
+            if (!bank && td.bank) bank = td.bank;
+            if (!contract && td.contract) contract = td.contract;
+            if (td.onboarding_status) lProfile = { onboarding_status: td.onboarding_status };
+          }
 
           let st = lProfile?.onboarding_status || (contract ? 'policy_signed' : bank ? 'bank_submitted' : 'registered');
           if (p.has_accepted_policies && st === 'registered') st = 'policy_signed';
@@ -156,7 +182,6 @@ export const TeachersOnboardingManagement: React.FC<{
     loadData();
   }, []);
 
-  // Filtered teachers
   const filteredTeachers = teachers.filter(
     (t) =>
       t.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -164,7 +189,6 @@ export const TeachersOnboardingManagement: React.FC<{
       (t.bank?.bank_name || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Toggle bank verified status
   const handleToggleBankVerified = async (teacher: TeacherItem) => {
     if (!teacher.bank) return;
     const nextVal = !teacher.bank.verified_by_admin;
@@ -178,12 +202,11 @@ export const TeachersOnboardingManagement: React.FC<{
           bank: { ...selectedBankTeacher.bank!, verified_by_admin: nextVal },
         });
       }
-    } catch (err) {
-      toast.error('حدث خطأ أثناء تعديل حالة الاعتماد');
+    } catch {
+      toast.error('حدث خطأ أثناء تعديل حالة الحساب');
     }
   };
 
-  // Resource CMS Actions
   const handleOpenAddResource = (type: 'video' | 'tip' | 'app') => {
     setResourceType(type);
     setEditingResource(null);
@@ -197,7 +220,7 @@ export const TeachersOnboardingManagement: React.FC<{
 
   const handleEditResource = (res: OnboardingResource) => {
     setEditingResource(res);
-    setResourceType(res.type as any);
+    setResourceType(res.type as 'video' | 'tip' | 'app');
     setResTitle(res.title);
     setResDesc(res.description);
     setResUrl(res.url || '');
@@ -208,8 +231,8 @@ export const TeachersOnboardingManagement: React.FC<{
 
   const handleSaveResource = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!resTitle.trim()) {
-      toast.error('يرجى كتابة العنوان');
+    if (!resTitle.trim() || !resDesc.trim()) {
+      toast.error('يرجى ملء العنوان والوصف');
       return;
     }
 
@@ -228,7 +251,7 @@ export const TeachersOnboardingManagement: React.FC<{
       toast.success('تم حفظ المحتوى بنجاح!');
       setIsResourceModalOpen(false);
       await loadData();
-    } catch (err) {
+    } catch {
       toast.error('حدث خطأ أثناء الحفظ');
     }
   };
@@ -280,13 +303,13 @@ export const TeachersOnboardingManagement: React.FC<{
   const getStatusBadge = (st: string) => {
     switch (st) {
       case 'active':
-        return <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">نشط ومعتمد</Badge>;
+        return <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200">نشط ومعتمد</Badge>;
       case 'policy_signed':
-        return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">وقع الاتفاقية</Badge>;
+        return <Badge className="bg-blue-50 text-blue-700 border-blue-200">وقع الاتفاقية</Badge>;
       case 'bank_submitted':
-        return <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30">أدخل البيانات البنكية</Badge>;
+        return <Badge className="bg-amber-50 text-amber-800 border-amber-300">أدخل البيانات البنكية</Badge>;
       default:
-        return <Badge className="bg-slate-800 text-slate-400 border-slate-700">مسجل جديد</Badge>;
+        return <Badge className="bg-slate-100 text-slate-700 border-slate-200">مسجل جديد</Badge>;
     }
   };
 
@@ -295,56 +318,56 @@ export const TeachersOnboardingManagement: React.FC<{
   const appsList = resources.filter((r) => r.type === 'app');
 
   return (
-    <div className="space-y-8">
-      {/* Header Cards */}
+    <div className="space-y-6 text-slate-900">
+      {/* 4 Stat Overview Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="bg-slate-900/80 border-slate-800">
+        <Card className="bg-white border-slate-200 shadow-xs">
           <CardContent className="p-5 flex items-center justify-between">
             <div>
-              <p className="text-xs text-slate-400 font-medium">إجمالي المعلمين المسجلين</p>
-              <h3 className="text-2xl font-bold text-white mt-1">{teachers.length}</h3>
+              <p className="text-xs text-slate-500 font-medium">إجمالي المعلمين المسجلين</p>
+              <h3 className="text-2xl font-bold text-slate-900 mt-1">{teachers.length}</h3>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center">
               <Users className="w-5 h-5" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-900/80 border-slate-800">
+        <Card className="bg-white border-slate-200 shadow-xs">
           <CardContent className="p-5 flex items-center justify-between">
             <div>
-              <p className="text-xs text-slate-400 font-medium">الموقعون على السياسات</p>
-              <h3 className="text-2xl font-bold text-emerald-400 mt-1">
+              <p className="text-xs text-slate-500 font-medium">الموقعون على السياسات</p>
+              <h3 className="text-2xl font-bold text-emerald-700 mt-1">
                 {teachers.filter((t) => t.status === 'policy_signed' || t.status === 'active').length}
               </h3>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
               <FileCheck className="w-5 h-5" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-900/80 border-slate-800">
+        <Card className="bg-white border-slate-200 shadow-xs">
           <CardContent className="p-5 flex items-center justify-between">
             <div>
-              <p className="text-xs text-slate-400 font-medium">الحسابات البنكية الموثقة</p>
-              <h3 className="text-2xl font-bold text-blue-400 mt-1">
+              <p className="text-xs text-slate-500 font-medium">الحسابات البنكية الموثقة</p>
+              <h3 className="text-2xl font-bold text-blue-700 mt-1">
                 {teachers.filter((t) => t.bank?.verified_by_admin).length}
               </h3>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center">
               <Landmark className="w-5 h-5" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-slate-900/80 border-slate-800">
+        <Card className="bg-white border-slate-200 shadow-xs">
           <CardContent className="p-5 flex items-center justify-between">
             <div>
-              <p className="text-xs text-slate-400 font-medium">موارد المعلمين (CMS)</p>
-              <h3 className="text-2xl font-bold text-purple-400 mt-1">{resources.length}</h3>
+              <p className="text-xs text-slate-500 font-medium">موارد المعلمين (CMS)</p>
+              <h3 className="text-2xl font-bold text-purple-700 mt-1">{resources.length}</h3>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center">
               <Sparkles className="w-5 h-5" />
             </div>
           </CardContent>
@@ -353,18 +376,18 @@ export const TeachersOnboardingManagement: React.FC<{
 
       {/* Main Tabs */}
       <Tabs defaultValue="roster" className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-3">
-          <TabsList className="bg-slate-900 border border-slate-800 p-1">
-            <TabsTrigger value="roster" className="text-xs data-[state=active]:bg-amber-500 data-[state=active]:text-slate-950 font-bold">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-3">
+          <TabsList className="bg-slate-100 border border-slate-200 p-1">
+            <TabsTrigger value="roster" className="text-xs data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-xs font-bold">
               كشف المعلمين والبيانات البنكية ({teachers.length})
             </TabsTrigger>
-            <TabsTrigger value="videos" className="text-xs data-[state=active]:bg-amber-500 data-[state=active]:text-slate-950 font-bold">
-              الفيديوهات الإرشادية ({videosList.length})
+            <TabsTrigger value="videos" className="text-xs data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-xs font-bold">
+              الأدلة الإرشادية ({videosList.length})
             </TabsTrigger>
-            <TabsTrigger value="tips_apps" className="text-xs data-[state=active]:bg-amber-500 data-[state=active]:text-slate-950 font-bold">
+            <TabsTrigger value="tips_apps" className="text-xs data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-xs font-bold">
               النصائح والتطبيقات ({tipsList.length + appsList.length})
             </TabsTrigger>
-            <TabsTrigger value="template" className="text-xs data-[state=active]:bg-amber-500 data-[state=active]:text-slate-950 font-bold">
+            <TabsTrigger value="template" className="text-xs data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-xs font-bold">
               قالب الشرح الرسمي
             </TabsTrigger>
           </TabsList>
@@ -374,10 +397,10 @@ export const TeachersOnboardingManagement: React.FC<{
               variant="outline"
               size="sm"
               onClick={onNavigateToPayouts}
-              className="border-amber-500/40 text-amber-300 hover:bg-amber-500/10 text-xs self-start sm:self-auto"
+              className="border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 text-xs font-bold self-start sm:self-auto"
             >
               <Wallet className="w-3.5 h-3.5 me-1.5" />
-              الانتقال لدفع أجور ومفاوضات المعلمين &larr;
+              الانتقال لغرفة مفاوضات ونسب الأرباح &larr;
             </Button>
           )}
         </div>
@@ -386,29 +409,29 @@ export const TeachersOnboardingManagement: React.FC<{
         <TabsContent value="roster" className="space-y-4">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="relative w-full sm:w-80">
-              <Search className="w-4 h-4 absolute end-3 top-3 text-slate-500" />
+              <Search className="w-4 h-4 absolute end-3 top-3 text-slate-400" />
               <Input
                 placeholder="ابحث بالاسم، الإيميل، أو البنك..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-slate-900 border-slate-800 text-white text-xs h-10"
+                className="bg-white border-slate-300 text-slate-900 text-xs h-10"
               />
             </div>
-            <Button variant="ghost" size="sm" onClick={loadData} className="text-slate-400 hover:text-white text-xs">
-              <RefreshCw className="w-3.5 h-3.5 me-1.5" />
+            <Button variant="outline" size="sm" onClick={loadData} className="border-slate-200 text-slate-600 hover:bg-slate-50 text-xs h-9">
+              <RefreshCw className={`w-3.5 h-3.5 me-1.5 ${loading ? 'animate-spin' : ''}`} />
               تحديث الكشف
             </Button>
           </div>
 
-          <Card className="bg-slate-900/80 border-slate-800 overflow-hidden">
+          <Card className="bg-white border-slate-200 shadow-xs overflow-hidden">
             <Table>
-              <TableHeader className="bg-slate-950/70">
-                <TableRow className="border-slate-800">
-                  <TableHead className="text-start text-xs text-slate-400 font-bold">المعلم</TableHead>
-                  <TableHead className="text-start text-xs text-slate-400 font-bold">حالة الانضمام</TableHead>
-                  <TableHead className="text-start text-xs text-slate-400 font-bold">وثيقة العقد والسياسات</TableHead>
-                  <TableHead className="text-start text-xs text-slate-400 font-bold">الحساب البنكي</TableHead>
-                  <TableHead className="text-start text-xs text-slate-400 font-bold">إجراءات الإدارة</TableHead>
+              <TableHeader className="bg-slate-50">
+                <TableRow className="border-slate-200">
+                  <TableHead className="text-start text-xs text-slate-700 font-bold">المعلم</TableHead>
+                  <TableHead className="text-start text-xs text-slate-700 font-bold">حالة الانضمام</TableHead>
+                  <TableHead className="text-start text-xs text-slate-700 font-bold">وثيقة العقد والسياسات</TableHead>
+                  <TableHead className="text-start text-xs text-slate-700 font-bold">الحساب البنكي والآيبان</TableHead>
+                  <TableHead className="text-start text-xs text-slate-700 font-bold">إجراءات الإدارة</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -420,11 +443,11 @@ export const TeachersOnboardingManagement: React.FC<{
                   </TableRow>
                 ) : (
                   filteredTeachers.map((teacher) => (
-                    <TableRow key={teacher.id} className="border-slate-800/80 hover:bg-slate-800/30">
+                    <TableRow key={teacher.id} className="border-slate-100 hover:bg-slate-50/70">
                       <TableCell className="text-start">
-                        <div className="font-semibold text-white text-sm">{teacher.name}</div>
-                        <div className="text-xs text-slate-400 font-mono">{teacher.email}</div>
-                        {teacher.phone && <div className="text-[11px] text-slate-500 mt-0.5">{teacher.phone}</div>}
+                        <div className="font-bold text-slate-900 text-sm">{teacher.name}</div>
+                        <div className="text-xs text-slate-500 font-mono">{teacher.email}</div>
+                        {teacher.phone && <div className="text-[11px] text-slate-400 mt-0.5">{teacher.phone}</div>}
                       </TableCell>
 
                       <TableCell className="text-start">{getStatusBadge(teacher.status)}</TableCell>
@@ -432,7 +455,7 @@ export const TeachersOnboardingManagement: React.FC<{
                       <TableCell className="text-start">
                         {teacher.signedAt ? (
                           <div className="space-y-1">
-                            <div className="text-xs text-emerald-400 flex items-center gap-1 font-medium">
+                            <div className="text-xs text-emerald-700 flex items-center gap-1 font-semibold">
                               <CheckCircle2 className="w-3.5 h-3.5" />
                               تم التوقيع ({new Date(teacher.signedAt).toLocaleDateString('ar-SA')})
                             </div>
@@ -440,7 +463,7 @@ export const TeachersOnboardingManagement: React.FC<{
                               variant="link"
                               size="sm"
                               onClick={() => setSelectedContractTeacher(teacher)}
-                              className="text-[11px] text-amber-400 p-0 h-auto hover:underline flex items-center gap-1"
+                              className="text-[11px] text-amber-700 p-0 h-auto hover:underline flex items-center gap-1 font-bold"
                             >
                               <Eye className="w-3 h-3" />
                               معاينة وثيقة العقد
@@ -457,24 +480,24 @@ export const TeachersOnboardingManagement: React.FC<{
                       <TableCell className="text-start">
                         {teacher.bank ? (
                           <div className="space-y-1">
-                            <div className="text-xs text-white font-medium flex items-center gap-1.5">
+                            <div className="text-xs text-slate-900 font-bold flex items-center gap-1.5">
                               <span>{teacher.bank.bank_name}</span>
                               {teacher.bank.verified_by_admin ? (
-                                <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[9px] px-1.5 py-0">
+                                <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[9px] px-1.5 py-0">
                                   موثق
                                 </Badge>
                               ) : (
-                                <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/30 text-[9px] px-1.5 py-0">
-                                  غير موثق
+                                <Badge className="bg-amber-50 text-amber-800 border-amber-300 text-[9px] px-1.5 py-0">
+                                  قيد الفحص
                                 </Badge>
                               )}
                             </div>
-                            <div className="text-[11px] text-slate-400 font-mono truncate max-w-[170px]">
+                            <div className="text-[11px] text-slate-600 font-mono truncate max-w-[190px]">
                               {teacher.bank.iban}
                             </div>
                           </div>
                         ) : (
-                          <span className="text-xs text-slate-500">لم تُدخل البيانات البنكية</span>
+                          <span className="text-xs text-slate-400">لم تُدخل البيانات البنكية بعد</span>
                         )}
                       </TableCell>
 
@@ -485,10 +508,10 @@ export const TeachersOnboardingManagement: React.FC<{
                               variant="outline"
                               size="sm"
                               onClick={() => setSelectedBankTeacher(teacher)}
-                              className="text-xs border-slate-700 hover:bg-slate-800 text-slate-300 h-8"
+                              className="text-xs border-slate-300 text-slate-700 hover:bg-slate-100 h-8"
                             >
-                              <Landmark className="w-3.5 h-3.5 me-1" />
-                              فحص البنك
+                              <Landmark className="w-3.5 h-3.5 me-1 text-amber-600" />
+                              فحص واعتماد
                             </Button>
                           )}
                           {onNavigateToPayouts && (
@@ -496,7 +519,7 @@ export const TeachersOnboardingManagement: React.FC<{
                               variant="outline"
                               size="sm"
                               onClick={onNavigateToPayouts}
-                              className="text-xs border-amber-500/30 text-amber-300 hover:bg-amber-500/10 h-8"
+                              className="text-xs border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 h-8 font-semibold"
                             >
                               <Wallet className="w-3.5 h-3.5 me-1" />
                               المفاوضة
@@ -512,37 +535,37 @@ export const TeachersOnboardingManagement: React.FC<{
           </Card>
         </TabsContent>
 
-        {/* TAB 2: VIDEOS CMS */}
+        {/* TAB 2: GUIDES CMS */}
         <TabsContent value="videos" className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-base font-bold text-white">الفيديوهات الإرشادية للمعلم</h3>
-              <p className="text-xs text-slate-400">
-                إدارة الفيديوهات التي تظهر للمعلمين في صفحة استكمال الانضمام (المشغل المدمج).
+              <h3 className="text-base font-bold text-slate-900">أدلة المعايير الأكاديمية للمعلم</h3>
+              <p className="text-xs text-slate-500">
+                إدارة الأدلة والوثائق الأكاديمية التي تظهر للمعلمين في صفحة استكمال الانضمام.
               </p>
             </div>
             <Button
               onClick={() => handleOpenAddResource('video')}
-              className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs h-9"
+              className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs h-9 shadow-xs"
             >
               <Plus className="w-4 h-4 me-1.5" />
-              إضافة فيديو إرشادي
+              إضافة دليل أكاديمي
             </Button>
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
             {videosList.map((vid) => (
-              <Card key={vid.id} className="bg-slate-900/80 border-slate-800 overflow-hidden text-start">
+              <Card key={vid.id} className="bg-white border-slate-200 shadow-xs overflow-hidden text-start">
                 <CardContent className="p-5 space-y-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-2">
-                      <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400">
-                        <Video className="w-5 h-5" />
+                      <div className="p-2 rounded-lg bg-amber-50 text-amber-700">
+                        <FileText className="w-5 h-5" />
                       </div>
                       <div>
-                        <h4 className="text-sm font-bold text-white">{vid.title}</h4>
-                        <Badge className="bg-slate-800 text-amber-300 border-none text-[10px] mt-1">
-                          {vid.badge_tag || 'إرشادي'}
+                        <h4 className="text-sm font-bold text-slate-900">{vid.title}</h4>
+                        <Badge className="bg-slate-100 text-slate-700 border-none text-[10px] mt-1">
+                          {vid.badge_tag || 'دليل معتمد'}
                         </Badge>
                       </div>
                     </div>
@@ -552,7 +575,7 @@ export const TeachersOnboardingManagement: React.FC<{
                         variant="ghost"
                         size="icon"
                         onClick={() => handleEditResource(vid)}
-                        className="h-8 w-8 text-slate-400 hover:text-white"
+                        className="h-8 w-8 text-slate-500 hover:text-slate-800"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </Button>
@@ -560,20 +583,20 @@ export const TeachersOnboardingManagement: React.FC<{
                         variant="ghost"
                         size="icon"
                         onClick={() => handleDeleteResource(vid.id)}
-                        className="h-8 w-8 text-red-400 hover:text-red-300"
+                        className="h-8 w-8 text-rose-500 hover:text-rose-700"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </Button>
                     </div>
                   </div>
 
-                  <p className="text-xs text-slate-400 leading-relaxed">{vid.description}</p>
-                  <p className="text-[11px] text-slate-500 font-mono truncate">{vid.url}</p>
+                  <p className="text-xs text-slate-600 leading-relaxed">{vid.description}</p>
+                  <p className="text-[11px] text-slate-400 font-mono truncate">{vid.url}</p>
 
-                  <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
-                    <span className="text-xs text-slate-400">حالة الظهور للمعلم</span>
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                    <span className="text-xs text-slate-500">حالة الظهور للمعلم</span>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-white">{vid.is_visible ? 'ظاهر' : 'مخفي'}</span>
+                      <span className="text-xs font-semibold text-slate-700">{vid.is_visible ? 'ظاهر' : 'مخفي'}</span>
                       <Switch
                         checked={vid.is_visible}
                         onCheckedChange={() => handleToggleResourceVisibility(vid)}
@@ -590,15 +613,15 @@ export const TeachersOnboardingManagement: React.FC<{
         <TabsContent value="tips_apps" className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-base font-bold text-white">النصائح والتطبيقات المنصوح بها</h3>
-              <p className="text-xs text-slate-400">توجيهات التدريس وتطبيقات الشرح الموصى بها للمعلمين.</p>
+              <h3 className="text-base font-bold text-slate-900">النصائح والتطبيقات المنصوح بها</h3>
+              <p className="text-xs text-slate-500">توجيهات التدريس وتطبيقات الشرح الموصى بها للمعلمين.</p>
             </div>
             <div className="flex gap-2">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => handleOpenAddResource('tip')}
-                className="text-xs border-slate-700 text-slate-200"
+                className="text-xs border-slate-300 text-slate-700"
               >
                 <Plus className="w-3.5 h-3.5 me-1" />
                 إضافة نصيحة
@@ -606,7 +629,7 @@ export const TeachersOnboardingManagement: React.FC<{
               <Button
                 size="sm"
                 onClick={() => handleOpenAddResource('app')}
-                className="text-xs bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold"
+                className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
               >
                 <Plus className="w-3.5 h-3.5 me-1" />
                 إضافة تطبيق
@@ -615,26 +638,26 @@ export const TeachersOnboardingManagement: React.FC<{
           </div>
 
           <div className="space-y-3">
-            <h4 className="text-sm font-bold text-amber-400 text-start">النصائح والتوجيهات ({tipsList.length})</h4>
+            <h4 className="text-sm font-bold text-slate-800 text-start">النصائح والتوجيهات ({tipsList.length})</h4>
             <div className="grid md:grid-cols-2 gap-3">
               {tipsList.map((tip) => (
                 <div
                   key={tip.id}
-                  className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 flex items-start justify-between text-start"
+                  className="p-4 rounded-xl bg-white border border-slate-200 flex items-start justify-between text-start shadow-2xs"
                 >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-white">{tip.title}</span>
-                      {tip.badge_tag && <Badge className="text-[10px] bg-slate-800 text-slate-300">{tip.badge_tag}</Badge>}
+                      <span className="text-sm font-bold text-slate-900">{tip.title}</span>
+                      {tip.badge_tag && <Badge className="text-[10px] bg-slate-100 text-slate-700 border-none">{tip.badge_tag}</Badge>}
                     </div>
-                    <p className="text-xs text-slate-400 leading-relaxed">{tip.description}</p>
+                    <p className="text-xs text-slate-600 leading-relaxed">{tip.description}</p>
                   </div>
                   <div className="flex items-center gap-1 ms-2">
                     <Button
                       variant="ghost"
                       size="icon"
                       onClick={() => handleEditResource(tip)}
-                      className="h-7 w-7 text-slate-400 hover:text-white"
+                      className="h-7 w-7 text-slate-400 hover:text-slate-800"
                     >
                       <Edit2 className="w-3 h-3" />
                     </Button>
@@ -642,7 +665,7 @@ export const TeachersOnboardingManagement: React.FC<{
                       variant="ghost"
                       size="icon"
                       onClick={() => handleDeleteResource(tip.id)}
-                      className="h-7 w-7 text-red-400 hover:text-red-300"
+                      className="h-7 w-7 text-rose-500 hover:text-rose-700"
                     >
                       <Trash2 className="w-3 h-3" />
                     </Button>
@@ -652,34 +675,34 @@ export const TeachersOnboardingManagement: React.FC<{
             </div>
           </div>
 
-          <div className="space-y-3 pt-4 border-t border-slate-800">
-            <h4 className="text-sm font-bold text-emerald-400 text-start">التطبيقات المقترحة ({appsList.length})</h4>
+          <div className="space-y-3 pt-4 border-t border-slate-200">
+            <h4 className="text-sm font-bold text-emerald-800 text-start">التطبيقات المقترحة ({appsList.length})</h4>
             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {appsList.map((app) => (
                 <div
                   key={app.id}
-                  className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 flex flex-col justify-between text-start"
+                  className="p-4 rounded-xl bg-white border border-slate-200 flex flex-col justify-between text-start shadow-2xs"
                 >
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-bold text-white">{app.title}</span>
+                      <span className="text-sm font-bold text-slate-900">{app.title}</span>
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => handleDeleteResource(app.id)}
-                        className="h-6 w-6 text-red-400 hover:text-red-300"
+                        className="h-6 w-6 text-rose-500 hover:text-rose-700"
                       >
                         <Trash2 className="w-3 h-3" />
                       </Button>
                     </div>
-                    <p className="text-xs text-slate-400 leading-relaxed line-clamp-2">{app.description}</p>
+                    <p className="text-xs text-slate-600 leading-relaxed line-clamp-2">{app.description}</p>
                   </div>
                   {app.url && (
                     <a
                       href={app.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="mt-3 text-[11px] text-amber-400 flex items-center gap-1 hover:underline"
+                      className="mt-3 text-[11px] text-amber-700 font-bold flex items-center gap-1 hover:underline"
                     >
                       زيارة الرابط
                       <ExternalLink className="w-3 h-3" />
@@ -693,49 +716,49 @@ export const TeachersOnboardingManagement: React.FC<{
 
         {/* TAB 4: OFFICIAL TEMPLATE CMS */}
         <TabsContent value="template">
-          <Card className="bg-slate-900/80 border-slate-800 text-start">
-            <CardHeader className="border-b border-slate-800 pb-4">
-              <CardTitle className="text-base text-white flex items-center gap-2">
-                <Download className="w-5 h-5 text-amber-400" />
+          <Card className="bg-white border-slate-200 shadow-xs text-start">
+            <CardHeader className="bg-slate-50/50 border-b border-slate-100 pb-4">
+              <CardTitle className="text-base text-slate-900 font-bold flex items-center gap-2">
+                <Download className="w-5 h-5 text-amber-600" />
                 إدارة قالب الشرح الرسمي لمنصة جسوركم (Presentation Template)
               </CardTitle>
-              <CardDescription className="text-xs text-slate-400">
+              <CardDescription className="text-xs text-slate-500">
                 هذا القالب يظهر لكافة المعلمين في صفحة استكمال الانضمام لتحميله واستخدامه في تحضير شرائح الشرح.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-6 space-y-4">
-              <div className="space-y-2">
-                <Label className="text-xs text-slate-300">عنوان القالب</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-slate-700">عنوان القالب</Label>
                 <Input
                   value={templateTitle}
                   onChange={(e) => setTemplateTitle(e.target.value)}
-                  className="bg-slate-950 border-slate-800 text-white text-xs h-10"
+                  className="bg-white border-slate-300 text-slate-900 text-xs h-10"
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-xs text-slate-300">الوصف التوضيحي</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-slate-700">الوصف التوضيحي</Label>
                 <Textarea
                   rows={2}
                   value={templateDesc}
                   onChange={(e) => setTemplateDesc(e.target.value)}
-                  className="bg-slate-950 border-slate-800 text-white text-xs"
+                  className="bg-white border-slate-300 text-slate-900 text-xs"
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label className="text-xs text-slate-300">رابط تحميل الملف (URL / Storage Path)</Label>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-slate-700">رابط تحميل الملف (URL / Storage Path)</Label>
                 <Input
                   value={templateUrl}
                   onChange={(e) => setTemplateUrl(e.target.value)}
-                  className="bg-slate-950 border-slate-800 text-white text-xs font-mono h-10"
+                  className="bg-white border-slate-300 text-slate-900 text-xs font-mono h-10"
                 />
               </div>
 
               <div className="pt-2 flex justify-end">
                 <Button
                   onClick={handleSaveTemplate}
-                  className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs h-10 px-6"
+                  className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs h-10 px-6 shadow-xs"
                 >
                   حفظ وتحديث القالب
                 </Button>
@@ -747,193 +770,200 @@ export const TeachersOnboardingManagement: React.FC<{
 
       {/* Modal: View & Verify Bank Details */}
       <Dialog open={!!selectedBankTeacher} onOpenChange={() => setSelectedBankTeacher(null)}>
-        <DialogContent className="bg-slate-950 border-slate-800 text-slate-100 max-w-lg text-start">
-          <DialogHeader className="border-b border-slate-800 pb-3">
-            <DialogTitle className="text-base font-bold text-white flex items-center gap-2">
-              <Landmark className="w-5 h-5 text-amber-400" />
-              تفاصيل الحساب البنكي للمعلم
+        <DialogContent className="bg-white border border-slate-200 text-slate-900 max-w-lg text-start rounded-2xl p-6 shadow-xl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <Landmark className="w-5 h-5 text-amber-600" />
+              فحص وتوثيق الحساب البنكي للمعلم
             </DialogTitle>
-            <DialogDescription className="text-xs text-slate-400">
-              المعلم: {selectedBankTeacher?.name} ({selectedBankTeacher?.email})
+            <DialogDescription className="text-xs text-slate-500">
+              مطابقة بيانات التحويلات المالية للأرباح الخاصة بالأستاذ {selectedBankTeacher?.name}
             </DialogDescription>
           </DialogHeader>
 
           {selectedBankTeacher?.bank ? (
-            <div className="space-y-4 py-3">
-              <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2.5 text-xs">
-                <div className="flex justify-between border-b border-slate-800/80 pb-2">
-                  <span className="text-slate-400">اسم البنك:</span>
-                  <span className="font-bold text-white">{selectedBankTeacher.bank.bank_name}</span>
+            <div className="space-y-4 my-2 text-xs">
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                <div className="flex justify-between py-1 border-b border-slate-200">
+                  <span className="text-slate-500 font-semibold">البنك:</span>
+                  <span className="font-bold text-slate-900">{selectedBankTeacher.bank.bank_name}</span>
                 </div>
-                <div className="flex justify-between border-b border-slate-800/80 pb-2">
-                  <span className="text-slate-400">الفرع:</span>
-                  <span className="text-slate-200">{selectedBankTeacher.bank.branch_name || 'غير محدد'}</span>
+                <div className="flex justify-between py-1 border-b border-slate-200">
+                  <span className="text-slate-500 font-semibold">رقم الحساب:</span>
+                  <span className="font-mono font-bold text-slate-900">{selectedBankTeacher.bank.account_number}</span>
                 </div>
-                <div className="flex justify-between border-b border-slate-800/80 pb-2">
-                  <span className="text-slate-400">رقم الحساب:</span>
-                  <span className="font-mono text-white">{selectedBankTeacher.bank.account_number}</span>
+                <div className="flex justify-between py-1 border-b border-slate-200">
+                  <span className="text-slate-500 font-semibold">الآيبان (IBAN):</span>
+                  <span className="font-mono font-bold text-amber-700" dir="ltr">{selectedBankTeacher.bank.iban}</span>
                 </div>
-                <div className="flex justify-between border-b border-slate-800/80 pb-2">
-                  <span className="text-slate-400">رقم الـ IBAN:</span>
-                  <span className="font-mono text-amber-400 font-bold tracking-wide">
-                    {selectedBankTeacher.bank.iban}
+                <div className="flex justify-between py-1 border-b border-slate-200">
+                  <span className="text-slate-500 font-semibold">الفرع:</span>
+                  <span className="font-medium text-slate-700">{selectedBankTeacher.bank.branch_name || 'غير محدد'}</span>
+                </div>
+                <div className="flex justify-between py-1">
+                  <span className="text-slate-500 font-semibold">حالة الاعتماد:</span>
+                  <span>
+                    {selectedBankTeacher.bank.verified_by_admin ? (
+                      <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]">موثق ومعتمد</Badge>
+                    ) : (
+                      <Badge className="bg-amber-50 text-amber-800 border-amber-300 text-[10px]">قيد المراجعة</Badge>
+                    )}
                   </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">رمز السويفت (SWIFT):</span>
-                  <span className="font-mono text-slate-200">{selectedBankTeacher.bank.swift_code || 'غير متوفر'}</span>
                 </div>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 flex items-center justify-between">
-                <div>
-                  <span className="text-xs font-bold text-white block">حالة الاعتماد البنكي</span>
-                  <span className="text-[11px] text-slate-400">توثيق صحة الحساب لتحويل مستحقات المعلم</span>
-                </div>
+              <div className="flex justify-between items-center pt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedBankTeacher(null)}
+                  className="border-slate-300 text-slate-700"
+                >
+                  إغلاق
+                </Button>
                 <Button
                   size="sm"
                   onClick={() => handleToggleBankVerified(selectedBankTeacher)}
-                  className={`text-xs font-bold ${
+                  className={
                     selectedBankTeacher.bank.verified_by_admin
-                      ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
-                      : 'bg-emerald-500 hover:bg-emerald-600 text-slate-950'
-                  }`}
+                      ? 'bg-rose-500 hover:bg-rose-600 text-white font-bold'
+                      : 'bg-emerald-600 hover:bg-emerald-700 text-white font-bold'
+                  }
                 >
-                  {selectedBankTeacher.bank.verified_by_admin ? 'إلغاء التوثيق' : 'توثيق واعتماد الحساب'}
+                  {selectedBankTeacher.bank.verified_by_admin ? 'إلغاء الاعتماد' : 'اعتماد الحساب البنكي رسمياً'}
                 </Button>
               </div>
             </div>
           ) : (
-            <p className="text-xs text-slate-500 py-4 text-center">لا توجد بيانات بنكية مسجلة.</p>
+            <p className="text-xs text-slate-500 py-4">لم يدخل هذا المعلم بياناته البنكية بعد.</p>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* Modal: View Signed Contract */}
+      {/* Modal: View Contract */}
       <Dialog open={!!selectedContractTeacher} onOpenChange={() => setSelectedContractTeacher(null)}>
-        <DialogContent className="bg-slate-950 border-slate-800 text-slate-100 max-w-lg text-start">
-          <DialogHeader className="border-b border-slate-800 pb-3">
-            <DialogTitle className="text-base font-bold text-white flex items-center gap-2">
-              <FileCheck className="w-5 h-5 text-emerald-400" />
-              وثيقة العقد والسياسات الموقعة رقمياً
+        <DialogContent className="bg-white border border-slate-200 text-slate-900 max-w-lg text-start rounded-2xl p-6 shadow-xl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <FileCheck className="w-5 h-5 text-emerald-600" />
+              وثيقة العقد الرقمي الموثق
             </DialogTitle>
-            <DialogDescription className="text-xs text-slate-400">
-              وثيقة رسمية موقعة إلكترونياً بمعايير التشفير المعتمدة.
+            <DialogDescription className="text-xs text-slate-500">
+              تفاصيل التوقيع الإلكتروني للأستاذ {selectedContractTeacher?.name}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-3 text-xs">
-            <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2">
-              <div className="flex justify-between border-b border-slate-800 pb-2">
-                <span className="text-slate-400">اسم المعلم الموقع:</span>
-                <span className="font-bold text-white">{selectedContractTeacher?.name}</span>
+          <div className="space-y-4 my-2 text-xs">
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+              <div className="flex justify-between py-1 border-b border-slate-200">
+                <span className="text-slate-500 font-semibold">المعلم الموقع:</span>
+                <span className="font-bold text-slate-900">{selectedContractTeacher?.name}</span>
               </div>
-              <div className="flex justify-between border-b border-slate-800 pb-2">
-                <span className="text-slate-400">البريد الإلكتروني المعتمد:</span>
-                <span className="font-mono text-slate-200">{selectedContractTeacher?.email}</span>
+              <div className="flex justify-between py-1 border-b border-slate-200">
+                <span className="text-slate-500 font-semibold">البريد الإلكتروني:</span>
+                <span className="font-mono text-slate-700">{selectedContractTeacher?.email}</span>
               </div>
-              <div className="flex justify-between border-b border-slate-800 pb-2">
-                <span className="text-slate-400">تاريخ ووقت التوقيع:</span>
-                <span className="text-slate-200">
-                  {selectedContractTeacher?.signedAt
-                    ? new Date(selectedContractTeacher.signedAt).toLocaleString('ar-SA')
-                    : 'غير متوفر'}
+              <div className="flex justify-between py-1 border-b border-slate-200">
+                <span className="text-slate-500 font-semibold">تاريخ التوقيع:</span>
+                <span className="text-slate-700">
+                  {selectedContractTeacher?.signedAt ? new Date(selectedContractTeacher.signedAt).toLocaleString('ar-SA') : 'مسجل'}
                 </span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">إصدار السياسات:</span>
-                <span className="font-mono text-amber-400">v1.0 (Josoorcom Enterprise)</span>
+              <div className="flex justify-between py-1">
+                <span className="text-slate-500 font-semibold">البصمة الرقمية:</span>
+                <span className="font-mono text-emerald-700 font-bold">SHA256-DIGITAL-VERIFIED</span>
               </div>
             </div>
 
-            {selectedContractTeacher?.contractUrl && (
-              <div className="flex justify-center pt-2">
+            <div className="flex justify-between items-center pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedContractTeacher(null)}
+                className="border-slate-300 text-slate-700"
+              >
+                إغلاق
+              </Button>
+              {selectedContractTeacher?.contractUrl && (
                 <a
                   href={selectedContractTeacher.contractUrl}
-                  download={`contract_${selectedContractTeacher.name}.pdf`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/20"
+                  download={`عقد_${selectedContractTeacher.name}.pdf`}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-white bg-amber-500 hover:bg-amber-600 px-4 py-2 rounded-lg transition-colors"
                 >
-                  <Download className="w-4 h-4" />
-                  تحميل وثيقة العقد الموقعة (PDF)
+                  <Download className="w-3.5 h-3.5" />
+                  تحميل نسخة العقد PDF
                 </a>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Modal: Add/Edit Resource (CMS) */}
+      {/* Modal: Add/Edit Resource */}
       <Dialog open={isResourceModalOpen} onOpenChange={setIsResourceModalOpen}>
-        <DialogContent className="bg-slate-950 border-slate-800 text-slate-100 max-w-md text-start">
-          <DialogHeader className="border-b border-slate-800 pb-3">
-            <DialogTitle className="text-base font-bold text-white">
-              {editingResource ? 'تعديل محتوى إرشادي' : 'إضافة محتوى إرشادي جديد'}
+        <DialogContent className="bg-white border border-slate-200 text-slate-900 max-w-md text-start rounded-2xl p-6 shadow-xl">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold text-slate-900">
+              {editingResource ? 'تعديل المحتوى الأكاديمي' : 'إضافة محتوى أكاديمي جديد'}
             </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500">
+              تحديد محتوى الأدلة والنصائح التي تظهر للمعلمين أثناء استكمال الانضمام.
+            </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleSaveResource} className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label className="text-xs text-slate-300">العنوان</Label>
+          <form onSubmit={handleSaveResource} className="space-y-3.5 my-2">
+            <div className="space-y-1">
+              <Label className="text-xs font-bold text-slate-700">العنوان الرئيسي</Label>
               <Input
                 value={resTitle}
                 onChange={(e) => setResTitle(e.target.value)}
-                required
-                className="bg-slate-900 border-slate-800 text-white text-xs h-9"
+                placeholder="عنوان الدليل أو التطبيق"
+                className="bg-white border-slate-300 text-slate-900 text-xs h-9"
               />
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-xs text-slate-300">الوصف التفصيلي</Label>
+            <div className="space-y-1">
+              <Label className="text-xs font-bold text-slate-700">الوصف والشرح</Label>
               <Textarea
                 rows={3}
                 value={resDesc}
                 onChange={(e) => setResDesc(e.target.value)}
-                className="bg-slate-900 border-slate-800 text-white text-xs"
+                placeholder="شرح موجز لأهمية هذا المورد وكيفية الاستفادة منه"
+                className="bg-white border-slate-300 text-slate-900 text-xs"
               />
             </div>
 
-            {(resourceType === 'video' || resourceType === 'app') && (
-              <div className="space-y-1.5">
-                <Label className="text-xs text-slate-300">
-                  {resourceType === 'video' ? 'رابط تضمين الفيديو (Embed URL)' : 'رابط الموقع أو التحميل'}
-                </Label>
-                <Input
-                  value={resUrl}
-                  onChange={(e) => setResUrl(e.target.value)}
-                  className="bg-slate-900 border-slate-800 text-white text-xs font-mono h-9"
-                />
-              </div>
-            )}
-
-            <div className="space-y-1.5">
-              <Label className="text-xs text-slate-300">نص الشارة / التصنيف (Badge Tag)</Label>
+            <div className="space-y-1">
+              <Label className="text-xs font-bold text-slate-700">الرابط (URL / Download Path)</Label>
               <Input
-                placeholder="مثال: إلزامي ومثبت، جودة الصوت، الشرح التفاعلي"
+                value={resUrl}
+                onChange={(e) => setResUrl(e.target.value)}
+                placeholder="https://..."
+                className="bg-white border-slate-300 text-slate-900 text-xs font-mono h-9"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-xs font-bold text-slate-700">شارة التصنيف (Badge Tag)</Label>
+              <Input
                 value={resBadge}
                 onChange={(e) => setResBadge(e.target.value)}
-                className="bg-slate-900 border-slate-800 text-white text-xs h-9"
+                placeholder="مثال: إرشادي، موصى به، جودة عالية"
+                className="bg-white border-slate-300 text-slate-900 text-xs h-9"
               />
             </div>
 
-            <div className="flex items-center justify-between pt-2">
-              <span className="text-xs text-slate-300 font-medium">إظهار المحتوى للمعلم</span>
-              <Switch checked={resVisible} onCheckedChange={setResVisible} />
-            </div>
-
-            <div className="pt-3 border-t border-slate-800 flex justify-end gap-2">
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
               <Button
                 type="button"
-                variant="ghost"
-                size="sm"
+                variant="outline"
                 onClick={() => setIsResourceModalOpen(false)}
-                className="text-xs text-slate-400"
+                className="text-xs border-slate-300 text-slate-700"
               >
                 إلغاء
               </Button>
-              <Button type="submit" size="sm" className="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs">
-                حفظ المحتوى
+              <Button type="submit" className="text-xs bg-amber-500 hover:bg-amber-600 text-white font-bold">
+                حفظ
               </Button>
             </div>
           </form>

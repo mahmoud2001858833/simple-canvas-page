@@ -74,3 +74,6 @@ verify_jwt = false
 
 [functions.nelc-diagnostics]
 verify_jwt = false
+
+[functions.send-notification-email]
+verify_jwt = false

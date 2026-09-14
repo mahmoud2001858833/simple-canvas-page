@@ -198,26 +198,26 @@ export const DEFAULT_TEACHING_APPS = [
 
 export const DEFAULT_TUTORIAL_VIDEOS = [
   {
-    id: 'vid-1',
-    title: 'ماذا يميز منصة جسوركم عن باقي المنصات وكيف تستفيد كمعلم؟',
-    description: 'فيديو تعريفي إلزامي يشرح هوية جسوركم، الميزات التقنية الحصرية، وكيف تحقق أعلى فائدة أكاديمية ومالية كمعلم معتمد.',
-    url: 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ',
+    id: 'guide-1',
+    title: 'المعايير الأكاديمية وهندسة المقررات في جسوركم',
+    description: 'دليل أكاديمي معتمد يشرح معايير اعتماد المحتوى الجامعي، أسلوب بناء المحاضرات التفاعلية، وتنظيم الوحدات الدراسية والاختبارات.',
+    url: '/وثيقة_الاعتماد_الفني_للفيلم_الرسمي_جسوركم.pdf',
     tag: 'إلزامي ومثبت',
     isMandatory: true,
   },
   {
-    id: 'vid-2',
-    title: 'كيفية إعداد بيئة التسجيل وتجهيز المايك والإضاءة',
-    description: 'دليل عملي لتجهيز استوديو منزلي احترافي: اختيار الميكروفون المناسب، عزل الصوت والصدى، وضبط زوايا الإضاءة لدقة 1080p.',
-    url: 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ',
+    id: 'guide-2',
+    title: 'الدليل الفني لتجهيز استوديو التسجيل وهندسة الصوت النقي',
+    description: 'إرشادات عملية لضبط الميكروفون الموجه الاحترافي، عزل الصدى والتشويش، وضبط زوايا الإضاءة لدقة 1080p بمستوى تقني رفيع.',
+    url: '/docs/studio-setup-guide.pdf',
     tag: 'جودة الاستوديو',
     isMandatory: false,
   },
   {
-    id: 'vid-3',
+    id: 'guide-3',
     title: 'دليل استخدام قالب الشرح الرسمي لمنصة جسوركم',
-    description: 'شرح خطوة بخطوة لكيفية استيراد واستخدام قالب جسوركم الرسمي في البوربوينت وGoodNotes لتوحيد الهوية البصرية.',
-    url: 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ',
+    description: 'شرح خطوة بخطوة لكيفية استيراد واستخدام قالب جسوركم الرسمي في البوربوينت وGoodNotes لتوحيد الهوية البصرية الأكاديمية.',
+    url: '/templates/josoorcom-lecture-template.pptx',
     tag: 'الهوية الرسمية',
     isMandatory: false,
   },
@@ -285,6 +285,155 @@ function setLocalStore<T>(key: string, val: T): void {
 }
 
 // ====================================================================
+// Cross-Device Cloud Sync Helpers (Profiles & Platform Settings)
+// ====================================================================
+
+export interface TeacherCloudStore {
+  onboarding_status?: OnboardingStatus;
+  bank?: TeacherBankDetails;
+  payout?: TeacherPayoutSettings;
+  contract?: TeacherContract;
+  updated_at?: string;
+}
+
+export async function syncTeacherDataToCloud(
+  teacherId: string,
+  partial: Partial<TeacherCloudStore>
+): Promise<TeacherCloudStore> {
+  let currentStore: TeacherCloudStore = {};
+
+  // 1. Read existing from profiles.teaching_experience_details
+  try {
+    const { data: prof } = await supabase
+      .from('profiles')
+      .select('teaching_experience_details')
+      .eq('id', teacherId)
+      .maybeSingle();
+
+    if (prof?.teaching_experience_details) {
+      try {
+        currentStore = JSON.parse(prof.teaching_experience_details);
+      } catch {
+        currentStore = {};
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  // Also check platform_settings
+  if (!currentStore.bank && !currentStore.payout) {
+    try {
+      const { data: setting } = await supabase
+        .from('platform_settings')
+        .select('value')
+        .eq('key', `teacher_data_${teacherId}`)
+        .maybeSingle();
+      if (setting?.value) {
+        try {
+          currentStore = JSON.parse(setting.value);
+        } catch {}
+      }
+    } catch {}
+  }
+
+  const merged: TeacherCloudStore = {
+    ...currentStore,
+    ...partial,
+    bank: partial.bank ? { ...currentStore.bank, ...partial.bank } : currentStore.bank,
+    payout: partial.payout ? { ...currentStore.payout, ...partial.payout } : currentStore.payout,
+    contract: partial.contract ? { ...currentStore.contract, ...partial.contract } : currentStore.contract,
+    onboarding_status: partial.onboarding_status || currentStore.onboarding_status || 'registered',
+    updated_at: new Date().toISOString(),
+  };
+
+  const serialized = JSON.stringify(merged);
+
+  // 2. Persist to profiles.teaching_experience_details in PostgreSQL
+  try {
+    await supabase
+      .from('profiles')
+      .update({ teaching_experience_details: serialized })
+      .eq('id', teacherId);
+  } catch (e) {
+    console.warn('Sync to profiles:', e);
+  }
+
+  // 3. Persist to platform_settings for shared access across all clients
+  try {
+    await supabase.from('platform_settings').upsert({
+      key: `teacher_data_${teacherId}`,
+      value: serialized,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'key' });
+
+    if (merged.payout) {
+      await supabase.from('platform_settings').upsert({
+        key: `teacher_payout_${teacherId}`,
+        value: JSON.stringify(merged.payout),
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'key' });
+    }
+
+    if (merged.bank) {
+      await supabase.from('platform_settings').upsert({
+        key: `teacher_bank_${teacherId}`,
+        value: JSON.stringify(merged.bank),
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'key' });
+    }
+  } catch (e) {
+    console.warn('Sync to platform_settings non-fatal:', e);
+  }
+
+  // 4. Update local cache
+  setLocalStore(`cloud_${teacherId}`, merged);
+  if (merged.bank) setLocalStore(`bank_${teacherId}`, merged.bank);
+  if (merged.payout) setLocalStore(`payout_${teacherId}`, merged.payout);
+  if (merged.contract) setLocalStore(`contract_${teacherId}`, merged.contract);
+
+  return merged;
+}
+
+export async function getTeacherDataFromCloud(teacherId: string): Promise<TeacherCloudStore | null> {
+  // 1. Try profiles
+  try {
+    const { data: prof } = await supabase
+      .from('profiles')
+      .select('teaching_experience_details')
+      .eq('id', teacherId)
+      .maybeSingle();
+
+    if (prof?.teaching_experience_details) {
+      try {
+        const parsed = JSON.parse(prof.teaching_experience_details);
+        if (parsed && (parsed.bank || parsed.payout || parsed.contract)) {
+          return parsed;
+        }
+      } catch {}
+    }
+  } catch {}
+
+  // 2. Try platform_settings
+  try {
+    const { data: setting } = await supabase
+      .from('platform_settings')
+      .select('value')
+      .eq('key', `teacher_data_${teacherId}`)
+      .maybeSingle();
+
+    if (setting?.value) {
+      try {
+        const parsed = JSON.parse(setting.value);
+        if (parsed) return parsed;
+      } catch {}
+    }
+  } catch {}
+
+  return getLocalStore<TeacherCloudStore | null>(`cloud_${teacherId}`, null);
+}
+
+// ====================================================================
 // Teacher Profile & Lifecycle State Machine
 // ====================================================================
 
@@ -306,18 +455,25 @@ export async function getTeacherLifecycleProfile(userId: string): Promise<Teache
   try {
     const { data: prof } = await (supabase as any)
       .from('profiles')
-      .select('id, full_name, email, bio, has_accepted_policies')
+      .select('id, full_name, email, bio, has_accepted_policies, teaching_experience_details')
       .eq('id', userId)
       .maybeSingle();
 
     if (prof) {
-      const fallbackStatus: OnboardingStatus = prof.has_accepted_policies ? 'active' : 'registered';
+      let parsedStatus: OnboardingStatus = prof.has_accepted_policies ? 'active' : 'registered';
+      if (prof.teaching_experience_details) {
+        try {
+          const parsed = JSON.parse(prof.teaching_experience_details);
+          if (parsed.onboarding_status) parsedStatus = parsed.onboarding_status;
+        } catch {}
+      }
+
       const local = getLocalStore<TeacherProfile>(`profile_${userId}`, {
         id: prof.id,
         full_name: prof.full_name || 'معلم جسوركم',
         email: prof.email || '',
         bio: prof.bio || '',
-        onboarding_status: fallbackStatus,
+        onboarding_status: parsedStatus,
       });
       return local;
     }
@@ -347,6 +503,7 @@ export async function upsertTeacherLifecycleProfile(
   }
 
   setLocalStore(`profile_${profile.id}`, payload);
+  await syncTeacherDataToCloud(profile.id, { onboarding_status: payload.onboarding_status });
   return payload as TeacherProfile;
 }
 
@@ -367,6 +524,25 @@ export async function getTeacherBankDetails(teacherId: string): Promise<TeacherB
     // ignore
   }
 
+  // Check Cloud Store
+  const cloud = await getTeacherDataFromCloud(teacherId);
+  if (cloud?.bank) return cloud.bank;
+
+  // Check platform_settings bank key
+  try {
+    const { data: ps } = await supabase
+      .from('platform_settings')
+      .select('value')
+      .eq('key', `teacher_bank_${teacherId}`)
+      .maybeSingle();
+    if (ps?.value) {
+      try {
+        const parsed = JSON.parse(ps.value);
+        if (parsed) return parsed as TeacherBankDetails;
+      } catch {}
+    }
+  } catch {}
+
   return getLocalStore<TeacherBankDetails | null>(`bank_${teacherId}`, null);
 }
 
@@ -374,9 +550,11 @@ export async function saveTeacherBankDetails(
   details: Omit<TeacherBankDetails, 'id' | 'created_at' | 'updated_at'>
 ): Promise<TeacherBankDetails> {
   const cleanIban = details.iban.replace(/\s+/g, '').toUpperCase();
-  const payload = {
+  const payload: TeacherBankDetails = {
+    id: 'bank-' + details.teacher_id,
     ...details,
     iban: cleanIban,
+    created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
 
@@ -388,22 +566,21 @@ export async function saveTeacherBankDetails(
       .maybeSingle();
 
     if (!error && data) {
-      setLocalStore(`bank_${details.teacher_id}`, data);
-      await upsertTeacherLifecycleProfile({ id: details.teacher_id, onboarding_status: 'bank_submitted' });
-      return data as TeacherBankDetails;
+      payload.id = data.id || payload.id;
     }
   } catch {
     // ignore
   }
 
-  const localObj: TeacherBankDetails = {
-    id: 'local-bank-' + Date.now(),
-    ...payload,
-    created_at: new Date().toISOString(),
-  };
-  setLocalStore(`bank_${details.teacher_id}`, localObj);
+  // Cloud Sync to profiles & platform_settings
+  await syncTeacherDataToCloud(details.teacher_id, {
+    bank: payload,
+    onboarding_status: 'bank_submitted',
+  });
+
+  setLocalStore(`bank_${details.teacher_id}`, payload);
   await upsertTeacherLifecycleProfile({ id: details.teacher_id, onboarding_status: 'bank_submitted' });
-  return localObj;
+  return payload;
 }
 
 export async function setBankVerificationByAdmin(
@@ -560,6 +737,10 @@ export async function signTeacherPolicyContract(params: {
 
   setLocalStore(`contract_${params.teacherId}`, contractObj);
   await upsertTeacherLifecycleProfile({ id: params.teacherId, onboarding_status: 'policy_signed' });
+  await syncTeacherDataToCloud(params.teacherId, {
+    contract: contractObj,
+    onboarding_status: 'policy_signed',
+  });
 
   // Trigger Confirmation Email
   try {
@@ -568,6 +749,7 @@ export async function signTeacherPolicyContract(params: {
       toEmail: params.signedEmail,
       toName: params.signedName,
       contractUrl: pdfBlobUrl,
+      userId: params.teacherId,
     });
   } catch (e) {
     console.warn('Email confirmation non-blocking failure', e);
@@ -591,6 +773,9 @@ export async function getTeacherContract(teacherId: string): Promise<TeacherCont
     // ignore
   }
 
+  const cloud = await getTeacherDataFromCloud(teacherId);
+  if (cloud?.contract) return cloud.contract;
+
   return getLocalStore<TeacherContract | null>(`contract_${teacherId}`, null);
 }
 
@@ -611,6 +796,23 @@ export async function getTeacherPayoutSettings(teacherId: string): Promise<Teach
     // ignore
   }
 
+  try {
+    const { data: ps } = await supabase
+      .from('platform_settings')
+      .select('value')
+      .eq('key', `teacher_payout_${teacherId}`)
+      .maybeSingle();
+    if (ps?.value) {
+      try {
+        const parsed = JSON.parse(ps.value);
+        if (parsed) return parsed as TeacherPayoutSettings;
+      } catch {}
+    }
+  } catch {}
+
+  const cloud = await getTeacherDataFromCloud(teacherId);
+  if (cloud?.payout) return cloud.payout;
+
   return getLocalStore<TeacherPayoutSettings | null>(`payout_${teacherId}`, null);
 }
 
@@ -621,13 +823,15 @@ export async function requestPayoutModel(params: {
   percentageRate?: number;
   notes?: string;
 }): Promise<TeacherPayoutSettings> {
-  const payload: Partial<TeacherPayoutSettings> = {
+  const payload: TeacherPayoutSettings = {
+    id: 'payout-' + params.teacherId,
     teacher_id: params.teacherId,
     requested_type: params.requestedType,
     fixed_amount: params.fixedAmount || null,
     percentage_rate: params.percentageRate || null,
     status: 'pending_review',
     notes: params.notes || '',
+    created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   };
 
@@ -639,27 +843,20 @@ export async function requestPayoutModel(params: {
       .maybeSingle();
 
     if (!error && data) {
-      setLocalStore(`payout_${params.teacherId}`, data);
-      await upsertTeacherLifecycleProfile({ id: params.teacherId, onboarding_status: 'payout_selected' });
-      return data as TeacherPayoutSettings;
+      payload.id = data.id || payload.id;
     }
   } catch {
     // ignore
   }
 
-  const localObj: TeacherPayoutSettings = {
-    id: 'local-payout-' + Date.now(),
-    teacher_id: params.teacherId,
-    requested_type: params.requestedType,
-    fixed_amount: params.fixedAmount || null,
-    percentage_rate: params.percentageRate || null,
-    status: 'pending_review',
-    notes: params.notes || '',
-    created_at: new Date().toISOString(),
-  };
-  setLocalStore(`payout_${params.teacherId}`, localObj);
+  await syncTeacherDataToCloud(params.teacherId, {
+    payout: payload,
+    onboarding_status: 'payout_selected',
+  });
+
+  setLocalStore(`payout_${params.teacherId}`, payload);
   await upsertTeacherLifecycleProfile({ id: params.teacherId, onboarding_status: 'payout_selected' });
-  return localObj;
+  return payload;
 }
 
 export async function sendAdminPayoutOffer(params: {
@@ -695,28 +892,36 @@ export async function sendAdminPayoutOffer(params: {
     // ignore
   }
 
-  // Update local
+  // Update local & cloud
   const history = getLocalStore<PayoutNegotiationMessage[]>(`neg_${params.teacherId}`, []);
   history.push(negotiation);
   setLocalStore(`neg_${params.teacherId}`, history);
 
-  const payout = getLocalStore<TeacherPayoutSettings | null>(`payout_${params.teacherId}`, null);
-  if (payout) {
-    payout.status = 'offer_sent';
-    payout.fixed_amount = params.proposedFixed;
-    payout.percentage_rate = params.proposedPercentage;
-    setLocalStore(`payout_${params.teacherId}`, payout);
-  }
+  const payout = getLocalStore<TeacherPayoutSettings | null>(`payout_${params.teacherId}`, null) || {
+    id: 'payout-' + params.teacherId,
+    teacher_id: params.teacherId,
+    requested_type: params.proposedFixed ? 'fixed_per_course' : 'percentage',
+    status: 'offer_sent',
+    created_at: new Date().toISOString(),
+  };
+  payout.status = 'offer_sent';
+  payout.fixed_amount = params.proposedFixed ?? payout.fixed_amount;
+  payout.percentage_rate = params.proposedPercentage ?? payout.percentage_rate;
+  payout.updated_at = new Date().toISOString();
+  setLocalStore(`payout_${params.teacherId}`, payout);
+
+  await syncTeacherDataToCloud(params.teacherId, { payout });
 
   // Trigger Email
   if (params.teacherEmail) {
     sendLifecycleEmail({
       type: 'teacher_offer_sent',
       toEmail: params.teacherEmail,
-      toName: params.teacherName || 'عزيزي المعلم',
+      toName: params.teacherName || 'أستاذنا الفاضل',
       offerDetails: params.message,
       fixedAmount: params.proposedFixed || undefined,
       percentageRate: params.proposedPercentage || undefined,
+      userId: params.teacherId,
     }).catch((e) => console.warn('Offer email notice failed', e));
   }
 
@@ -760,6 +965,7 @@ export async function sendTeacherCounterOffer(params: {
   if (payout) {
     payout.status = 'in_negotiation';
     setLocalStore(`payout_${params.teacherId}`, payout);
+    await syncTeacherDataToCloud(params.teacherId, { payout });
   }
 
   return true;
@@ -816,7 +1022,7 @@ export async function finalizeAgreedPayout(params: {
     // ignore
   }
 
-  // Update local
+  // Update local & cloud
   let payout = getLocalStore<TeacherPayoutSettings | null>(`payout_${params.teacherId}`, null);
   if (!payout) {
     payout = {
@@ -827,6 +1033,12 @@ export async function finalizeAgreedPayout(params: {
   }
   Object.assign(payout, updatePayload);
   setLocalStore(`payout_${params.teacherId}`, payout);
+
+  // Cloud Sync
+  await syncTeacherDataToCloud(params.teacherId, {
+    payout,
+    onboarding_status: 'active',
+  });
 
   // Mark teacher profile as fully active
   await upsertTeacherLifecycleProfile({ id: params.teacherId, onboarding_status: 'active' });
@@ -850,9 +1062,10 @@ export async function finalizeAgreedPayout(params: {
     sendLifecycleEmail({
       type: 'teacher_offer_agreed',
       toEmail: params.teacherEmail,
-      toName: params.teacherName || 'أستاذنا الكريم',
+      toName: params.teacherName || 'أستاذنا الفاضل',
       fixedAmount: params.fixedAmount || undefined,
       percentageRate: params.percentageRate || undefined,
+      userId: params.teacherId,
     }).catch((e) => console.warn('Agreed email notice failed', e));
   }
 
@@ -1022,29 +1235,120 @@ export async function deleteOnboardingResource(id: string): Promise<boolean> {
 }
 
 // ====================================================================
-// Email Dispatch Helper (Calls Edge Function)
+// Email & In-App Notification Dispatch Helper
 // ====================================================================
 
 export async function sendLifecycleEmail(params: {
-  type: 'teacher_welcome' | 'teacher_policy_confirmed' | 'teacher_offer_sent' | 'teacher_offer_agreed';
+  type: 
+    | 'teacher_welcome' 
+    | 'teacher_policy_confirmed' 
+    | 'teacher_bank_submitted' 
+    | 'teacher_payout_submitted' 
+    | 'teacher_offer_sent' 
+    | 'teacher_offer_agreed';
   toEmail: string;
   toName: string;
   contractUrl?: string;
+  fileUrl?: string;
+  fileName?: string;
   offerDetails?: string;
   fixedAmount?: number;
   percentageRate?: number;
+  bankName?: string;
+  iban?: string;
+  userId?: string;
 }): Promise<boolean> {
+  const payload = {
+    ...params,
+    to_email: params.toEmail,
+    toEmail: params.toEmail,
+    to_name: params.toName,
+    toName: params.toName,
+    contract_url: params.contractUrl,
+    contractUrl: params.contractUrl,
+    file_url: params.fileUrl,
+    fileUrl: params.fileUrl,
+    file_name: params.fileName,
+    fileName: params.fileName,
+    offer_details: params.offerDetails,
+    offerDetails: params.offerDetails,
+    fixed_amount: params.fixedAmount,
+    fixedAmount: params.fixedAmount,
+    percentage_rate: params.percentageRate,
+    percentageRate: params.percentageRate,
+    bank_name: params.bankName,
+    bankName: params.bankName,
+    iban: params.iban,
+  };
+
+  let sent = false;
+
+  // 1. Try Supabase Edge Function
   try {
     const { error } = await supabase.functions.invoke('send-notification-email', {
-      body: params,
+      body: payload,
     });
-    if (error) {
+    if (!error) {
+      sent = true;
+    } else {
       console.warn('send-notification-email invoke warning:', error);
-      return false;
     }
-    return true;
   } catch (err) {
     console.warn('send-notification-email non-fatal:', err);
-    return false;
   }
+
+  // 2. Fallback to Vercel Serverless Function
+  if (!sent && typeof window !== 'undefined') {
+    try {
+      const res = await fetch('/api/send-lifecycle-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) sent = true;
+    } catch (e) {
+      console.warn('/api/send-lifecycle-email notice:', e);
+    }
+  }
+
+  // 3. Insert notification record into notifications table
+  try {
+    let targetUserId = params.userId;
+    if (!targetUserId) {
+      const { data: { user } } = await supabase.auth.getUser();
+      targetUserId = user?.id;
+    }
+    if (targetUserId) {
+      const titleMap: Record<string, string> = {
+        teacher_welcome: 'مرحباً بك في منصة جسوركم الأكاديمية',
+        teacher_policy_confirmed: 'تم توثيق واعتماد اتفاقية التدريس بنجاح',
+        teacher_bank_submitted: 'تم استلام وتوثيق بيانات حسابك البنكي',
+        teacher_payout_submitted: 'تم استلام مقترح نموذج الأرباح والنسبة المالية',
+        teacher_offer_sent: 'عرض مالي مقترح من إدارة المنصة',
+        teacher_offer_agreed: 'تهانينا! تم اعتماد الاتفاق المالي النهائي',
+      };
+      const linkMap: Record<string, string> = {
+        teacher_welcome: '/teacher/onboarding',
+        teacher_policy_confirmed: '/teacher/payout-setup',
+        teacher_bank_submitted: '/teacher/payout-setup',
+        teacher_payout_submitted: '/instructor',
+        teacher_offer_sent: '/instructor',
+        teacher_offer_agreed: '/instructor',
+      };
+
+      await supabase.from('notifications').insert({
+        user_id: targetUserId,
+        title: titleMap[params.type] || 'إشعار جديد',
+        title_ar: titleMap[params.type] || 'إشعار جديد',
+        message: `تم إرسال إشعار رسمي وتفاصيل هذه المرحلة إلى بريدك الإلكتروني (${params.toEmail}).`,
+        message_ar: `تم إرسال إشعار رسمي وتفاصيل هذه المرحلة إلى بريدك الإلكتروني (${params.toEmail}).`,
+        link: linkMap[params.type] || '/instructor',
+        type: 'success',
+      });
+    }
+  } catch (e) {
+    console.warn('In-app notification insert notice:', e);
+  }
+
+  return true;
 }
