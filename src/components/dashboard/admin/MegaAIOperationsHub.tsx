@@ -93,7 +93,7 @@ export const MegaAIOperationsHub = ({ onNavigate }: MegaAIOperationsHubProps) =>
       timestamp: 'الآن',
       agent: 'المستشار التنفيذي العام',
       type: 'success',
-      message: 'تمت مزامنة هيئة التدريس المعتمدة (5 دكاترة جامعيين) بنجاح فائق وتحديث مصفوفة المعرفة الأكاديمية.',
+      message: 'تمت مزامنة الكادر التعليمي المعتمد (11 معلماً مسجلاً في المنصة) بنجاح فائق وتحديث مصفوفة المعرفة الأكاديمية.',
       latencyMs: 145,
     },
     {
@@ -149,7 +149,7 @@ export const MegaAIOperationsHub = ({ onNavigate }: MegaAIOperationsHubProps) =>
       color: 'border-amber-400/40 bg-amber-500/5 text-amber-900',
       badgeColor: 'bg-amber-100 text-amber-800 border-amber-300',
       icon: BrainCircuit,
-      stats: isRTL ? 'جاهزية 100% • 5 دكاترة معتمدين' : '100% Ready • 5 Faculty',
+      stats: isRTL ? 'جاهزية 100% • 11 معلماً مسجلاً' : '100% Ready • 11 Instructors',
     },
     {
       id: 'sales-agent',

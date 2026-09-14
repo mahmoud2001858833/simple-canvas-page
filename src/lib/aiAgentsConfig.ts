@@ -394,89 +394,161 @@ export interface LivePlatformContext {
 }
 
 /**
- * Authoritative Base Instructors Roster (Bound to live courses and Supabase database)
+ * Authoritative Base Instructors Roster (Bound directly to live platform registered instructors)
  */
 export const BASE_INSTRUCTORS_ROSTER: InstructorInfo[] = [
   {
-    id: "e5e4a99e-c071-46ec-ac69-d7edd85be263",
-    name: "د. أحمد محمد الشهري",
-    email: "dr.ahmed.shehri@josoorcom.com",
-    phone: "+966 50 123 4567",
-    specialty: "أستاذ مشارك - الرياضيات وحساب التفاضل والتكامل والجبر الخطي",
-    institution: "جامعة الملك عبد العزيز",
-    university: "جامعة الملك عبد العزيز",
-    teachingYear: "أستاذ مشارك - 12 سنة خبرة",
-    coursesCount: 2,
-    courses: [
-      { id: "cc9fc522-ea4b-43fe-9c54-8fb44cc47ae3", title: "التفاضل والتكامل 1", title_ar: "تفاضل وتكامل 1", code: "MTH1104", price: 0 },
-      { id: "9e94bbe7-0d53-4b5a-9a5b-82e0836aecc0", title: "Linear algebra 1", title_ar: "الجبر الخطي ١", code: "MTH1211", price: 150 },
-    ],
-    assignedCourses: ["تفاضل وتكامل 1", "الجبر الخطي ١"],
+    id: "ins-jowmahmoud6111",
+    name: "mahmoud jawrneh",
+    email: "jowmahmoud6111@gmail.com",
+    phone: "+966 790136322",
+    specialty: "مدرس معتمد - منصة جسوركم",
+    institution: "منصة جسوركم التعليمية",
+    university: "منصة جسوركم التعليمية",
+    teachingYear: "2026",
+    coursesCount: 0,
+    courses: [],
+    assignedCourses: [],
     commissionRate: 60,
   },
   {
-    id: "e01a6359-0eba-4c78-bc57-5a0d2e405e33",
-    name: "د. سارة عبد الله الغامدي",
-    email: "dr.sarah.ghamdi@josoorcom.com",
-    phone: "+966 55 987 6543",
-    specialty: "أستاذ مشارك - الكيمياء العامة والعضوية",
-    institution: "جامعة الملك سعود",
-    university: "جامعة الملك سعود",
-    teachingYear: "أستاذ مشارك - 10 سنوات خبرة",
-    coursesCount: 2,
-    courses: [
-      { id: "d1ff2d3c-f7d4-4590-84d2-ba80a452c2b4", title: "Organic Chemistry", title_ar: "الكيمياء العضوية", code: "CHM 2302", price: 199 },
-      { id: "2d131493-700a-49c9-b0ca-f9807390e70c", title: "General Chemistry", title_ar: "الكيمياء العامة CHM1101", code: "CHM1101", price: 199 },
-    ],
-    assignedCourses: ["الكيمياء العضوية", "الكيمياء العامة CHM1101"],
-    commissionRate: 65,
-  },
-  {
-    id: "ce6f6b77-15cd-4353-a31d-6a412026bfb7",
-    name: "د. فهد صالح القحطاني",
-    email: "dr.fahad.qahtani@josoorcom.com",
-    phone: "+966 54 321 0987",
-    specialty: "أستاذ مساعد - فيزياء الطب النووي والتصوير الإشعاعي",
-    institution: "جامعة أم القرى",
-    university: "جامعة أم القرى",
-    teachingYear: "أستاذ مساعد - 8 سنوات خبرة",
-    coursesCount: 1,
-    courses: [
-      { id: "7388e8a3-2580-427b-82aa-55f0d22a53e3", title: "Nuclear Medicine Physics", title_ar: "فيزياء الطب النووي", code: "PHYM5301", price: 199 },
-    ],
-    assignedCourses: ["فيزياء الطب النووي"],
+    id: "ins-jawrnehmahmoud",
+    name: "mahmoud jawrneh",
+    email: "jawrnehmahmoud@gmail.com",
+    phone: "+966 0796830150",
+    specialty: "مدرس معتمد - منصة جسوركم",
+    institution: "منصة جسوركم التعليمية",
+    university: "منصة جسوركم التعليمية",
+    teachingYear: "2026",
+    coursesCount: 0,
+    courses: [],
+    assignedCourses: [],
     commissionRate: 60,
   },
   {
-    id: "3b7f309c-a4db-4fec-84f2-8a0876ba6dd3",
-    name: "د. عبد الله تركي السهلي",
-    email: "dr.abdullah.sahli@josoorcom.com",
-    phone: "+966 56 456 7890",
-    specialty: "أستاذ مشارك - الفيزياء العامة والفيزياء الكلاسيكية",
-    institution: "جامعة القصيم",
-    university: "جامعة القصيم",
-    teachingYear: "أستاذ مشارك - 14 سنة خبرة",
-    coursesCount: 1,
-    courses: [
-      { id: "91895198-2cab-4ce3-b7f1-93d4034a44f6", title: "General Physics 1", title_ar: "الفيزياء العامة 1", code: "PHYS1101", price: 150 },
-    ],
-    assignedCourses: ["الفيزياء العامة 1"],
+    id: "ins-mohammad-saleh",
+    name: "mohammad Saleh",
+    email: "jawarnehmohammad2022@gmail.com",
+    phone: "+962 0796465729",
+    specialty: "مدرس معتمد - منصة جسوركم",
+    institution: "منصة جسوركم التعليمية",
+    university: "منصة جسوركم التعليمية",
+    teachingYear: "2026",
+    coursesCount: 0,
+    courses: [],
+    assignedCourses: [],
     commissionRate: 60,
   },
   {
-    id: "e610daa7-c0d2-46c2-8839-6f323609ce7c_inst",
-    name: "د. محمد إبراهيم العمري",
-    email: "dr.mohammed.omari@josoorcom.com",
-    phone: "+966 53 789 0123",
-    specialty: "أستاذ الفيزياء الحاسوبية ونمذجة ماتلاب",
-    institution: "جامعة الإمام محمد بن سعود الإسلامية",
-    university: "جامعة الإمام محمد بن سعود الإسلامية",
-    teachingYear: "أستاذ - 15 سنة خبرة",
-    coursesCount: 1,
-    courses: [
-      { id: "e610daa7-c0d2-46c2-8839-6f323609ce7c", title: "MATLAP PHYSICS", title_ar: "ماتلاب الفيزياء", code: "PHY-MAT", price: 1 },
-    ],
-    assignedCourses: ["ماتلاب الفيزياء"],
+    id: "ins-alhamedemad",
+    name: "عماد الحامد",
+    email: "alhamedemad618@gmail.com",
+    phone: "+212 718881266",
+    specialty: "مدرس معتمد - منصة جسوركم",
+    institution: "منصة جسوركم التعليمية",
+    university: "منصة جسوركم التعليمية",
+    teachingYear: "2026",
+    coursesCount: 0,
+    courses: [],
+    assignedCourses: [],
+    commissionRate: 60,
+  },
+  {
+    id: "ins-tutorbuilder",
+    name: "صهيب الجوارنه",
+    email: "tutorbuilder86@gmail.com",
+    phone: "+966 772598874",
+    specialty: "مدرس معتمد - منصة جسوركم",
+    institution: "منصة جسوركم التعليمية",
+    university: "منصة جسوركم التعليمية",
+    teachingYear: "2026",
+    coursesCount: 0,
+    courses: [],
+    assignedCourses: [],
+    commissionRate: 60,
+  },
+  {
+    id: "ins-mohammed-rawashdeh",
+    name: "mohammad alrawashdeh",
+    email: "mohammadjust1@gmail.com",
+    phone: "+962 792855606",
+    specialty: "مدرس معتمد - منصة جسوركم",
+    institution: "منصة جسوركم التعليمية",
+    university: "منصة جسوركم التعليمية",
+    teachingYear: "2026",
+    coursesCount: 0,
+    courses: [],
+    assignedCourses: [],
+    commissionRate: 60,
+  },
+  {
+    id: "ins-mohdjawarnehpower",
+    name: "محمد احمد جوارنه",
+    email: "mohdjawarnehpower@gmail.com",
+    phone: "+962 792088817",
+    specialty: "مدرس معتمد - منصة جسوركم",
+    institution: "منصة جسوركم التعليمية",
+    university: "منصة جسوركم التعليمية",
+    teachingYear: "2026",
+    coursesCount: 0,
+    courses: [],
+    assignedCourses: [],
+    commissionRate: 60,
+  },
+  {
+    id: "ins-die-fuhrer",
+    name: "حسين محمد حسين المومني",
+    email: "die.fuhrer989@gmail.com",
+    phone: "+962 790827989",
+    specialty: "مدرس معتمد - منصة جسوركم",
+    institution: "منصة جسوركم التعليمية",
+    university: "منصة جسوركم التعليمية",
+    teachingYear: "2026",
+    coursesCount: 0,
+    courses: [],
+    assignedCourses: [],
+    commissionRate: 60,
+  },
+  {
+    id: "ins-doaaoadeh",
+    name: "دعاء عزمي احمد عوده",
+    email: "doaaoadeh@yahoo.com",
+    phone: "+962 786214572",
+    specialty: "معلمة معتمدة - منصة جسوركم",
+    institution: "منصة جسوركم التعليمية",
+    university: "منصة جسوركم التعليمية",
+    teachingYear: "2026",
+    coursesCount: 0,
+    courses: [],
+    assignedCourses: [],
+    commissionRate: 60,
+  },
+  {
+    id: "ins-a1ahmed",
+    name: "Ahmed athamena",
+    email: "a1ahmed87137@gmail.com",
+    phone: "+963 985804507",
+    specialty: "مدرس معتمد - منصة جسوركم",
+    institution: "منصة جسوركم التعليمية",
+    university: "منصة جسوركم التعليمية",
+    teachingYear: "2026",
+    coursesCount: 0,
+    courses: [],
+    assignedCourses: [],
+    commissionRate: 60,
+  },
+  {
+    id: "ins-alshlool-muntaser",
+    name: "Muntaser Maser Alshlool",
+    email: "alshlool.muntaser@yahoo.com",
+    phone: "+966 544624711",
+    specialty: "مدرس معتمد - منصة جسوركم",
+    institution: "منصة جسوركم التعليمية",
+    university: "منصة جسوركم التعليمية",
+    teachingYear: "2026",
+    coursesCount: 0,
+    courses: [],
+    assignedCourses: [],
     commissionRate: 60,
   },
 ];
@@ -618,7 +690,7 @@ export async function fetchPlatformFullContext(): Promise<LivePlatformContext> {
       supabase.from("custom_course_requests").select("id", { count: "exact", head: true }),
       supabase.from("video_access_logs").select("id", { count: "exact", head: true }),
       getCustomKnowledge(),
-      supabase.from("profiles").select("id, full_name, full_name_ar, email, phone, specialty, institution_name, teaching_year, teaching_experience_details, academic_degree, avatar_url, created_at").catch?.(() => ({ data: [] })),
+      supabase.from("profiles").select("id, full_name, full_name_ar, email, phone, specialty, institution_name, teaching_year, teaching_experience_details, academic_degree, avatar_url, created_at, user_roles!user_roles_user_id_profiles_fkey(role)").catch?.(() => ({ data: [] })),
       supabase.from("user_roles").select("user_id, role").catch?.(() => ({ data: [] })),
       supabase.from("payments").select("id, amount, status, payment_method, created_at").catch?.(() => ({ data: [] })),
       supabase.from("withdrawal_requests").select("id, instructor_id, amount, status, bank_name, created_at").catch?.(() => ({ data: [] })),
@@ -755,16 +827,24 @@ export async function fetchPlatformFullContext(): Promise<LivePlatformContext> {
       }
     }
 
-    // Initialize with verified base roster
+    // Initialize with verified base roster containing the 11 real registered teachers
     const liveInstructorsMap = new Map<string, InstructorInfo>();
     for (const ins of BASE_INSTRUCTORS_ROSTER) {
-      liveInstructorsMap.set(ins.id, { ...ins, courses: [...ins.courses] });
+      liveInstructorsMap.set(ins.email.toLowerCase(), { ...ins, courses: [...ins.courses] });
     }
 
     // Enrich or register instructors found in profiles or platform_settings
     for (const prof of rawProfiles) {
+      const hasInstructorRole =
+        (prof.user_roles && Array.isArray(prof.user_roles) && prof.user_roles.some((r: any) => r.role === "instructor")) ||
+        instructorRoleSet.has(prof.id);
+
+      const emailKey = prof.email?.toLowerCase();
+      const existing = (emailKey ? liveInstructorsMap.get(emailKey) : null) || liveInstructorsMap.get(prof.id);
+
       const isTeacher =
-        instructorRoleSet.has(prof.id) ||
+        hasInstructorRole ||
+        existing != null ||
         courseInstructorIds.has(prof.id) ||
         prof.teaching_experience_details != null ||
         teacherSettingsMap[prof.id] != null;
@@ -778,22 +858,21 @@ export async function fetchPlatformFullContext(): Promise<LivePlatformContext> {
         const settingDetails = teacherSettingsMap[prof.id] || {};
         const bankInfo = expDetails?.bank_details || settingDetails?.bank_details || {};
 
-        const existing = liveInstructorsMap.get(prof.id);
         const name = prof.full_name_ar || prof.full_name || existing?.name || "معلم معتمد";
         const email = prof.email || existing?.email || "غير متوفر";
         const phone = prof.phone || existing?.phone || "غير متوفر";
-        const specialty = prof.specialty || prof.academic_degree || existing?.specialty || "تخصص أكاديمي معتمد";
-        const institution = prof.institution_name || existing?.institution || "جامعة معتمدة";
+        const specialty = prof.specialty || prof.academic_degree || existing?.specialty || "مدرس معتمد - منصة جسوركم";
+        const institution = prof.institution_name || existing?.institution || "منصة جسوركم التعليمية";
 
-        liveInstructorsMap.set(prof.id, {
-          id: prof.id,
+        const updatedInstructor: InstructorInfo = {
+          id: prof.id || existing?.id || `ins_${Math.random().toString(36).slice(2)}`,
           name,
           email,
           phone,
           specialty,
           institution,
           university: institution,
-          teachingYear: prof.teaching_year || existing?.teachingYear || "كادر معتمد",
+          teachingYear: prof.teaching_year || existing?.teachingYear || "2026",
           coursesCount: assignedCourses.length || existing?.coursesCount || 0,
           courses: assignedCourses.length > 0 ? assignedCourses : (existing?.courses || []),
           assignedCourses: (assignedCourses.length > 0 ? assignedCourses : (existing?.courses || [])).map((c: any) => c.title_ar || c.title),
@@ -803,7 +882,13 @@ export async function fetchPlatformFullContext(): Promise<LivePlatformContext> {
           accountNumber: bankInfo?.account_number,
           accountHolderName: bankInfo?.account_holder_name,
           onboardingStage: expDetails?.onboarding_stage || "active",
-        });
+        };
+
+        // If matched by emailKey, replace email key with real ID key to avoid duplicates
+        if (emailKey && emailKey !== updatedInstructor.id) {
+          liveInstructorsMap.delete(emailKey);
+        }
+        liveInstructorsMap.set(updatedInstructor.id, updatedInstructor);
       }
     }
 
@@ -1242,7 +1327,7 @@ ${faqsManifest}
 [[ACTION:trigger_emergency_alert:{"title":"توقف مؤقت في بوابة الدفع AlinmaPay","description":"رصدت المنظومة تأخراً في استجابة بوابة الدفع AlinmaPay للمشتركين الجدد وجارٍ فحص السجلات","severity":"critical","affected_services":["alinma_gateway","checkout"]}]]
 
 تعليمات حاسمة للرد:
-1. عند سؤالك عن عدد المعلمين، اذكر بكل ثقة ودقة أن المنصة تضم (${instructorsCount}) معلمين معتمدين مسجلين في النظام، واذكر تفاصيل تخصصاتهم ومقرراتهم وجامعاتهم من القائمة أعلاه. إياك ثم إياك أن تقول إن عدد المعلمين صفر! المنصة تضم هيئة تدريسية جامعية معتمدة كاملة.
+1. عند سؤالك عن عدد المعلمين، اذكر بكل ثقة ودقة أن المنصة تضم (${instructorsCount}) معلماً معتمداً مسجلين في النظام، واذكر أسماءهم وتفاصيلهم من السجل أعلاه (مثل: محمود جوارنه، محمد صالح، عماد الحامد، صهيب الجوارنه، محمد الرواشدة، محمد أحمد جوارنه، حسين المومني، دعاء عزمي عوده، أحمد عثامنة، منتصر الشلول...). إياك أن تذكر أن عدد المعلمين صفر أو أن تختلق أي أسماء وهمية أخرى غير الموجودة في السجل أعلاه!
 2. لديك إحاطة شاملة بالمقررات والدروس وتوصيفات الفيديوهات والمحاضرات أعلاه، وعند سؤالك عن أي درس أو مقرر أجب بالتفصيل الأكاديمي الدقيق.
 3. في حال رصد أي مشكلة أو طلب تفعيل الطوارئ، بادر باقتراح وتنفيذ إجراء [[ACTION:trigger_emergency_alert:...]].
 4. قدم تحليلك أو استشارتك التنفيذية أولاً بأسلوب مؤسسي رفيع يبرز الحسابات والأسماء والأرقام الدقيقة، وعند اتخاذ أو طلب إجراء، قم بتضمين وسم [[ACTION:...]] المنضبط بدون أي أخطاء في الـ JSON.`;
