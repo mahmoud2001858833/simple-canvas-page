@@ -49,7 +49,7 @@ export const BuildYourBundle = () => {
   const { data: courses = [], isLoading: isLoadingCourses } = useQuery({
     queryKey: ["all-available-courses-for-custom-bundle"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: coursesData, error } = await supabase
         .from("courses")
         .select(`
           id,
@@ -60,16 +60,56 @@ export const BuildYourBundle = () => {
           thumbnail_url,
           instructor_id,
           instructor_commission,
-          level,
-          colleges:college_id (id, name, name_ar),
-          majors:major_id (id, name, name_ar),
-          profiles:instructor_id (id, full_name, full_name_ar)
+          major_id,
+          is_active,
+          is_approved,
+          approval_status,
+          majors (
+            id,
+            name,
+            name_ar,
+            colleges (
+              id,
+              name,
+              name_ar
+            )
+          )
         `)
-        .eq("status", "approved")
         .order("title_ar", { ascending: true });
 
-      if (error) throw error;
-      return (data as any[]) || [];
+      if (error) {
+        console.error("Error fetching courses for custom bundle:", error);
+        throw error;
+      }
+
+      // Fetch instructor profiles separately
+      const instructorIds = Array.from(
+        new Set((coursesData || []).map((c: any) => c.instructor_id).filter(Boolean) as string[])
+      );
+
+      let instructorMap: Record<string, { full_name?: string; full_name_ar?: string }> = {};
+      if (instructorIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, full_name, full_name_ar")
+          .in("id", instructorIds);
+
+        (profiles || []).forEach((p: any) => {
+          instructorMap[p.id] = { full_name: p.full_name, full_name_ar: p.full_name_ar };
+        });
+      }
+
+      return (coursesData || []).map((c: any) => {
+        const major = c.majors as any;
+        const college = major?.colleges;
+        const instructor = c.instructor_id ? instructorMap[c.instructor_id] : null;
+        return {
+          ...c,
+          colleges: college || null,
+          majors: major || null,
+          profiles: instructor || { full_name: "معلم معتمد", full_name_ar: "معلم معتمد" },
+        };
+      });
     },
   });
 

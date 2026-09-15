@@ -5,7 +5,8 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import {
   Package, Plus, Search, Edit3, Trash2, CheckCircle2, XCircle, 
   Settings, ShoppingBag, Sparkles, AlertCircle, Percent, DollarSign,
-  BookOpen, Eye, ArrowUpDown, Layers, RefreshCw, Check, Info, Users
+  BookOpen, Eye, ArrowUpDown, Layers, RefreshCw, Check, Info, Users,
+  X, CheckSquare, Square, ChevronRight
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ export const BundlesManagement = () => {
   const [search, setSearch] = useState("");
   const [filterActive, setFilterActive] = useState<"all" | "active" | "inactive">("all");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isCoursePickerOpen, setIsCoursePickerOpen] = useState(false);
   const [editingBundle, setEditingBundle] = useState<CourseBundle | null>(null);
   const [deletingBundleId, setDeletingBundleId] = useState<string | null>(null);
 
@@ -63,17 +65,40 @@ export const BundlesManagement = () => {
     queryFn: getAllBundles,
   });
 
-  // 2. Fetch Available Courses for Bundle Selector
-  const { data: allCourses = [] } = useQuery({
+  // 2. Fetch All Available Courses on the Platform with instructors
+  const { data: allCourses = [], isLoading: isLoadingCourses } = useQuery({
     queryKey: ["admin-all-courses-for-bundles"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: coursesData, error } = await supabase
         .from("courses")
-        .select("id, title, title_ar, price, original_price, thumbnail_url, instructor_id, instructor_commission, status")
+        .select("id, title, title_ar, price, original_price, thumbnail_url, instructor_id, instructor_commission, is_active, is_approved, category, subject_code, subject_name")
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
-      return data || [];
+      if (error) {
+        console.error("Error fetching courses for bundles:", error);
+        throw error;
+      }
+
+      const instructorIds = Array.from(
+        new Set((coursesData || []).map((c: any) => c.instructor_id).filter(Boolean) as string[])
+      );
+
+      let instructorMap: Record<string, string> = {};
+      if (instructorIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, full_name, full_name_ar")
+          .in("id", instructorIds);
+
+        (profiles || []).forEach((p: any) => {
+          instructorMap[p.id] = p.full_name_ar || p.full_name || "معلم معتمد";
+        });
+      }
+
+      return (coursesData || []).map((c: any) => ({
+        ...c,
+        instructor_name: c.instructor_id ? (instructorMap[c.instructor_id] || "معلم معتمد") : "معلم معتمد",
+      }));
     },
   });
 
@@ -272,13 +297,34 @@ export const BundlesManagement = () => {
     const q = courseSearch.toLowerCase();
     return allCourses.filter(c =>
       (c.title_ar && c.title_ar.toLowerCase().includes(q)) ||
-      (c.title && c.title.toLowerCase().includes(q))
+      (c.title && c.title.toLowerCase().includes(q)) ||
+      (c.subject_code && c.subject_code.toLowerCase().includes(q)) ||
+      (c.instructor_name && c.instructor_name.toLowerCase().includes(q))
     );
   }, [allCourses, courseSearch]);
 
   const totalBundleSales = useMemo(() => {
     return purchases.reduce((sum, p: any) => sum + (Number(p.amount_paid) || 0), 0);
   }, [purchases]);
+
+  // Toggle single course selection
+  const toggleCourse = (courseId: string) => {
+    if (selectedCourseIds.includes(courseId)) {
+      setSelectedCourseIds(selectedCourseIds.filter(id => id !== courseId));
+    } else {
+      setSelectedCourseIds([...selectedCourseIds, courseId]);
+    }
+  };
+
+  // Select all / Deselect all
+  const selectAllCourses = () => {
+    const allIds = filteredCoursesForModal.map(c => c.id);
+    setSelectedCourseIds(Array.from(new Set([...selectedCourseIds, ...allIds])));
+  };
+
+  const deselectAllCourses = () => {
+    setSelectedCourseIds([]);
+  };
 
   return (
     <div className="space-y-6" dir={dir}>
@@ -313,7 +359,7 @@ export const BundlesManagement = () => {
 
           <Button
             onClick={openCreateDialog}
-            className="gap-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white shadow-md"
+            className="gap-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white shadow-md font-bold"
           >
             <Plus className="w-4 h-4" />
             {isRTL ? "إنشاء بكج جديد" : "Create New Bundle"}
@@ -896,93 +942,106 @@ export const BundlesManagement = () => {
               </div>
             </div>
 
-            {/* Course Multi-Selector */}
-            <div className="space-y-2">
+            {/* Course Selector Interactive Box */}
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <Label className="text-sm font-semibold flex items-center gap-1.5">
-                  <BookOpen className="w-4 h-4 text-primary" />
-                  {isRTL ? "المقررات المشمولة في الباقة *" : "Select Bundled Courses *"}
-                  <Badge variant="secondary" className="ms-2">
-                    {selectedCourseIds.length} {isRTL ? "محددة" : "selected"}
-                  </Badge>
+                  <BookOpen className="w-4 h-4 text-amber-600" />
+                  {isRTL ? "المقررات المشمولة في الباقة *" : "Courses included in the bundle *"}
                 </Label>
 
-                {selectedCourseIds.length > 0 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSelectedCourseIds([])}
-                    className="text-xs h-7 text-destructive"
-                  >
-                    {isRTL ? "إلغاء التحديد" : "Clear selection"}
-                  </Button>
-                )}
+                <Badge variant={selectedCourseIds.length > 0 ? "default" : "secondary"} className={selectedCourseIds.length > 0 ? "bg-amber-600 text-white font-bold" : ""}>
+                  {selectedCourseIds.length} {isRTL ? "مقررات محددة" : "selected"}
+                </Badge>
               </div>
 
-              <div className="relative">
-                <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder={isRTL ? "ابحث عن مادة لإضافتها للباقة..." : "Search courses to add..."}
-                  value={courseSearch}
-                  onChange={(e) => setCourseSearch(e.target.value)}
-                  className="ps-9 rounded-xl text-xs h-9"
-                />
-              </div>
-
-              <div className="border rounded-xl p-2 max-h-56 overflow-y-auto space-y-1.5 bg-muted/20">
-                {filteredCoursesForModal.length === 0 ? (
-                  <div className="py-6 text-center text-xs text-muted-foreground">
-                    {isRTL ? "لا توجد نتائج مطابقة" : "No matching courses"}
+              {/* Clickable Card to open the full courses picker */}
+              <div
+                onClick={() => setIsCoursePickerOpen(true)}
+                className="p-4 rounded-2xl border-2 border-dashed border-amber-500/40 bg-amber-500/5 hover:bg-amber-500/10 hover:border-amber-500/70 transition-all cursor-pointer flex flex-col sm:flex-row items-center justify-between gap-4 group"
+              >
+                <div className="flex items-center gap-3 text-center sm:text-start">
+                  <div className="w-12 h-12 rounded-xl bg-amber-500/20 text-amber-700 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <BookOpen className="w-6 h-6" />
                   </div>
-                ) : (
-                  filteredCoursesForModal.map((course) => {
-                    const isSelected = selectedCourseIds.includes(course.id);
+                  <div>
+                    <h4 className="font-bold text-sm text-foreground group-hover:text-amber-700 transition-colors">
+                      {isRTL ? "اضغط هنا لاختيار المقررات من بين كافة دورات المنصة" : "Click here to select courses from all platform courses"}
+                    </h4>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {isRTL
+                        ? `متاح ${allCourses.length} دورة مسجلة على المنصة • تم اختيار ${selectedCourseIds.length} دورة حتى الآن`
+                        : `${allCourses.length} courses available • ${selectedCourseIds.length} selected`}
+                    </p>
+                  </div>
+                </div>
 
-                    return (
-                      <div
-                        key={course.id}
-                        onClick={() => {
-                          if (isSelected) {
-                            setSelectedCourseIds(selectedCourseIds.filter(id => id !== course.id));
-                          } else {
-                            setSelectedCourseIds([...selectedCourseIds, course.id]);
-                          }
-                        }}
-                        className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer transition-all ${
-                          isSelected
-                            ? "bg-amber-500/10 border-amber-500/40 text-foreground"
-                            : "bg-background border-border/60 hover:bg-muted/50"
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${
-                            isSelected
-                              ? "bg-amber-600 border-amber-600 text-white"
-                              : "border-muted-foreground/40"
-                          }`}>
-                            {isSelected && <Check className="w-3.5 h-3.5" />}
-                          </div>
-                          <div>
-                            <p className="text-xs font-semibold">
-                              {isRTL ? course.title_ar : course.title}
+                <Button
+                  type="button"
+                  size="sm"
+                  className="bg-amber-600 hover:bg-amber-700 text-white font-bold gap-2 shrink-0 shadow"
+                >
+                  <Plus className="w-4 h-4" />
+                  {isRTL ? "تصفح واختيار المقررات" : "Browse & Select Courses"}
+                </Button>
+              </div>
+
+              {/* Selected Courses Chips / Tags */}
+              {selectedCourseIds.length > 0 ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+                    <span>{isRTL ? "المواد المحددة حالياً:" : "Selected courses list:"}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSelectedCourseIds([])}
+                      className="h-6 text-[11px] text-destructive hover:bg-destructive/10 px-2"
+                    >
+                      {isRTL ? "إلغاء تحديد الكل" : "Clear all"}
+                    </Button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-1">
+                    {allCourses
+                      .filter(c => selectedCourseIds.includes(c.id))
+                      .map(c => (
+                        <div
+                          key={c.id}
+                          className="flex items-center justify-between p-2 rounded-xl border bg-card shadow-sm text-xs"
+                        >
+                          <div className="truncate me-2">
+                            <p className="font-bold text-foreground truncate" title={c.title_ar || c.title}>
+                              {isRTL ? c.title_ar : c.title}
                             </p>
                             <p className="text-[10px] text-muted-foreground">
-                              {course.price ? `${course.price} ر.س` : "مجاني"}
+                              {c.instructor_name} • {c.price ? `${c.price} ر.س` : "مجاني"}
                             </p>
                           </div>
-                        </div>
 
-                        {isSelected && (
-                          <Badge variant="outline" className="text-[10px] bg-amber-500/20 text-amber-700 border-amber-300">
-                            {isRTL ? "ضمن الباقة" : "Included"}
-                          </Badge>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-              </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleCourse(c.id);
+                            }}
+                            className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0 rounded-full"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-4 text-xs text-muted-foreground border rounded-xl bg-muted/20">
+                  {isRTL
+                    ? "لم تختر أي مقررات بعد. انقر على الزر أعلاه لعرض وتحديد دورات المنصة."
+                    : "No courses selected yet. Click above to view and choose from all platform courses."}
+                </div>
+              )}
             </div>
 
             {/* Pricing Section with Dynamic Calculator */}
@@ -1078,6 +1137,164 @@ export const BundlesManagement = () => {
               {editingBundle ? (isRTL ? "حفظ التعديلات" : "Save Changes") : (isRTL ? "إنشاء الباقة" : "Create Bundle")}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* DEDICATED FULL COURSE PICKER MODAL */}
+      <Dialog open={isCoursePickerOpen} onOpenChange={setIsCoursePickerOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-6" dir={dir}>
+          <DialogHeader className="border-b pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle className="text-xl font-bold flex items-center gap-2">
+                  <BookOpen className="w-5 h-5 text-amber-600" />
+                  {isRTL ? "اختيار المقررات المشمولة في الباقة" : "Select Courses for Bundle"}
+                </DialogTitle>
+                <DialogDescription className="mt-1">
+                  {isRTL
+                    ? `تصفح وحدد من بين كافة الدورات المتاحة على المنصة (إجمالي ${allCourses.length} دورة).`
+                    : `Browse and select from all available courses on the platform (total ${allCourses.length} courses).`}
+                </DialogDescription>
+              </div>
+
+              <Badge className="bg-amber-600 text-white font-bold text-sm px-3 py-1">
+                {selectedCourseIds.length} {isRTL ? "محددة" : "selected"}
+              </Badge>
+            </div>
+          </DialogHeader>
+
+          {/* Search and Bulk Select Tools */}
+          <div className="py-3 flex flex-col sm:flex-row items-center justify-between gap-3 border-b">
+            <div className="relative w-full sm:w-80">
+              <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder={isRTL ? "ابحث باسم المادة، الرمز، أو المعلم..." : "Search course, code, or teacher..."}
+                value={courseSearch}
+                onChange={(e) => setCourseSearch(e.target.value)}
+                className="ps-9 rounded-xl text-xs h-9"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={selectAllCourses}
+                className="text-xs h-8 gap-1.5"
+              >
+                <CheckSquare className="w-3.5 h-3.5 text-amber-600" />
+                {isRTL ? "تحديد كل المعروض" : "Select All Visible"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={deselectAllCourses}
+                className="text-xs h-8 gap-1.5 text-destructive hover:bg-destructive/10"
+              >
+                <Square className="w-3.5 h-3.5" />
+                {isRTL ? "إلغاء التحديد" : "Deselect All"}
+              </Button>
+            </div>
+          </div>
+
+          {/* Courses Grid View */}
+          <div className="flex-1 overflow-y-auto py-4">
+            {isLoadingCourses ? (
+              <div className="py-16 text-center text-muted-foreground">
+                <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-primary" />
+                {isRTL ? "جاري جلب دورات المنصة..." : "Loading courses..."}
+              </div>
+            ) : filteredCoursesForModal.length === 0 ? (
+              <div className="py-16 text-center text-muted-foreground">
+                <BookOpen className="w-10 h-10 opacity-30 mx-auto mb-2" />
+                <p className="text-sm font-medium">{isRTL ? "لا توجد دورات مطابقة للبحث" : "No courses match your search"}</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {filteredCoursesForModal.map((course) => {
+                  const isSelected = selectedCourseIds.includes(course.id);
+
+                  return (
+                    <div
+                      key={course.id}
+                      onClick={() => toggleCourse(course.id)}
+                      className={`flex items-start justify-between p-3.5 rounded-2xl border-2 cursor-pointer transition-all ${
+                        isSelected
+                          ? "bg-amber-500/10 border-amber-500 shadow-md ring-2 ring-amber-500/20"
+                          : "bg-card border-border/60 hover:border-amber-500/40 hover:bg-muted/30"
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div
+                          className={`w-6 h-6 rounded-lg flex items-center justify-center border mt-0.5 shrink-0 transition-colors ${
+                            isSelected
+                              ? "bg-amber-600 border-amber-600 text-white shadow"
+                              : "border-muted-foreground/30 bg-background"
+                          }`}
+                        >
+                          {isSelected && <Check className="w-4 h-4" />}
+                        </div>
+
+                        <div className="space-y-1">
+                          <h4 className="font-bold text-sm text-foreground line-clamp-1">
+                            {isRTL ? course.title_ar : course.title}
+                          </h4>
+                          {course.title && course.title !== course.title_ar && (
+                            <p className="text-xs text-muted-foreground line-clamp-1">
+                              {course.title}
+                            </p>
+                          )}
+                          <div className="flex items-center gap-2 text-[11px] text-muted-foreground pt-1">
+                            <span>👨‍🏫 {course.instructor_name}</span>
+                            {course.subject_code && (
+                              <>
+                                <span>•</span>
+                                <Badge variant="outline" className="text-[10px] py-0 px-1 font-mono">
+                                  {course.subject_code}
+                                </Badge>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-end shrink-0 ms-3">
+                        <span className="font-black text-sm text-amber-600 block">
+                          {course.price ? `${course.price} ر.س` : "مجاني"}
+                        </span>
+                        {isSelected && (
+                          <span className="text-[10px] font-bold text-emerald-600 block mt-1">
+                            {isRTL ? "✓ مضافة" : "Selected"}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Modal Sticky Footer */}
+          <div className="border-t pt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="text-xs text-muted-foreground">
+              {isRTL ? "تم اختيار:" : "Selected:"}{" "}
+              <strong className="text-foreground font-bold">{selectedCourseIds.length} دورة</strong>{" "}
+              {isRTL ? "بقيمة إجمالية:" : "with total:"}{" "}
+              <strong className="text-amber-600 font-bold">{calculatedOriginalPrice} ر.س</strong>
+            </div>
+
+            <Button
+              type="button"
+              onClick={() => setIsCoursePickerOpen(false)}
+              className="w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white font-bold px-6"
+            >
+              <Check className="w-4 h-4 me-1.5" />
+              {isRTL ? "تأكيد الاختيار وحفظ المواد" : "Confirm & Apply Selection"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
