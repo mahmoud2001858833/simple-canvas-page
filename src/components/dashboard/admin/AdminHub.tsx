@@ -43,6 +43,7 @@ import {
   HelpCircle,
   BrainCircuit,
   Headphones,
+  Package,
 } from 'lucide-react';
 
 interface AdminHubProps {
@@ -190,6 +191,14 @@ export const AdminHub = ({ onNavigate }: AdminHubProps) => {
       icon: CheckCircle2,
       badge: alerts?.approvals ? `${alerts.approvals} بانتظار الاعتماد` : undefined,
       highlight: alerts?.approvals ? true : false,
+    },
+    {
+      id: 'bundles',
+      title: isRTL ? 'إدارة البكجات والحزم الدراسية' : 'Course Bundles & Packages',
+      description: isRTL ? 'تجميع المقررات في باقات مخفضة وتحديد الأسعار وضبط قواعد باقات الطلاب المخصصة.' : 'Create curated course bundles, set special bundle prices and custom bundle discount rules.',
+      category: 'academic',
+      icon: Package,
+      highlight: true,
     },
     {
       id: 'requests',

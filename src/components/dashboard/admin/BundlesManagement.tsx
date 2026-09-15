@@ -1,0 +1,1114 @@
+import { useState, useEffect, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useLanguage } from "@/contexts/LanguageContext";
+import {
+  Package, Plus, Search, Edit3, Trash2, CheckCircle2, XCircle, 
+  Settings, ShoppingBag, Sparkles, AlertCircle, Percent, DollarSign,
+  BookOpen, Eye, ArrowUpDown, Layers, RefreshCw, Check, Info, Users
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { toast } from "sonner";
+import {
+  CourseBundle,
+  CustomBundleSettings,
+  DEFAULT_BUNDLE_SETTINGS,
+  getAllBundles,
+  createCourseBundle,
+  updateCourseBundle,
+  deleteCourseBundle,
+  getCustomBundleSettings,
+  saveCustomBundleSettings,
+} from "@/services/bundleService";
+
+export const BundlesManagement = () => {
+  const { dir } = useLanguage();
+  const isRTL = dir === "rtl";
+  const queryClient = useQueryClient();
+
+  const [search, setSearch] = useState("");
+  const [filterActive, setFilterActive] = useState<"all" | "active" | "inactive">("all");
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingBundle, setEditingBundle] = useState<CourseBundle | null>(null);
+  const [deletingBundleId, setDeletingBundleId] = useState<string | null>(null);
+
+  // Form State for Create / Edit
+  const [formTitle, setFormTitle] = useState("");
+  const [formTitleAr, setFormTitleAr] = useState("");
+  const [formDesc, setFormDesc] = useState("");
+  const [formDescAr, setFormDescAr] = useState("");
+  const [formPrice, setFormPrice] = useState<number>(0);
+  const [formThumbnail, setFormThumbnail] = useState("");
+  const [formIsActive, setFormIsActive] = useState(true);
+  const [formValidDays, setFormValidDays] = useState<number>(0);
+  const [selectedCourseIds, setSelectedCourseIds] = useState<string[]>([]);
+  const [courseSearch, setCourseSearch] = useState("");
+
+  // Custom Bundle Settings State
+  const [customSettings, setCustomSettings] = useState<CustomBundleSettings>(DEFAULT_BUNDLE_SETTINGS);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
+
+  // 1. Fetch Bundles
+  const { data: bundles = [], isLoading: isLoadingBundles, refetch: refetchBundles } = useQuery({
+    queryKey: ["admin-course-bundles"],
+    queryFn: getAllBundles,
+  });
+
+  // 2. Fetch Available Courses for Bundle Selector
+  const { data: allCourses = [] } = useQuery({
+    queryKey: ["admin-all-courses-for-bundles"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("courses")
+        .select("id, title, title_ar, price, original_price, thumbnail_url, instructor_id, instructor_commission, status")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // 3. Fetch Custom Bundle Settings
+  const { data: loadedSettings } = useQuery({
+    queryKey: ["platform-custom-bundle-settings"],
+    queryFn: getCustomBundleSettings,
+  });
+
+  useEffect(() => {
+    if (loadedSettings) {
+      setCustomSettings(loadedSettings);
+    }
+  }, [loadedSettings]);
+
+  // 4. Fetch Bundle Purchases for analytics
+  const { data: purchases = [], isLoading: isLoadingPurchases } = useQuery({
+    queryKey: ["admin-bundle-purchases"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("bundle_purchases")
+        .select(`
+          id,
+          bundle_id,
+          user_id,
+          amount_paid,
+          status,
+          purchased_at,
+          profiles:user_id (id, full_name, full_name_ar, email),
+          course_bundles:bundle_id (title, title_ar)
+        `)
+        .order("purchased_at", { ascending: false });
+
+      if (error) throw error;
+      return (data as any[]) || [];
+    },
+  });
+
+  // Reset form when modal opens
+  const openCreateDialog = () => {
+    setEditingBundle(null);
+    setFormTitle("");
+    setFormTitleAr("");
+    setFormDesc("");
+    setFormDescAr("");
+    setFormPrice(0);
+    setFormThumbnail("");
+    setFormIsActive(true);
+    setFormValidDays(0);
+    setSelectedCourseIds([]);
+    setCourseSearch("");
+    setIsCreateOpen(true);
+  };
+
+  // Open edit modal
+  const openEditDialog = (bundle: CourseBundle) => {
+    setEditingBundle(bundle);
+    setFormTitle(bundle.title || "");
+    setFormTitleAr(bundle.title_ar || "");
+    setFormDesc(bundle.description || "");
+    setFormDescAr(bundle.description_ar || "");
+    setFormPrice(bundle.price || 0);
+    setFormThumbnail(bundle.thumbnail_url || "");
+    setFormIsActive(bundle.is_active);
+    setFormValidDays(bundle.valid_days || 0);
+    setSelectedCourseIds(bundle.courses?.map(c => c.id) || []);
+    setCourseSearch("");
+    setIsCreateOpen(true);
+  };
+
+  // Calculate sum of selected courses original price
+  const calculatedOriginalPrice = useMemo(() => {
+    const selected = allCourses.filter(c => selectedCourseIds.includes(c.id));
+    return selected.reduce((sum, c) => sum + (Number(c.price) || 0), 0);
+  }, [allCourses, selectedCourseIds]);
+
+  // Calculate discount percentage
+  const calculatedDiscountPct = useMemo(() => {
+    if (calculatedOriginalPrice <= 0 || formPrice <= 0) return 0;
+    const diff = calculatedOriginalPrice - formPrice;
+    if (diff <= 0) return 0;
+    return Math.round((diff / calculatedOriginalPrice) * 100);
+  }, [calculatedOriginalPrice, formPrice]);
+
+  // Create / Update mutation
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      if (!formTitleAr.trim() && !formTitle.trim()) {
+        throw new Error(isRTL ? "يرجى كتابة عنوان الباقة" : "Please enter bundle title");
+      }
+      if (selectedCourseIds.length === 0) {
+        throw new Error(isRTL ? "يرجى اختيار مادة واحدة على الأقل" : "Please select at least one course");
+      }
+      if (formPrice < 0) {
+        throw new Error(isRTL ? "سعر الباقة غير صحيح" : "Invalid bundle price");
+      }
+
+      const payload = {
+        title: formTitle.trim() || formTitleAr.trim(),
+        title_ar: formTitleAr.trim() || formTitle.trim(),
+        description: formDesc.trim() || undefined,
+        description_ar: formDescAr.trim() || undefined,
+        price: formPrice,
+        original_price: calculatedOriginalPrice,
+        discount_percentage: calculatedDiscountPct,
+        thumbnail_url: formThumbnail.trim() || undefined,
+        is_active: formIsActive,
+        valid_days: formValidDays > 0 ? formValidDays : undefined,
+        course_ids: selectedCourseIds,
+      };
+
+      if (editingBundle) {
+        await updateCourseBundle(editingBundle.id, payload);
+      } else {
+        await createCourseBundle(payload);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-course-bundles"] });
+      queryClient.invalidateQueries({ queryKey: ["active-course-bundles"] });
+      setIsCreateOpen(false);
+      toast.success(
+        editingBundle
+          ? (isRTL ? "تم تحديث الباقة بنجاح" : "Bundle updated successfully")
+          : (isRTL ? "تم إنشاء الباقة بنجاح" : "Bundle created successfully")
+      );
+    },
+    onError: (err: any) => {
+      toast.error(err.message || (isRTL ? "حدث خطأ أثناء الحفظ" : "Error saving bundle"));
+    },
+  });
+
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await deleteCourseBundle(id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-course-bundles"] });
+      queryClient.invalidateQueries({ queryKey: ["active-course-bundles"] });
+      setDeletingBundleId(null);
+      toast.success(isRTL ? "تم حذف الباقة بنجاح" : "Bundle deleted successfully");
+    },
+    onError: (err: any) => {
+      toast.error(err.message || (isRTL ? "فشل حذف الباقة" : "Failed to delete bundle"));
+    },
+  });
+
+  // Toggle active status
+  const handleToggleActive = async (bundle: CourseBundle) => {
+    try {
+      await updateCourseBundle(bundle.id, { is_active: !bundle.is_active });
+      queryClient.invalidateQueries({ queryKey: ["admin-course-bundles"] });
+      toast.success(
+        !bundle.is_active
+          ? (isRTL ? "تم تفعيل الباقة بنجاح" : "Bundle activated")
+          : (isRTL ? "تم تعطيل الباقة" : "Bundle deactivated")
+      );
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  // Save custom bundle settings
+  const handleSaveSettings = async () => {
+    setIsSavingSettings(true);
+    try {
+      await saveCustomBundleSettings(customSettings);
+      queryClient.invalidateQueries({ queryKey: ["platform-custom-bundle-settings"] });
+      toast.success(isRTL ? "تم حفظ إعدادات البكجات بنجاح" : "Bundle settings saved successfully");
+    } catch (e: any) {
+      toast.error(e.message || (isRTL ? "فشل حفظ الإعدادات" : "Failed to save settings"));
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
+  // Filtered bundles list
+  const filteredBundles = useMemo(() => {
+    return bundles.filter(b => {
+      const matchesSearch =
+        (b.title_ar && b.title_ar.toLowerCase().includes(search.toLowerCase())) ||
+        (b.title && b.title.toLowerCase().includes(search.toLowerCase())) ||
+        (b.description_ar && b.description_ar.toLowerCase().includes(search.toLowerCase()));
+
+      if (!matchesSearch) return false;
+      if (filterActive === "active") return b.is_active;
+      if (filterActive === "inactive") return !b.is_active;
+      return true;
+    });
+  }, [bundles, search, filterActive]);
+
+  // Filtered courses for selector in modal
+  const filteredCoursesForModal = useMemo(() => {
+    if (!courseSearch.trim()) return allCourses;
+    const q = courseSearch.toLowerCase();
+    return allCourses.filter(c =>
+      (c.title_ar && c.title_ar.toLowerCase().includes(q)) ||
+      (c.title && c.title.toLowerCase().includes(q))
+    );
+  }, [allCourses, courseSearch]);
+
+  const totalBundleSales = useMemo(() => {
+    return purchases.reduce((sum, p: any) => sum + (Number(p.amount_paid) || 0), 0);
+  }, [purchases]);
+
+  return (
+    <div className="space-y-6" dir={dir}>
+      {/* Top Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-card border rounded-2xl p-6 shadow-sm">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600">
+            <Package className="w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">
+              {isRTL ? "إدارة البكجات والحزم الدراسية" : "Course Bundles & Packages"}
+            </h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {isRTL
+                ? "إنشاء باقات مخفضة للمقررات، تحديد الأسعار، وضبط قواعد بكج الطالب المخصص"
+                : "Create discounted bundles, manage package pricing, and configure student custom bundle rules"}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Button
+            onClick={() => refetchBundles()}
+            variant="outline"
+            size="sm"
+            className="gap-2"
+          >
+            <RefreshCw className="w-4 h-4" />
+            {isRTL ? "تحديث" : "Refresh"}
+          </Button>
+
+          <Button
+            onClick={openCreateDialog}
+            className="gap-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white shadow-md"
+          >
+            <Plus className="w-4 h-4" />
+            {isRTL ? "إنشاء بكج جديد" : "Create New Bundle"}
+          </Button>
+        </div>
+      </div>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="border shadow-sm">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground font-medium uppercase">
+                {isRTL ? "إجمالي البكجات" : "Total Bundles"}
+              </p>
+              <h3 className="text-2xl font-bold mt-1">{bundles.length}</h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                {bundles.filter(b => b.is_active).length} {isRTL ? "باقة نشطة ومعروضة" : "active bundles"}
+              </p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+              <Layers className="w-5 h-5" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border shadow-sm">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground font-medium uppercase">
+                {isRTL ? "مبيعات البكجات" : "Bundle Purchases"}
+              </p>
+              <h3 className="text-2xl font-bold mt-1">{purchases.length}</h3>
+              <p className="text-xs text-green-600 font-medium mt-1">
+                {isRTL ? "اشتراك مكتمل" : "completed purchases"}
+              </p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+              <ShoppingBag className="w-5 h-5" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border shadow-sm">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground font-medium uppercase">
+                {isRTL ? "إيرادات البكجات" : "Bundle Revenue"}
+              </p>
+              <h3 className="text-2xl font-bold mt-1 text-emerald-600">
+                {totalBundleSales.toLocaleString()} <span className="text-xs font-normal">ر.س</span>
+              </h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                {isRTL ? "موزعة محاسبياً على المواد" : "prorated across courses"}
+              </p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
+              <DollarSign className="w-5 h-5" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border shadow-sm bg-gradient-to-br from-card to-amber-500/5">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground font-medium uppercase">
+                {isRTL ? "قاعدة أنشئ بكجك" : "Custom Bundle Rule"}
+              </p>
+              <h3 className="text-2xl font-bold mt-1 text-amber-600">
+                {customSettings.discount_percentage}%
+              </h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                {isRTL ? `عند اختيار ${customSettings.min_courses} مواد فأكثر` : `For ${customSettings.min_courses}+ courses`}
+              </p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
+              <Sparkles className="w-5 h-5" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Main Tabs */}
+      <Tabs defaultValue="bundles" className="space-y-6">
+        <TabsList className="bg-muted/60 p-1 rounded-xl">
+          <TabsTrigger value="bundles" className="gap-2 rounded-lg data-[state=active]:bg-background">
+            <Package className="w-4 h-4" />
+            {isRTL ? "قائمة البكجات" : "Bundles Catalog"}
+          </TabsTrigger>
+          <TabsTrigger value="custom-settings" className="gap-2 rounded-lg data-[state=active]:bg-background">
+            <Settings className="w-4 h-4" />
+            {isRTL ? "إعدادات بكج الطالب (أنشئ بكجك)" : "Custom Bundle Settings"}
+          </TabsTrigger>
+          <TabsTrigger value="purchases" className="gap-2 rounded-lg data-[state=active]:bg-background">
+            <ShoppingBag className="w-4 h-4" />
+            {isRTL ? "سجل المشتركين بالبكجات" : "Purchase History"}
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Tab 1: Bundles List & Cards */}
+        <TabsContent value="bundles" className="space-y-4">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="relative w-full sm:w-80">
+              <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder={isRTL ? "البحث في البكجات..." : "Search bundles..."}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="ps-9 rounded-xl"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Button
+                variant={filterActive === "all" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setFilterActive("all")}
+                className="rounded-lg text-xs"
+              >
+                {isRTL ? "الكل" : "All"} ({bundles.length})
+              </Button>
+              <Button
+                variant={filterActive === "active" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setFilterActive("active")}
+                className="rounded-lg text-xs"
+              >
+                {isRTL ? "النشطة فقط" : "Active Only"} ({bundles.filter(b => b.is_active).length})
+              </Button>
+              <Button
+                variant={filterActive === "inactive" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setFilterActive("inactive")}
+                className="rounded-lg text-xs"
+              >
+                {isRTL ? "المعطلة" : "Inactive"} ({bundles.filter(b => !b.is_active).length})
+              </Button>
+            </div>
+          </div>
+
+          {isLoadingBundles ? (
+            <div className="py-16 text-center text-muted-foreground">
+              <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-primary" />
+              {isRTL ? "جاري تحميل البكجات..." : "Loading bundles..."}
+            </div>
+          ) : filteredBundles.length === 0 ? (
+            <Card className="border border-dashed p-12 text-center">
+              <Package className="w-12 h-12 text-muted-foreground/50 mx-auto mb-3" />
+              <h3 className="text-lg font-semibold text-foreground">
+                {isRTL ? "لا توجد بكجات حالياً" : "No bundles found"}
+              </h3>
+              <p className="text-sm text-muted-foreground max-w-sm mx-auto mt-1 mb-4">
+                {isRTL
+                  ? "ابدأ بإنشاء أول بكج مخفض للمقررات لتظهر للطلاب في الصفحة الرئيسية"
+                  : "Start creating your first discounted bundle to showcase to students on the homepage"}
+              </p>
+              <Button onClick={openCreateDialog} className="gap-2">
+                <Plus className="w-4 h-4" />
+                {isRTL ? "إنشاء أول بكج" : "Create First Bundle"}
+              </Button>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredBundles.map((bundle) => {
+                const coursesCount = bundle.courses?.length || 0;
+                const savingsAmount = Math.max(0, (bundle.original_price || 0) - bundle.price);
+
+                return (
+                  <Card key={bundle.id} className="overflow-hidden border hover:shadow-md transition-all flex flex-col justify-between">
+                    <div>
+                      {/* Bundle Thumbnail Header */}
+                      <div className="relative h-44 w-full bg-slate-900 overflow-hidden">
+                        {bundle.thumbnail_url ? (
+                          <img
+                            src={bundle.thumbnail_url}
+                            alt={bundle.title_ar}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-amber-950 text-white p-4">
+                            <Package className="w-12 h-12 text-amber-400 mb-2 opacity-80" />
+                            <span className="text-xs font-semibold uppercase tracking-wider text-amber-200/80">
+                              باقة مقررات دراسية
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Top Badges */}
+                        <div className="absolute top-3 start-3 flex items-center gap-2">
+                          <Badge className="bg-amber-500 hover:bg-amber-600 text-white font-bold border-none shadow">
+                            {bundle.discount_percentage ? `خصم ${bundle.discount_percentage}%` : "عرض خاص"}
+                          </Badge>
+                          {savingsAmount > 0 && (
+                            <Badge variant="secondary" className="bg-black/60 backdrop-blur-md text-white border-white/10 text-xs">
+                              {isRTL ? `توفير ${savingsAmount} ر.س` : `Save ${savingsAmount} SAR`}
+                            </Badge>
+                          )}
+                        </div>
+
+                        <div className="absolute top-3 end-3">
+                          <Badge
+                            variant={bundle.is_active ? "default" : "outline"}
+                            className={bundle.is_active ? "bg-emerald-600 text-white border-none shadow" : "bg-black/60 text-white"}
+                          >
+                            {bundle.is_active ? (isRTL ? "نشطة" : "Active") : (isRTL ? "معطلة" : "Inactive")}
+                          </Badge>
+                        </div>
+
+                        {/* Courses count overlay */}
+                        <div className="absolute bottom-3 start-3 end-3 flex items-center justify-between text-xs text-white/90 bg-black/50 backdrop-blur-md py-1.5 px-3 rounded-lg border border-white/10">
+                          <span className="flex items-center gap-1.5 font-medium">
+                            <BookOpen className="w-3.5 h-3.5 text-amber-400" />
+                            {coursesCount} {isRTL ? "مقررات دراسية" : "courses"}
+                          </span>
+                          <span className="flex items-center gap-1 font-medium">
+                            <ShoppingBag className="w-3.5 h-3.5 text-emerald-400" />
+                            {bundle.purchases_count || 0} {isRTL ? "مشترك" : "sales"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Content */}
+                      <CardContent className="p-5 space-y-4">
+                        <div>
+                          <h3 className="font-bold text-lg text-foreground line-clamp-1">
+                            {isRTL ? bundle.title_ar : bundle.title}
+                          </h3>
+                          {bundle.description_ar && (
+                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                              {isRTL ? bundle.description_ar : bundle.description}
+                            </p>
+                          )}
+                        </div>
+
+                        {/* Courses preview pills */}
+                        <div className="space-y-1.5">
+                          <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                            {isRTL ? "المقررات المشمولة في الباقة:" : "Included Courses:"}
+                          </p>
+                          <div className="space-y-1 max-h-24 overflow-y-auto pr-1">
+                            {bundle.courses?.map((c) => (
+                              <div
+                                key={c.id}
+                                className="flex items-center justify-between text-xs bg-muted/40 hover:bg-muted/70 px-2.5 py-1.5 rounded-lg transition-colors"
+                              >
+                                <span className="font-medium truncate max-w-[200px]" title={c.title_ar || c.title}>
+                                  {isRTL ? c.title_ar : c.title}
+                                </span>
+                                <span className="text-muted-foreground text-[11px] whitespace-nowrap">
+                                  {c.price ? `${c.price} ر.س` : "مجاني"}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Price Display */}
+                        <div className="pt-2 border-t flex items-baseline justify-between">
+                          <div>
+                            <span className="text-xs text-muted-foreground block">
+                              {isRTL ? "سعر الباقة الشامل:" : "Bundle Price:"}
+                            </span>
+                            <div className="flex items-baseline gap-2 mt-0.5">
+                              <span className="text-2xl font-black text-amber-600">
+                                {bundle.price} <span className="text-xs font-semibold">ر.س</span>
+                              </span>
+                              {bundle.original_price && bundle.original_price > bundle.price && (
+                                <span className="text-xs text-muted-foreground line-through">
+                                  {bundle.original_price} ر.س
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs text-muted-foreground">
+                              {bundle.is_active ? (isRTL ? "مفعلة" : "Active") : (isRTL ? "معطلة" : "Inactive")}
+                            </span>
+                            <Switch
+                              checked={bundle.is_active}
+                              onCheckedChange={() => handleToggleActive(bundle)}
+                            />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </div>
+
+                    {/* Actions Footer */}
+                    <div className="p-4 pt-0 border-t bg-muted/10 flex items-center justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => openEditDialog(bundle)}
+                        className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                        {isRTL ? "تعديل" : "Edit"}
+                      </Button>
+
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setDeletingBundleId(bundle.id)}
+                        className="gap-1.5 text-xs text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        {isRTL ? "حذف" : "Delete"}
+                      </Button>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* Tab 2: Custom Student Bundle Rules */}
+        <TabsContent value="custom-settings" className="space-y-6">
+          <Card className="border shadow-sm max-w-3xl">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <CardTitle className="text-lg">
+                    {isRTL ? "إعدادات باقات الطلاب المخصصة (أنشئ بكجك)" : "Student Custom Bundle Settings"}
+                  </CardTitle>
+                  <CardDescription>
+                    {isRTL
+                      ? "التحكم في الشروط والخصومات التي يحصل عليها الطالب عندما يختار مواده بنفسه في لوحة الطالب"
+                      : "Configure the minimum courses and discount rate students receive when building their own custom bundle"}
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+
+            <CardContent className="space-y-6">
+              {/* Enable / Disable */}
+              <div className="flex items-center justify-between p-4 rounded-xl border bg-muted/20">
+                <div className="space-y-0.5">
+                  <Label className="text-base font-semibold">
+                    {isRTL ? "تفعيل ميزة أنشئ بكجك للطلاب" : "Enable 'Build Your Own Bundle'"}
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    {isRTL
+                      ? "إظهار تبويب أنشئ بكجك في لوحة تحكم الطالب وتمكين الخصم التلقائي"
+                      : "Show the build bundle tab in the student dashboard and allow instant package discounts"}
+                  </p>
+                </div>
+                <Switch
+                  checked={customSettings.is_enabled}
+                  onCheckedChange={(val) => setCustomSettings({ ...customSettings, is_enabled: val })}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Min Courses */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold">
+                    {isRTL ? "الحد الأدنى لعدد المواد لتفعيل الخصم" : "Minimum Courses to Trigger Discount"}
+                  </Label>
+                  <div className="relative">
+                    <BookOpen className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      type="number"
+                      min={2}
+                      max={15}
+                      value={customSettings.min_courses}
+                      onChange={(e) => setCustomSettings({ ...customSettings, min_courses: Math.max(2, parseInt(e.target.value) || 2) })}
+                      className="ps-9 rounded-xl font-bold"
+                    />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    {isRTL
+                      ? "الموصى به: 4 مواد (يحصل الطالب على الخصم فور تحديد هذا العدد أو أكثر)"
+                      : "Default: 4 courses (discount activates when student picks this many or more)"}
+                  </p>
+                </div>
+
+                {/* Discount Percentage */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-semibold">
+                    {isRTL ? "نسبة الخصم المئوية لكل مادة" : "Discount Percentage Per Course"}
+                  </Label>
+                  <div className="relative">
+                    <Percent className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      type="number"
+                      min={5}
+                      max={80}
+                      value={customSettings.discount_percentage}
+                      onChange={(e) => setCustomSettings({ ...customSettings, discount_percentage: Math.max(1, parseInt(e.target.value) || 1) })}
+                      className="ps-9 rounded-xl font-bold"
+                    />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    {isRTL
+                      ? "الموصى به: 25% (يتم خصم 25% من سعر كل مادة مختارة)"
+                      : "Default: 25% (25% off each selected course price)"}
+                  </p>
+                </div>
+              </div>
+
+              {/* Simulation Preview */}
+              <div className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 space-y-3">
+                <div className="flex items-center gap-2 text-amber-700 font-semibold text-sm">
+                  <Info className="w-4 h-4" />
+                  {isRTL ? "معاينة تجربة الطالب الحالية:" : "Student Experience Simulation:"}
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  {isRTL
+                    ? `عندما يختار الطالب ${customSettings.min_courses} مواد أو أكثر بقيمة افتراضية (1000 ر.س)، سيتم تطبيق خصم ${customSettings.discount_percentage}% تلقائياً، ليصبح الإجمالي ${1000 * (1 - customSettings.discount_percentage / 100)} ر.س بتوفير قدره ${1000 * (customSettings.discount_percentage / 100)} ر.س. وسيتم قيد كل مادة في دفتر الحسابات بسعر مخفض، وتحسب عمولة المدرس بدقة.`
+                    : `When a student selects ${customSettings.min_courses}+ courses valued at 1000 SAR, a ${customSettings.discount_percentage}% discount is applied, resulting in a total of ${1000 * (1 - customSettings.discount_percentage / 100)} SAR (saving ${1000 * (customSettings.discount_percentage / 100)} SAR). Each course will be itemized in the ledger.`}
+                </p>
+              </div>
+
+              <Button
+                onClick={handleSaveSettings}
+                disabled={isSavingSettings}
+                className="w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white gap-2 font-semibold"
+              >
+                {isSavingSettings ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Check className="w-4 h-4" />
+                )}
+                {isRTL ? "حفظ الإعدادات" : "Save Settings"}
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Tab 3: Purchase History */}
+        <TabsContent value="purchases" className="space-y-4">
+          <Card className="border shadow-sm">
+            <CardHeader className="p-5 border-b">
+              <CardTitle className="text-base font-bold">
+                {isRTL ? "سجل مبيعات البكجات والاشتراكات" : "Bundle Purchases Log"}
+              </CardTitle>
+              <CardDescription>
+                {isRTL
+                  ? "جميع عمليات شراء البكجات (الجاهزة والمخصصة) والطلاب المستفيدين"
+                  : "All completed bundle purchases and enrolled students"}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              {isLoadingPurchases ? (
+                <div className="py-12 text-center text-muted-foreground">
+                  <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-primary" />
+                  {isRTL ? "جاري تحميل السجل..." : "Loading purchase records..."}
+                </div>
+              ) : purchases.length === 0 ? (
+                <div className="py-12 text-center text-muted-foreground">
+                  <ShoppingBag className="w-8 h-8 mx-auto mb-2 opacity-40" />
+                  <p className="text-sm">{isRTL ? "لم تتم أي عمليات شراء بكجات بعد" : "No bundle purchases recorded yet"}</p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{isRTL ? "التاريخ" : "Date"}</TableHead>
+                        <TableHead>{isRTL ? "الطالب" : "Student"}</TableHead>
+                        <TableHead>{isRTL ? "الباقة" : "Bundle"}</TableHead>
+                        <TableHead className="text-center">{isRTL ? "المبلغ المدفوع" : "Amount"}</TableHead>
+                        <TableHead className="text-center">{isRTL ? "الحالة" : "Status"}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {purchases.map((p: any) => {
+                        const studentName = p.profiles?.full_name_ar || p.profiles?.full_name || p.profiles?.email || "-";
+                        const bundleName = p.course_bundles ? (isRTL ? p.course_bundles.title_ar : p.course_bundles.title) : (isRTL ? "بكج مخصص" : "Custom Bundle");
+                        const dateStr = p.purchased_at ? new Date(p.purchased_at).toLocaleDateString(isRTL ? "ar-SA" : "en-US") : "-";
+
+                        return (
+                          <TableRow key={p.id}>
+                            <TableCell className="text-xs text-muted-foreground">{dateStr}</TableCell>
+                            <TableCell className="font-medium">
+                              <div>{studentName}</div>
+                              <div className="text-xs text-muted-foreground">{p.profiles?.email}</div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1.5 font-medium">
+                                <Package className="w-3.5 h-3.5 text-amber-500" />
+                                {bundleName}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center font-bold text-emerald-600">
+                              {p.amount_paid} ر.س
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                                {p.status === "completed" ? (isRTL ? "مكتمل" : "Completed") : p.status}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      {/* Modal: Create / Edit Bundle */}
+      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto" dir={dir}>
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <Package className="w-5 h-5 text-amber-600" />
+              {editingBundle
+                ? (isRTL ? "تعديل الباقة الدراسية" : "Edit Course Bundle")
+                : (isRTL ? "إنشاء باقة دراسية جديدة" : "Create New Course Bundle")}
+            </DialogTitle>
+            <DialogDescription>
+              {isRTL
+                ? "حدد المقررات المشمولة في الباقة وحدد السعر الإجمالي المخفض"
+                : "Select the bundled courses and set the discounted package price"}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-5 py-3">
+            {/* Title fields */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-sm font-semibold">
+                  {isRTL ? "عنوان الباقة (بالعربية) *" : "Bundle Title (Arabic) *"}
+                </Label>
+                <Input
+                  value={formTitleAr}
+                  onChange={(e) => setFormTitleAr(e.target.value)}
+                  placeholder={isRTL ? "مثال: باقة الهندسة الكهربائية الشاملة" : "Arabic title..."}
+                  className="rounded-xl"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-sm font-semibold">
+                  {isRTL ? "عنوان الباقة (بالإنجليزية)" : "Bundle Title (English)"}
+                </Label>
+                <Input
+                  value={formTitle}
+                  onChange={(e) => setFormTitle(e.target.value)}
+                  placeholder="e.g. Electrical Engineering Complete Bundle"
+                  className="rounded-xl"
+                />
+              </div>
+            </div>
+
+            {/* Description fields */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-sm font-semibold">
+                  {isRTL ? "وصف الباقة (بالعربية)" : "Description (Arabic)"}
+                </Label>
+                <Textarea
+                  value={formDescAr}
+                  onChange={(e) => setFormDescAr(e.target.value)}
+                  placeholder={isRTL ? "شرح للمقررات المشمولة في الباقة ومميزاتها..." : "Arabic description..."}
+                  rows={2}
+                  className="rounded-xl"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-sm font-semibold">
+                  {isRTL ? "وصف الباقة (بالإنجليزية)" : "Description (English)"}
+                </Label>
+                <Textarea
+                  value={formDesc}
+                  onChange={(e) => setFormDesc(e.target.value)}
+                  placeholder="English description..."
+                  rows={2}
+                  className="rounded-xl"
+                />
+              </div>
+            </div>
+
+            {/* Course Multi-Selector */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-semibold flex items-center gap-1.5">
+                  <BookOpen className="w-4 h-4 text-primary" />
+                  {isRTL ? "المقررات المشمولة في الباقة *" : "Select Bundled Courses *"}
+                  <Badge variant="secondary" className="ms-2">
+                    {selectedCourseIds.length} {isRTL ? "محددة" : "selected"}
+                  </Badge>
+                </Label>
+
+                {selectedCourseIds.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedCourseIds([])}
+                    className="text-xs h-7 text-destructive"
+                  >
+                    {isRTL ? "إلغاء التحديد" : "Clear selection"}
+                  </Button>
+                )}
+              </div>
+
+              <div className="relative">
+                <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder={isRTL ? "ابحث عن مادة لإضافتها للباقة..." : "Search courses to add..."}
+                  value={courseSearch}
+                  onChange={(e) => setCourseSearch(e.target.value)}
+                  className="ps-9 rounded-xl text-xs h-9"
+                />
+              </div>
+
+              <div className="border rounded-xl p-2 max-h-56 overflow-y-auto space-y-1.5 bg-muted/20">
+                {filteredCoursesForModal.length === 0 ? (
+                  <div className="py-6 text-center text-xs text-muted-foreground">
+                    {isRTL ? "لا توجد نتائج مطابقة" : "No matching courses"}
+                  </div>
+                ) : (
+                  filteredCoursesForModal.map((course) => {
+                    const isSelected = selectedCourseIds.includes(course.id);
+
+                    return (
+                      <div
+                        key={course.id}
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedCourseIds(selectedCourseIds.filter(id => id !== course.id));
+                          } else {
+                            setSelectedCourseIds([...selectedCourseIds, course.id]);
+                          }
+                        }}
+                        className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer transition-all ${
+                          isSelected
+                            ? "bg-amber-500/10 border-amber-500/40 text-foreground"
+                            : "bg-background border-border/60 hover:bg-muted/50"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${
+                            isSelected
+                              ? "bg-amber-600 border-amber-600 text-white"
+                              : "border-muted-foreground/40"
+                          }`}>
+                            {isSelected && <Check className="w-3.5 h-3.5" />}
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold">
+                              {isRTL ? course.title_ar : course.title}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {course.price ? `${course.price} ر.س` : "مجاني"}
+                            </p>
+                          </div>
+                        </div>
+
+                        {isSelected && (
+                          <Badge variant="outline" className="text-[10px] bg-amber-500/20 text-amber-700 border-amber-300">
+                            {isRTL ? "ضمن الباقة" : "Included"}
+                          </Badge>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Pricing Section with Dynamic Calculator */}
+            <div className="p-4 rounded-xl border bg-muted/30 space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-muted-foreground">
+                  {isRTL ? "إجمالي السعر الفردي للمواد المختارة:" : "Combined individual course prices:"}
+                </span>
+                <span className="font-bold text-sm">
+                  {calculatedOriginalPrice} ر.س
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-semibold">
+                    {isRTL ? "سعر الباقة النهائي (ر.س) *" : "Bundle Deal Price (SAR) *"}
+                  </Label>
+                  <div className="relative">
+                    <DollarSign className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      type="number"
+                      min={0}
+                      value={formPrice}
+                      onChange={(e) => setFormPrice(Math.max(0, parseFloat(e.target.value) || 0))}
+                      placeholder="0"
+                      className="ps-9 rounded-xl font-bold text-base"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col justify-center space-y-1 bg-background p-3 rounded-xl border">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">{isRTL ? "نسبة الخصم:" : "Discount:"}</span>
+                    <span className="font-bold text-amber-600">{calculatedDiscountPct}%</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">{isRTL ? "مقدار التوفير:" : "Savings:"}</span>
+                    <span className="font-bold text-emerald-600">
+                      {Math.max(0, calculatedOriginalPrice - formPrice)} ر.س
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Thumbnail URL & Active switch */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-sm font-semibold">
+                  {isRTL ? "رابط غلاف الباقة (اختياري)" : "Cover Image URL (optional)"}
+                </Label>
+                <Input
+                  value={formThumbnail}
+                  onChange={(e) => setFormThumbnail(e.target.value)}
+                  placeholder="https://..."
+                  className="rounded-xl"
+                />
+              </div>
+
+              <div className="flex items-center justify-between pt-6">
+                <div className="space-y-0.5">
+                  <Label className="text-sm font-semibold">
+                    {isRTL ? "تفعيل الباقة وظهورها" : "Bundle Active Status"}
+                  </Label>
+                  <p className="text-[11px] text-muted-foreground">
+                    {isRTL ? "تظهر في الصفحة الرئيسية وكشف البكجات" : "Visible on homepage and catalog"}
+                  </p>
+                </div>
+                <Switch
+                  checked={formIsActive}
+                  onCheckedChange={setFormIsActive}
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsCreateOpen(false)}
+            >
+              {isRTL ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => saveMutation.mutate()}
+              disabled={saveMutation.isPending}
+              className="bg-amber-600 hover:bg-amber-700 text-white gap-2 font-semibold"
+            >
+              {saveMutation.isPending && <RefreshCw className="w-4 h-4 animate-spin" />}
+              {editingBundle ? (isRTL ? "حفظ التعديلات" : "Save Changes") : (isRTL ? "إنشاء الباقة" : "Create Bundle")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deletingBundleId} onOpenChange={(open) => !open && setDeletingBundleId(null)}>
+        <DialogContent dir={dir} className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-destructive flex items-center gap-2">
+              <AlertCircle className="w-5 h-5" />
+              {isRTL ? "تأكيد حذف الباقة" : "Confirm Bundle Deletion"}
+            </DialogTitle>
+            <DialogDescription>
+              {isRTL
+                ? "هل أنت متأكد من حذف هذه الباقة؟ لن يؤثر الحذف على تسجيلات الطلاب السابقة الذين اشتروا الباقة."
+                : "Are you sure you want to delete this bundle? This will not affect existing student enrollments."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0 mt-4">
+            <Button variant="outline" onClick={() => setDeletingBundleId(null)}>
+              {isRTL ? "تراجع" : "Cancel"}
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => deletingBundleId && deleteMutation.mutate(deletingBundleId)}
+            >
+              {deleteMutation.isPending ? (isRTL ? "جاري الحذف..." : "Deleting...") : (isRTL ? "نعم، احذف الباقة" : "Delete")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};

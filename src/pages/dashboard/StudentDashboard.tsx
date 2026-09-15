@@ -20,10 +20,11 @@ const UserSettings = lazy(() => import('@/components/dashboard/UserSettings'));
 const GamificationWidget = lazy(() => import('@/components/dashboard/student/GamificationWidget').then(m => ({ default: m.GamificationWidget })));
 const StudyPlanner = lazy(() => import('@/components/dashboard/student/StudyPlanner').then(m => ({ default: m.StudyPlanner })));
 const MyAssignments = lazy(() => import('@/components/dashboard/student/MyAssignments').then(m => ({ default: m.MyAssignments })));
+const BuildYourBundle = lazy(() => import('@/components/dashboard/student/BuildYourBundle').then(m => ({ default: m.BuildYourBundle })));
 
-type TabType = 'overview' | 'courses' | 'assignments' | 'progress' | 'certificates' | 'payments' | 'request' | 'my-requests' | 'achievements' | 'planner' | 'settings';
+type TabType = 'overview' | 'courses' | 'build-bundle' | 'assignments' | 'progress' | 'certificates' | 'payments' | 'request' | 'my-requests' | 'achievements' | 'planner' | 'settings';
 
-const dashboardTabs: TabType[] = ['overview', 'courses', 'assignments', 'progress', 'certificates', 'payments', 'request', 'my-requests', 'achievements', 'planner', 'settings'];
+const dashboardTabs: TabType[] = ['overview', 'courses', 'build-bundle', 'assignments', 'progress', 'certificates', 'payments', 'request', 'my-requests', 'achievements', 'planner', 'settings'];
 
 // Loading skeleton for dashboard content
 const DashboardSkeleton = () => (
@@ -125,6 +126,8 @@ const StudentDashboard = () => {
         );
       case 'courses':
         return <MyCourses />;
+      case 'build-bundle':
+        return <BuildYourBundle />;
       case 'assignments':
         return <MyAssignments />;
       case 'progress':

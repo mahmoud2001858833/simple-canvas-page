@@ -32,6 +32,7 @@ export const AccountingLedger = () => {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [search, setSearch] = useState('');
+  const [transactionFilter, setTransactionFilter] = useState<'all' | 'regular' | 'bundle'>('all');
 
   const { data, isLoading } = useQuery({
     queryKey: ['accounting-ledger', dateFrom, dateTo],
@@ -216,6 +217,15 @@ export const AccountingLedger = () => {
       const instructorAmount = paymentEarnings.reduce((s, e) => s + Number(e.amount), 0);
       const platformAmount = p.status === 'paid' ? Number(p.amount) - instructorAmount : 0;
       const couponUsed = couponUsage.find(u => u.payment_id === p.id);
+      const plan = p.installment_plan as any;
+      const isBundle = Boolean(
+        plan?.is_bundle ||
+        p.notes?.includes('باقة') ||
+        p.notes?.includes('بكج') ||
+        p.notes?.includes('Bundle')
+      );
+      const bundleTitle = plan?.bundle_title || (p.notes?.includes('باقة:') ? p.notes.split('باقة:')[1]?.split('(')[0]?.trim() : (isRTL ? 'باقة دراسية' : 'Bundle'));
+      const originalCoursePrice = plan?.course_original_price || (isBundle ? course?.price : null);
 
       return {
         id: p.id,
@@ -233,18 +243,26 @@ export const AccountingLedger = () => {
         couponDiscount: couponUsed ? Number(couponUsed.discount_amount) : 0,
         transactionId: p.transaction_id,
         notes: p.notes,
+        isBundle,
+        bundleTitle,
+        originalCoursePrice,
       };
     });
 
-    // Search filter
-    const filteredLedger = search
-      ? ledger.filter(l =>
-          l.student.toLowerCase().includes(search.toLowerCase()) ||
-          l.course.toLowerCase().includes(search.toLowerCase()) ||
-          l.instructor.toLowerCase().includes(search.toLowerCase()) ||
-          l.transactionId?.toLowerCase().includes(search.toLowerCase())
-        )
-      : ledger;
+    // Search and bundle filter
+    const filteredLedger = ledger.filter(l => {
+      if (transactionFilter === 'bundle' && !l.isBundle) return false;
+      if (transactionFilter === 'regular' && l.isBundle) return false;
+      if (!search) return true;
+      const q = search.toLowerCase();
+      return (
+        l.student.toLowerCase().includes(q) ||
+        l.course.toLowerCase().includes(q) ||
+        l.instructor.toLowerCase().includes(q) ||
+        (l.bundleTitle && l.bundleTitle.toLowerCase().includes(q)) ||
+        l.transactionId?.toLowerCase().includes(q)
+      );
+    });
 
     // === MONEY FLOW SUMMARY ===
     const moneyFlow = {
@@ -275,7 +293,7 @@ export const AccountingLedger = () => {
         avgOrderValue: paidPayments.length > 0 ? totalMoneyIn / paidPayments.length : 0,
       },
     };
-  }, [data, dateFrom, dateTo, search, isRTL]);
+  }, [data, dateFrom, dateTo, search, transactionFilter, isRTL]);
 
   const fmt = (n: number) => new Intl.NumberFormat('ar-SA', { style: 'currency', currency: 'SAR', minimumFractionDigits: 0 }).format(n);
   const fmtDate = (d: string | null) => d ? format(new Date(d), 'dd/MM/yyyy HH:mm', { locale: isRTL ? arLocale : undefined }) : '-';
@@ -554,14 +572,42 @@ export const AccountingLedger = () => {
             <CardHeader>
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <CardTitle>{isRTL ? 'سجل المعاملات التفصيلي' : 'Detailed Transaction Ledger'}</CardTitle>
-                <div className="relative w-full md:w-72">
-                  <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    placeholder={isRTL ? 'بحث بالاسم أو الدورة...' : 'Search by name or course...'}
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    className="ps-10"
-                  />
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-lg text-xs">
+                    <Button
+                      variant={transactionFilter === 'all' ? 'secondary' : 'ghost'}
+                      size="sm"
+                      onClick={() => setTransactionFilter('all')}
+                      className="h-8 text-xs px-2.5"
+                    >
+                      {isRTL ? 'الكل' : 'All'}
+                    </Button>
+                    <Button
+                      variant={transactionFilter === 'regular' ? 'secondary' : 'ghost'}
+                      size="sm"
+                      onClick={() => setTransactionFilter('regular')}
+                      className="h-8 text-xs px-2.5"
+                    >
+                      {isRTL ? 'معاملات فردية' : 'Single Courses'}
+                    </Button>
+                    <Button
+                      variant={transactionFilter === 'bundle' ? 'secondary' : 'ghost'}
+                      size="sm"
+                      onClick={() => setTransactionFilter('bundle')}
+                      className="h-8 text-xs px-2.5 gap-1 text-amber-700 font-semibold"
+                    >
+                      📦 {isRTL ? 'مبيعات البكجات' : 'Bundles Only'}
+                    </Button>
+                  </div>
+                  <div className="relative w-full sm:w-64">
+                    <Search className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      placeholder={isRTL ? 'بحث بالاسم، الدورة، البكج...' : 'Search by name, course, bundle...'}
+                      value={search}
+                      onChange={e => setSearch(e.target.value)}
+                      className="ps-10 h-9"
+                    />
+                  </div>
                 </div>
               </div>
               <CardDescription>
@@ -592,9 +638,25 @@ export const AccountingLedger = () => {
                       <TableRow key={l.id}>
                         <TableCell className="text-xs">{fmtDate(l.date)}</TableCell>
                         <TableCell className="font-medium text-sm max-w-[120px] truncate">{l.student}</TableCell>
-                        <TableCell className="text-sm max-w-[120px] truncate">{l.course}</TableCell>
+                        <TableCell className="text-sm max-w-[180px]">
+                          <div className="font-medium truncate" title={l.course}>{l.course}</div>
+                          {l.isBundle && (
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <Badge variant="outline" className="bg-amber-500/10 text-amber-800 border-amber-300 text-[10px] px-1.5 py-0 font-bold">
+                                📦 {l.bundleTitle || (isRTL ? 'ضمن باقة' : 'In Bundle')}
+                              </Badge>
+                            </div>
+                          )}
+                        </TableCell>
                         <TableCell className="text-sm text-muted-foreground max-w-[100px] truncate">{l.instructor}</TableCell>
-                        <TableCell className="text-center font-semibold">{fmt(l.amount)}</TableCell>
+                        <TableCell className="text-center font-semibold">
+                          <div>{fmt(l.amount)}</div>
+                          {l.isBundle && l.originalCoursePrice && l.originalCoursePrice > l.amount && (
+                            <div className="text-[10px] text-muted-foreground line-through font-normal" title={isRTL ? 'السعر الأصلي' : 'Original price'}>
+                              {fmt(l.originalCoursePrice)}
+                            </div>
+                          )}
+                        </TableCell>
                         <TableCell className="text-center text-purple-600 text-sm">
                           {l.couponDiscount > 0 ? fmt(l.couponDiscount) : '-'}
                         </TableCell>

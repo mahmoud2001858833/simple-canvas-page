@@ -9,6 +9,7 @@ import IntroVideoSection from '@/components/landing/IntroVideoSection';
 import FeaturesSection from '@/components/landing/FeaturesSection';
 import UniversitiesSection from '@/components/landing/UniversitiesSection';
 import CoursesSection from '@/components/landing/CoursesSection';
+import { BundlesSection } from '@/components/landing/BundlesSection';
 import FAQSection from '@/components/landing/FAQSection';
 import CTASection from '@/components/landing/CTASection';
 import Footer from '@/components/landing/Footer';
@@ -73,6 +74,7 @@ const Index = () => {
         <section id="courses">
           <CoursesSection />
         </section>
+        <BundlesSection />
         <section id="features">
           <FeaturesSection />
         </section>

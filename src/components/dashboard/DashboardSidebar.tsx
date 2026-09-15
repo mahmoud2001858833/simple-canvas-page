@@ -50,6 +50,7 @@ import {
   RotateCcw,
   Bot,
   BrainCircuit,
+  Package,
 } from 'lucide-react';
 import { Inbox } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -107,6 +108,7 @@ export const DashboardSidebar = ({ activeTab, onTabChange, isOpen, onToggle, use
   const studentTabs = [
     { id: 'overview', label: { ar: 'نظرة عامة', en: 'Overview' }, icon: LayoutDashboard, onboardingId: null, showBadge: false, isAction: false },
     { id: 'courses', label: { ar: 'دوراتي', en: 'My Courses' }, icon: BookOpen, onboardingId: null, showBadge: false, isAction: false },
+    { id: 'build-bundle', label: { ar: 'أنشئ بكجك 🎁', en: 'Build Your Bundle' }, icon: Package, onboardingId: null, showBadge: false, isAction: false },
     { id: 'assignments', label: { ar: 'واجباتي', en: 'Assignments' }, icon: ClipboardList, onboardingId: null, showBadge: false, isAction: false },
     { id: 'progress', label: { ar: 'تقدمي', en: 'Progress' }, icon: TrendingUp, onboardingId: null, showBadge: false, isAction: false },
     { id: 'certificates', label: { ar: 'شهاداتي', en: 'Certificates' }, icon: Award, onboardingId: null, showBadge: false, isAction: false },
@@ -143,6 +145,7 @@ export const DashboardSidebar = ({ activeTab, onTabChange, isOpen, onToggle, use
     { id: 'student-detail', label: { ar: 'الطالب بالتفصيل', en: 'Student Detail' }, icon: StudentIcon, onboardingId: null, showBadge: false, isAction: false },
     { id: 'courses', label: { ar: 'الدورات', en: 'Courses' }, icon: BookOpen, onboardingId: null, showBadge: false, isAction: false },
     { id: 'course-approvals', label: { ar: 'موافقة على دورات المعلم', en: 'Course Approvals' }, icon: CheckCircle, onboardingId: null, showBadge: false, isAction: false },
+    { id: 'bundles', label: { ar: 'إدارة البكجات 📦', en: 'Bundles Management' }, icon: Package, onboardingId: null, showBadge: false, isAction: false },
     { id: 'universities', label: { ar: 'الجهات', en: 'Universities' }, icon: Building2, onboardingId: null, showBadge: false, isAction: false },
     { id: 'colleges', label: { ar: 'الكليات', en: 'Colleges' }, icon: School, onboardingId: null, showBadge: false, isAction: false },
     { id: 'majors', label: { ar: 'التخصصات', en: 'Majors' }, icon: GraduationCap, onboardingId: null, showBadge: false, isAction: false },

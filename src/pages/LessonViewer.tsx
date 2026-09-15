@@ -40,6 +40,7 @@ import {
   Eye,
   LogIn,
   UserPlus,
+  MessageSquare,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -53,6 +54,7 @@ import { LessonAttachments } from "@/components/course/LessonAttachments";
 import { LessonAIAssistant } from "@/components/video/LessonAIAssistant";
 import { VideoNotesPanel } from "@/components/video/VideoNotesPanel";
 import { CourseRatingDialog } from "@/components/course/CourseRatingDialog";
+import { CourseChat } from "@/components/course/CourseChat";
 import { trackXapi } from "@/lib/xapi";
 
 // Onboarding steps for Lesson Viewer page
@@ -121,6 +123,7 @@ const LessonViewer = () => {
   const [showRatingDialog, setShowRatingDialog] = useState(false);
   const [isAIOpen, setIsAIOpen] = useState(false);
   const [isNotesOpen, setIsNotesOpen] = useState(false);
+  const [isInstructorChatOpen, setIsInstructorChatOpen] = useState(false);
 
 
 
@@ -751,6 +754,19 @@ const LessonViewer = () => {
                 <Progress value={overallProgress} className="w-24 h-2" />
               </div>
 
+              {course?.instructor_id && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsInstructorChatOpen(true)}
+                  className="gap-1.5 border-amber-500/40 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 font-medium"
+                  title={isRTL ? "تواصل مع المعلم" : "Contact Instructor"}
+                >
+                  <MessageSquare className="h-4 w-4 text-amber-600" />
+                  <span className="hidden sm:inline">{isRTL ? "تواصل مع المعلم" : "Contact Instructor"}</span>
+                </Button>
+              )}
+
               {!lessonProgress?.completed && (
                 <Button
                   variant="outline"
@@ -1215,6 +1231,18 @@ const LessonViewer = () => {
               {completedLessons}/{lessons.length}{" "}
               {isRTL ? "درس مكتمل" : "completed"}
             </p>
+
+            {course?.instructor_id && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsInstructorChatOpen(true)}
+                className="w-full mt-3 gap-2 text-xs border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 justify-center h-8 font-medium"
+              >
+                <MessageSquare className="h-3.5 w-3.5 text-amber-600" />
+                {isRTL ? "مراسلة معلم المادة مباشرة" : "Chat with Instructor"}
+              </Button>
+            )}
           </div>
 
           <ScrollArea className="h-[calc(100vh-200px)]">
@@ -1366,6 +1394,17 @@ const LessonViewer = () => {
         onOpenChange={setShowRatingDialog}
         courseId={resolvedCourseId || courseId}
         isRTL={isRTL}
+      />
+    )}
+
+    {/* Direct In-Lesson Instructor Chat Dialog */}
+    {course?.id && course?.instructor_id && (
+      <CourseChat
+        open={isInstructorChatOpen}
+        onOpenChange={setIsInstructorChatOpen}
+        courseId={course.id}
+        instructorId={course.instructor_id}
+        courseName={isRTL ? (course.title_ar || course.title) : (course.title || course.title_ar)}
       />
     )}
     </>
