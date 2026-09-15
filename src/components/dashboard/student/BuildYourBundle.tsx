@@ -7,20 +7,20 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   Package, Sparkles, Check, Search, BookOpen, AlertCircle,
   ShoppingBag, ShieldCheck, CheckCircle2, ArrowRight, ArrowLeft,
-  DollarSign, Percent, Loader2, Filter, School, GraduationCap
+  DollarSign, Percent, Loader2, Filter, School, GraduationCap,
+  Calendar, CreditCard, Coins
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
   getCustomBundleSettings,
-  processBundleCheckout,
   DEFAULT_BUNDLE_SETTINGS,
 } from "@/services/bundleService";
+import { BundleCheckoutModal } from "@/components/bundle/BundleCheckoutModal";
 
 export const BuildYourBundle = () => {
   const { dir } = useLanguage();
@@ -32,9 +32,7 @@ export const BuildYourBundle = () => {
   const [search, setSearch] = useState("");
   const [selectedCourseIds, setSelectedCourseIds] = useState<string[]>([]);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [purchaseComplete, setPurchaseComplete] = useState(false);
-  const [unlockedCourses, setUnlockedCourses] = useState<any[]>([]);
+
 
   // 1. Fetch custom bundle settings from platform_settings
   const { data: bundleSettings = DEFAULT_BUNDLE_SETTINGS } = useQuery({
@@ -187,56 +185,7 @@ export const BuildYourBundle = () => {
     }
   };
 
-  // Handle Checkout Execution
-  const handleExecutePurchase = async () => {
-    if (!user) {
-      toast.error(isRTL ? "يرجى تسجيل الدخول أولاً" : "Please log in first");
-      return;
-    }
-    if (selectedCourses.length === 0) return;
 
-    setIsProcessing(true);
-    try {
-      const coursesPayload = selectedCourses.map((c: any) => ({
-        id: c.id,
-        title: c.title,
-        title_ar: c.title_ar,
-        price: c.price,
-        instructor_id: c.instructor_id,
-        instructor_commission: c.instructor_commission,
-      }));
-
-      const res = await processBundleCheckout({
-        userId: user.id,
-        userEmail: user.email,
-        bundleTitle: `Custom Student Bundle (${selectedCourses.length} Courses)`,
-        bundleTitleAr: `بكج طالب مخصص (${selectedCourses.length} مواد)`,
-        totalPrice: finalTotal,
-        originalPrice: originalTotal,
-        discountPercentage: isDiscountQualified ? discountRate : 0,
-        courses: coursesPayload,
-        paymentMethod: "online",
-        isCustomBundle: true,
-      });
-
-      if (res.success) {
-        setUnlockedCourses(coursesPayload);
-        setPurchaseComplete(true);
-        queryClient.invalidateQueries({ queryKey: ["my-courses"] });
-        queryClient.invalidateQueries({ queryKey: ["user-enrolled-courses"] });
-        queryClient.invalidateQueries({ queryKey: ["enrollments"] });
-        toast.success(
-          isRTL
-            ? `مبروك! تم تفعيل الـ ${selectedCourses.length} مواد بنجاح!`
-            : `Congratulations! ${selectedCourses.length} courses unlocked!`
-        );
-      }
-    } catch (e: any) {
-      toast.error(e.message || (isRTL ? "فشل إتمام الشراء" : "Purchase failed"));
-    } finally {
-      setIsProcessing(false);
-    }
-  };
 
   return (
     <div className="space-y-8" dir={dir}>
@@ -525,6 +474,19 @@ export const BuildYourBundle = () => {
                   </div>
                 )}
 
+                {/* Installment Hint Badge */}
+                {selectedCount > 0 && (
+                  <div className="flex items-center justify-between text-xs text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800/60 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center gap-1.5 font-medium">
+                      <Calendar className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                      <span>{isRTL ? "متاح تقسيط شهري:" : "Monthly installment:"}</span>
+                    </div>
+                    <span className="font-bold text-amber-600">
+                      {Math.ceil(finalTotal / 3)} {isRTL ? "ر.س / شهر" : "SAR/mo"}
+                    </span>
+                  </div>
+                )}
+
                 <div className="pt-2 border-t flex items-baseline justify-between">
                   <span className="font-bold text-sm text-foreground">
                     {isRTL ? "المبلغ المطلوب سداده:" : "Total to Pay:"}
@@ -546,11 +508,11 @@ export const BuildYourBundle = () => {
               <Button
                 onClick={() => setIsConfirmOpen(true)}
                 disabled={selectedCount === 0}
-                className="w-full h-12 rounded-xl font-bold bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white shadow-lg gap-2"
+                className="w-full h-12 rounded-xl font-bold bg-gradient-to-r from-slate-900 via-slate-800 to-slate-950 hover:from-slate-800 hover:to-slate-900 text-white shadow-lg gap-2"
               >
-                <ShoppingBag className="w-4 h-4" />
+                <ShoppingBag className="w-4 h-4 text-amber-400" />
                 {isDiscountQualified
-                  ? (isRTL ? `إتمام شراء البكج وتفعيل الـ ${selectedCount} مواد` : `Buy Bundle & Unlock ${selectedCount} Courses`)
+                  ? (isRTL ? `إتمام شراء البكج (دفع كلي أو تقسيط)` : `Checkout Bundle (Full or Installments)`)
                   : (isRTL ? `شراء الـ ${selectedCount} مواد الآن` : `Buy ${selectedCount} Courses Now`)}
               </Button>
             </CardContent>
@@ -558,158 +520,36 @@ export const BuildYourBundle = () => {
         </div>
       </div>
 
-      {/* Confirmation & Checkout Dialog */}
-      <Dialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
-        <DialogContent className="max-w-lg" dir={dir}>
-          {purchaseComplete ? (
-            <div className="py-6 text-center space-y-5">
-              <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-600 flex items-center justify-center mx-auto animate-bounce">
-                <Check className="w-8 h-8" />
-              </div>
-
-              <div>
-                <h3 className="text-2xl font-black text-foreground">
-                  {isRTL ? "تم تفعيل بكجك بنجاح! 🎉" : "Your Bundle is Live! 🎉"}
-                </h3>
-                <p className="text-sm text-muted-foreground mt-1 max-w-sm mx-auto">
-                  {isRTL
-                    ? `تم قيد جميع المواد الـ ${selectedCourses.length} بحسابك وسدادها بأسعار البكج المخفضة، وفتح جميع الدروس فوراً.`
-                    : `All ${selectedCourses.length} courses are now fully active and unlocked in your account.`}
-                </p>
-              </div>
-
-              <div className="bg-muted/30 p-4 rounded-2xl border text-start space-y-2">
-                <p className="text-xs font-bold text-muted-foreground uppercase">
-                  {isRTL ? "المقررات المفعلة:" : "Unlocked Courses:"}
-                </p>
-                <div className="space-y-1 max-h-36 overflow-y-auto">
-                  {unlockedCourses.map(c => (
-                    <div key={c.id} className="flex items-center gap-2 text-xs font-medium text-foreground">
-                      <Check className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>{isRTL ? c.title_ar : c.title}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <DialogFooter className="gap-2 sm:gap-0 justify-center">
-                <Button
-                  onClick={() => {
-                    setIsConfirmOpen(false);
-                    navigate("/dashboard?tab=courses");
-                  }}
-                  className="w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white font-bold px-8 h-11"
-                >
-                  {isRTL ? "الانتقال لدوراتي والبدء بالدراسة 🚀" : "Go to My Courses 🚀"}
-                </Button>
-              </DialogFooter>
-            </div>
-          ) : (
-            <div className="space-y-5">
-              <DialogHeader>
-                <DialogTitle className="text-xl font-bold flex items-center gap-2">
-                  <Package className="w-5 h-5 text-amber-600" />
-                  {isRTL ? "تأكيد شراء البكج المخصص" : "Confirm Custom Bundle Purchase"}
-                </DialogTitle>
-                <DialogDescription>
-                  {isRTL
-                    ? `أنت على وشك شراء باقة مخصصة تضم ${selectedCourses.length} مواد دراسية.`
-                    : `You are about to purchase a custom package of ${selectedCourses.length} courses.`}
-                </DialogDescription>
-              </DialogHeader>
-
-              {/* Items List */}
-              <div className="border rounded-2xl p-4 bg-muted/20 space-y-3">
-                <div className="flex items-center justify-between text-xs font-bold text-muted-foreground uppercase">
-                  <span>{isRTL ? "المواد المختارة:" : "Selected Courses:"}</span>
-                  <span>{selectedCourses.length} {isRTL ? "مواد" : "courses"}</span>
-                </div>
-
-                <div className="space-y-2 max-h-44 overflow-y-auto pr-1">
-                  {selectedCourses.map((c: any) => {
-                    const price = Number(c.price) || 0;
-                    const discounted = isDiscountQualified ? Math.round(price * (1 - discountRate / 100) * 100) / 100 : price;
-
-                    return (
-                      <div key={c.id} className="flex items-center justify-between p-2 rounded-xl bg-background border text-xs">
-                        <div className="flex items-center gap-2 truncate">
-                          <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                          <span className="font-semibold truncate">{isRTL ? c.title_ar : c.title}</span>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0 ms-2">
-                          {isDiscountQualified && (
-                            <span className="text-[10px] text-muted-foreground line-through">
-                              {price}
-                            </span>
-                          )}
-                          <span className="font-bold text-amber-600">{discounted} ر.س</span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Financial Breakdown */}
-              <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20 space-y-2 text-xs">
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span>{isRTL ? "المجموع قبل الخصم:" : "Total Before Discount:"}</span>
-                  <span className={isDiscountQualified ? "line-through" : ""}>{originalTotal} ر.س</span>
-                </div>
-
-                {isDiscountQualified && (
-                  <div className="flex items-center justify-between text-emerald-600 font-medium">
-                    <span>{isRTL ? `وفرت (${discountRate}%):` : `Savings (${discountRate}%):`}</span>
-                    <span>- {discountAmount} ر.س</span>
-                  </div>
-                )}
-
-                <div className="pt-2 border-t flex items-baseline justify-between">
-                  <span className="font-bold text-sm text-foreground">
-                    {isRTL ? "المبلغ الإجمالي النهائي:" : "Final Total Payable:"}
-                  </span>
-                  <span className="text-2xl font-black text-amber-600">
-                    {finalTotal} <span className="text-xs font-semibold">ر.س</span>
-                  </span>
-                </div>
-              </div>
-
-              <div className="text-[11px] text-muted-foreground leading-relaxed p-3 bg-muted/40 rounded-xl border">
-                {isRTL
-                  ? "✓ سيتم تسجيل كل مادة في الدفتر المحاسبي بسعرها المخفض، واحتساب مستحقات معلم كل مادة، وفتح المحتوى الأكاديمي كاملاً فور التأكيد."
-                  : "✓ Each course will be recorded in the accounting ledger at its discounted rate and fully unlocked."}
-              </div>
-
-              <DialogFooter className="gap-2 sm:gap-0">
-                <Button
-                  variant="outline"
-                  onClick={() => setIsConfirmOpen(false)}
-                  disabled={isProcessing}
-                >
-                  {isRTL ? "إلغاء" : "Cancel"}
-                </Button>
-                <Button
-                  onClick={handleExecutePurchase}
-                  disabled={isProcessing}
-                  className="bg-amber-600 hover:bg-amber-700 text-white font-bold gap-2"
-                >
-                  {isProcessing ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      {isRTL ? "جاري تفعيل البكج..." : "Unlocking bundle..."}
-                    </>
-                  ) : (
-                    <>
-                      <ShieldCheck className="w-4 h-4" />
-                      {isRTL ? "تأكيد الدفع وتفعيل المواد الآن" : "Confirm & Unlock"}
-                    </>
-                  )}
-                </Button>
-              </DialogFooter>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Royal Bundle Checkout & Installments Modal */}
+      {isConfirmOpen && (
+        <BundleCheckoutModal
+          isOpen={isConfirmOpen}
+          onClose={() => setIsConfirmOpen(false)}
+          bundleTitle={`Custom Student Bundle (${selectedCourses.length} Courses)`}
+          bundleTitleAr={`بكج طالب مخصص (${selectedCourses.length} مواد)`}
+          totalPrice={finalTotal}
+          originalPrice={originalTotal}
+          discountPercentage={isDiscountQualified ? discountRate : 0}
+          courses={selectedCourses.map((c: any) => ({
+            id: c.id,
+            title: c.title,
+            title_ar: c.title_ar,
+            price: c.price,
+            instructor_id: c.instructor_id,
+            instructor_name: c.profiles?.full_name_ar || c.profiles?.full_name,
+            instructor_commission: c.instructor_commission,
+            subject_code: c.subject_code,
+            major_name: c.majors?.name_ar,
+          }))}
+          isCustomBundle={true}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ["my-courses"] });
+            queryClient.invalidateQueries({ queryKey: ["user-enrolled-courses"] });
+            queryClient.invalidateQueries({ queryKey: ["enrollments"] });
+          }}
+        />
+      )}
     </div>
   );
 };
+

@@ -4,15 +4,16 @@ import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  Package, Sparkles, Check, ArrowRight, ArrowLeft, ShieldCheck,
-  BookOpen, Users, ShoppingBag, Clock, CreditCard, Loader2
+  Package, Sparkles, Check, ArrowRight, ArrowLeft,
+  BookOpen, Clock, ShoppingBag, ShieldCheck, CheckCircle2,
+  Calendar, CreditCard, Coins
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { getActiveBundles, processBundleCheckout, CourseBundle } from "@/services/bundleService";
+import { getActiveBundles, CourseBundle } from "@/services/bundleService";
+import { BundleCheckoutModal } from "@/components/bundle/BundleCheckoutModal";
 
 export const BundlesSection = () => {
   const { dir } = useLanguage();
@@ -22,17 +23,14 @@ export const BundlesSection = () => {
   const queryClient = useQueryClient();
 
   const [selectedBundle, setSelectedBundle] = useState<CourseBundle | null>(null);
-  const [isPurchasing, setIsPurchasing] = useState(false);
-  const [purchaseSuccess, setPurchaseSuccess] = useState(false);
-  const [unlockedCourses, setUnlockedCourses] = useState<{ id: string; title: string; title_ar: string }[]>([]);
 
-  // Fetch active public bundles
+  // Fetch active bundles from DB
   const { data: bundles = [], isLoading } = useQuery({
     queryKey: ["active-course-bundles"],
     queryFn: getActiveBundles,
   });
 
-  // Handle bundle click
+  // Handle bundle selection
   const handleOpenPurchase = (bundle: CourseBundle) => {
     if (!user) {
       toast.info(
@@ -44,56 +42,8 @@ export const BundlesSection = () => {
       return;
     }
     setSelectedBundle(bundle);
-    setPurchaseSuccess(false);
   };
 
-  // Confirm checkout
-  const handleConfirmPurchase = async () => {
-    if (!user || !selectedBundle) return;
-    setIsPurchasing(true);
-
-    try {
-      const coursesToUnlock = (selectedBundle.courses || []).map(c => ({
-        id: c.id,
-        title: c.title,
-        title_ar: c.title_ar,
-        price: c.price,
-        instructor_id: c.instructor_id,
-        instructor_commission: c.instructor_commission,
-      }));
-
-      const res = await processBundleCheckout({
-        userId: user.id,
-        userEmail: user.email,
-        bundleId: selectedBundle.id,
-        bundleTitle: selectedBundle.title,
-        bundleTitleAr: selectedBundle.title_ar,
-        totalPrice: selectedBundle.price,
-        originalPrice: selectedBundle.original_price || selectedBundle.price,
-        discountPercentage: selectedBundle.discount_percentage || 0,
-        courses: coursesToUnlock,
-        paymentMethod: "online",
-        isCustomBundle: false,
-      });
-
-      if (res.success) {
-        setUnlockedCourses(coursesToUnlock);
-        setPurchaseSuccess(true);
-        queryClient.invalidateQueries({ queryKey: ["my-courses"] });
-        queryClient.invalidateQueries({ queryKey: ["enrollments"] });
-        queryClient.invalidateQueries({ queryKey: ["active-course-bundles"] });
-        toast.success(
-          isRTL
-            ? `تم تفعيل كافة مقررات باقة "${selectedBundle.title_ar}" بنجاح!`
-            : `All courses in "${selectedBundle.title}" unlocked successfully!`
-        );
-      }
-    } catch (err: any) {
-      toast.error(err.message || (isRTL ? "فشل إتمام العملية" : "Purchase failed"));
-    } finally {
-      setIsPurchasing(false);
-    }
-  };
 
   if (!isLoading && bundles.length === 0) {
     return null; // Don't render section if no active bundles
@@ -237,7 +187,18 @@ export const BundlesSection = () => {
 
                   {/* Card Footer */}
                   <div className="p-6 pt-0 space-y-4">
-                    <div className="pt-4 border-t flex items-end justify-between">
+                    {/* Installment Badge Callout */}
+                    <div className="flex items-center justify-between text-xs text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800/60 p-2.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                      <div className="flex items-center gap-1.5 font-medium">
+                        <Calendar className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                        <span>{isRTL ? "متاح تقسيط شهري:" : "Monthly installment:"}</span>
+                      </div>
+                      <span className="font-bold text-amber-600">
+                        {Math.ceil(bundle.price / 3)} {isRTL ? "ر.س / شهرياً" : "SAR/mo"}
+                      </span>
+                    </div>
+
+                    <div className="pt-2 border-t flex items-end justify-between">
                       <div>
                         <span className="text-xs text-muted-foreground block font-medium">
                           {isRTL ? "سعر الباقة الإجمالي:" : "Total Bundle Price:"}
@@ -266,10 +227,10 @@ export const BundlesSection = () => {
 
                     <Button
                       onClick={() => handleOpenPurchase(bundle)}
-                      className="w-full h-12 rounded-xl font-bold text-base bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 text-white shadow-lg shadow-amber-600/20 gap-2 group-hover:scale-[1.01] transition-transform"
+                      className="w-full h-12 rounded-xl font-bold text-base bg-gradient-to-r from-slate-900 via-slate-800 to-slate-950 hover:from-slate-800 hover:to-slate-900 text-white shadow-lg shadow-slate-900/20 gap-2 group-hover:scale-[1.01] transition-transform"
                     >
-                      <ShoppingBag className="w-4 h-4" />
-                      {isRTL ? "اشترك بالباقة وافتح كافة المواد" : "Enroll & Unlock All Courses"}
+                      <ShoppingBag className="w-4 h-4 text-amber-400" />
+                      {isRTL ? "اشترك بالباقة (دفع كلي أو تقسيط)" : "Enroll (Full or Installments)"}
                     </Button>
                   </div>
                 </Card>
@@ -279,13 +240,13 @@ export const BundlesSection = () => {
         )}
 
         {/* Secondary Callout: Build Your Own Bundle Banner */}
-        <div className="mt-16 rounded-3xl border border-amber-500/30 bg-gradient-to-r from-slate-900 via-slate-800 to-amber-950 p-8 md:p-12 text-white shadow-xl relative overflow-hidden">
+        <div className="mt-16 rounded-3xl border border-amber-500/30 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-950 p-8 md:p-12 text-white shadow-xl relative overflow-hidden">
           <div className="absolute top-0 end-0 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
           <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
             <div className="space-y-3 max-w-2xl text-center md:text-start">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-bold">
-                <Sparkles className="w-3.5 h-3.5" />
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
                 {isRTL ? "ميزة خاصة بالطلاب" : "Student Exclusive"}
               </div>
               <h3 className="text-2xl md:text-4xl font-black text-white">
@@ -293,8 +254,8 @@ export const BundlesSection = () => {
               </h3>
               <p className="text-sm md:text-base text-slate-300 leading-relaxed">
                 {isRTL
-                  ? "اختر 4 مواد دراسية أو أكثر من أي كلية أو تخصص، وسيطبق النظام خصماً فورياً بنسبة 25% على كل مادة تلقائياً داخل لوحة تحكم الطالب."
-                  : "Choose 4 or more courses from any department and get an automatic 25% discount per course right in your student dashboard."}
+                  ? "اختر 4 مواد دراسية أو أكثر من أي كلية أو تخصص، وسيطبق النظام خصماً فورياً بنسبة 25% على كل مادة تلقائياً مع خيارات الدفع الكلي أو التقسيط الميسر."
+                  : "Choose 4 or more courses from any department and get an automatic 25% discount per course with full or installment payment options."}
               </p>
             </div>
 
@@ -316,143 +277,26 @@ export const BundlesSection = () => {
         </div>
       </div>
 
-      {/* Purchase Confirmation / Success Modal */}
-      <Dialog open={!!selectedBundle} onOpenChange={(open) => !open && setSelectedBundle(null)}>
-        <DialogContent className="max-w-xl" dir={dir}>
-          {purchaseSuccess ? (
-            <div className="py-6 text-center space-y-5">
-              <div className="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-600 flex items-center justify-center mx-auto animate-bounce">
-                <Check className="w-8 h-8" />
-              </div>
-              <div>
-                <h3 className="text-2xl font-black text-foreground">
-                  {isRTL ? "مبروك! تم تفعيل الباقة بنجاح 🎉" : "Congratulations! Bundle Unlocked 🎉"}
-                </h3>
-                <p className="text-sm text-muted-foreground mt-1 max-w-md mx-auto">
-                  {isRTL
-                    ? `أصبحت جميع مواد باقة "${selectedBundle?.title_ar}" متاحة لك بالكامل الآن بنسبة وصول 100%.`
-                    : `All courses in "${selectedBundle?.title}" are now fully accessible in your dashboard.`}
-                </p>
-              </div>
-
-              <div className="bg-muted/40 p-4 rounded-2xl border text-start space-y-2">
-                <p className="text-xs font-bold text-muted-foreground uppercase">
-                  {isRTL ? "المواد المفعلة في حسابك:" : "Courses unlocked in your account:"}
-                </p>
-                <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                  {unlockedCourses.map(c => (
-                    <div key={c.id} className="flex items-center gap-2 text-xs font-medium text-foreground">
-                      <Check className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>{isRTL ? c.title_ar : c.title}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <DialogFooter className="gap-2 sm:gap-0 justify-center">
-                <Button
-                  onClick={() => {
-                    setSelectedBundle(null);
-                    navigate("/dashboard?tab=courses");
-                  }}
-                  className="w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white font-bold px-8 h-11"
-                >
-                  {isRTL ? "الانتقال لدوراتي والبدء بالدراسة" : "Go to My Courses"}
-                </Button>
-              </DialogFooter>
-            </div>
-          ) : (
-            selectedBundle && (
-              <div className="space-y-5">
-                <DialogHeader>
-                  <DialogTitle className="text-xl font-bold flex items-center gap-2">
-                    <Package className="w-5 h-5 text-amber-600" />
-                    {isRTL ? "تأكيد الاشتراك في الباقة" : "Confirm Bundle Purchase"}
-                  </DialogTitle>
-                  <DialogDescription>
-                    {isRTL
-                      ? `أنت على وشك الاشتراك في "${selectedBundle.title_ar}" وفتح جميع المقررات المشمولة دفعة واحدة.`
-                      : `You are subscribing to "${selectedBundle.title}" and unlocking all bundled courses.`}
-                  </DialogDescription>
-                </DialogHeader>
-
-                {/* Courses to unlock */}
-                <div className="border rounded-2xl p-4 bg-muted/20 space-y-3">
-                  <div className="flex items-center justify-between text-xs font-bold text-muted-foreground uppercase">
-                    <span>{isRTL ? "المقررات المشمولة:" : "Included Courses:"}</span>
-                    <span>{selectedBundle.courses?.length || 0} {isRTL ? "مواد" : "courses"}</span>
-                  </div>
-
-                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                    {selectedBundle.courses?.map(c => (
-                      <div key={c.id} className="flex items-center justify-between p-2 rounded-xl bg-background border text-xs">
-                        <div className="flex items-center gap-2 truncate">
-                          <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                          <span className="font-semibold truncate">{isRTL ? c.title_ar : c.title}</span>
-                        </div>
-                        <span className="text-muted-foreground text-[11px] shrink-0 ms-2">
-                          {c.price ? `${c.price} ر.س` : "مجاني"}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Pricing Summary */}
-                <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20 space-y-2">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>{isRTL ? "السعر الأصلي للمواد مجتمعة:" : "Original Combined Price:"}</span>
-                    <span className="line-through">{selectedBundle.original_price || selectedBundle.price} ر.س</span>
-                  </div>
-
-                  {selectedBundle.discount_percentage ? (
-                    <div className="flex items-center justify-between text-xs text-emerald-600 font-medium">
-                      <span>{isRTL ? `خصم الباقة (${selectedBundle.discount_percentage}%):` : `Bundle Discount (${selectedBundle.discount_percentage}%):`}</span>
-                      <span>- {Math.max(0, (selectedBundle.original_price || 0) - selectedBundle.price)} ر.س</span>
-                    </div>
-                  ) : null}
-
-                  <div className="pt-2 border-t flex items-baseline justify-between">
-                    <span className="font-bold text-sm text-foreground">
-                      {isRTL ? "المبلغ الإجمالي للدفع:" : "Total Payable:"}
-                    </span>
-                    <span className="text-2xl font-black text-amber-600">
-                      {selectedBundle.price} <span className="text-xs font-semibold">ر.س</span>
-                    </span>
-                  </div>
-                </div>
-
-                <DialogFooter className="gap-2 sm:gap-0">
-                  <Button
-                    variant="outline"
-                    onClick={() => setSelectedBundle(null)}
-                    disabled={isPurchasing}
-                  >
-                    {isRTL ? "إلغاء" : "Cancel"}
-                  </Button>
-                  <Button
-                    onClick={handleConfirmPurchase}
-                    disabled={isPurchasing}
-                    className="bg-amber-600 hover:bg-amber-700 text-white font-bold gap-2"
-                  >
-                    {isPurchasing ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        {isRTL ? "جاري تفعيل المقررات..." : "Activating courses..."}
-                      </>
-                    ) : (
-                      <>
-                        <ShieldCheck className="w-4 h-4" />
-                        {isRTL ? "تأكيد الدفع وتفعيل المواد فوراً" : "Confirm & Unlock Courses"}
-                      </>
-                    )}
-                  </Button>
-                </DialogFooter>
-              </div>
-            )
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Royal Bundle Checkout & Installments Modal */}
+      {selectedBundle && (
+        <BundleCheckoutModal
+          isOpen={!!selectedBundle}
+          onClose={() => setSelectedBundle(null)}
+          bundleId={selectedBundle.id}
+          bundleTitle={selectedBundle.title}
+          bundleTitleAr={selectedBundle.title_ar}
+          totalPrice={selectedBundle.price}
+          originalPrice={selectedBundle.original_price || selectedBundle.price}
+          discountPercentage={selectedBundle.discount_percentage || 0}
+          courses={selectedBundle.courses || []}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ["my-courses"] });
+            queryClient.invalidateQueries({ queryKey: ["enrollments"] });
+            queryClient.invalidateQueries({ queryKey: ["active-course-bundles"] });
+          }}
+        />
+      )}
     </section>
   );
 };
+

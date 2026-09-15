@@ -226,6 +226,10 @@ export const AccountingLedger = () => {
       );
       const bundleTitle = plan?.bundle_title || (p.notes?.includes('باقة:') ? p.notes.split('باقة:')[1]?.split('(')[0]?.trim() : (isRTL ? 'باقة دراسية' : 'Bundle'));
       const originalCoursePrice = plan?.course_original_price || (isBundle ? course?.price : null);
+      const isMonthlyPlan = plan?.type === 'monthly' || plan?.payment_plan === 'monthly' || p.notes?.includes('قسط');
+      const installmentLabel = isMonthlyPlan
+        ? (plan?.total_months ? `قسط 1/${plan.total_months}` : (isRTL ? 'تقسيط شهري' : 'Installment'))
+        : (isBundle ? (isRTL ? 'دفع كلي' : 'Full') : null);
 
       return {
         id: p.id,
@@ -246,6 +250,8 @@ export const AccountingLedger = () => {
         isBundle,
         bundleTitle,
         originalCoursePrice,
+        isMonthlyPlan,
+        installmentLabel,
       };
     });
 
@@ -641,10 +647,15 @@ export const AccountingLedger = () => {
                         <TableCell className="text-sm max-w-[180px]">
                           <div className="font-medium truncate" title={l.course}>{l.course}</div>
                           {l.isBundle && (
-                            <div className="flex items-center gap-1 mt-0.5">
+                            <div className="flex flex-wrap items-center gap-1 mt-0.5">
                               <Badge variant="outline" className="bg-amber-500/10 text-amber-800 border-amber-300 text-[10px] px-1.5 py-0 font-bold">
                                 📦 {l.bundleTitle || (isRTL ? 'ضمن باقة' : 'In Bundle')}
                               </Badge>
+                              {l.installmentLabel && (
+                                <Badge variant="secondary" className="text-[9px] px-1 py-0 bg-blue-50 text-blue-700 border-blue-200">
+                                  {l.installmentLabel}
+                                </Badge>
+                              )}
                             </div>
                           )}
                         </TableCell>

@@ -852,9 +852,17 @@ export const BundlesManagement = () => {
                               {p.amount_paid} ر.س
                             </TableCell>
                             <TableCell className="text-center">
-                              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
-                                {p.status === "completed" ? (isRTL ? "مكتمل" : "Completed") : p.status}
-                              </Badge>
+                              {p.status === "completed" ? (
+                                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                                  {isRTL ? "مكتمل" : "Completed"}
+                                </Badge>
+                              ) : p.status === "pending" ? (
+                                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300">
+                                  {isRTL ? "بانتظار التحويل" : "Pending Transfer"}
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline">{p.status}</Badge>
+                              )}
                             </TableCell>
                           </TableRow>
                         );

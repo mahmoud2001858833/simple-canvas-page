@@ -323,7 +323,7 @@ export async function deleteCourseBundle(bundleId: string): Promise<void> {
  * 3. Records itemized payments for each course with bundle indicator
  * 4. Credits instructor_earnings for each course instructor based on the discounted price
  */
-export async function processBundleCheckout(params: {
+export interface BundleCheckoutParams {
   userId: string;
   userEmail?: string;
   bundleId?: string;
@@ -340,14 +340,34 @@ export async function processBundleCheckout(params: {
     instructor_id: string | null;
     instructor_commission?: number | null;
   }[];
-  paymentMethod?: "online" | "bank_transfer" | "apple_pay" | "stc_pay" | "free_coupon" | "tamara" | "tabby" | "alinmapay" | "wallet";
+  paymentPlan?: "full" | "monthly";
+  installmentMonths?: number; // 2, 3, 4 months
+  paymentMethod?: "online" | "bank_transfer" | "tabby" | "manual";
   isCustomBundle?: boolean;
-}): Promise<{
+}
+
+export interface BundleCheckoutResult {
   success: boolean;
   bundlePurchaseId: string;
   unlockedCoursesCount: number;
   courseIds: string[];
-}> {
+  primaryPaymentId?: string;
+  isPending?: boolean;
+  paymentPlan: "full" | "monthly";
+  amountPaidToday: number;
+  monthlyAmount?: number;
+  installmentMonths?: number;
+}
+
+/**
+ * Process a bundle purchase:
+ * 1. Supports Full Payment (100%) or Flexible Monthly Installments (2, 3, 4 months)
+ * 2. Supports Online Card Payment, Bank Transfer (with pending verification), and Tabby
+ * 3. Creates relational records in bundle_purchases, payments, enrollments, monthly_installments, and instructor_earnings
+ */
+export async function processBundleCheckout(
+  params: BundleCheckoutParams
+): Promise<BundleCheckoutResult> {
   const {
     userId,
     userEmail,
@@ -358,6 +378,8 @@ export async function processBundleCheckout(params: {
     originalPrice,
     discountPercentage,
     courses,
+    paymentPlan = "full",
+    installmentMonths = 3,
     paymentMethod = "online",
     isCustomBundle = false,
   } = params;
@@ -397,18 +419,25 @@ export async function processBundleCheckout(params: {
     }
   }
 
+  const isMonthly = paymentPlan === "monthly";
+  const numMonths = Math.max(2, Math.min(6, installmentMonths || 3));
+  const amountPaidToday = isMonthly ? Math.ceil(totalPrice / numMonths) : totalPrice;
+  const isBankTransfer = paymentMethod === "bank_transfer";
+  const paymentStatus = isBankTransfer ? "pending" : "paid";
+
   const transactionGroupId = `BNDL_${Date.now()}_${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
 
   // Calculate prorated price for each course
   const totalOriginalCoursePrice = courses.reduce((sum, c) => sum + (Number(c.price) || 0), 0);
-
   const courseIds: string[] = [];
+  let primaryPaymentId = "";
 
-  for (const course of courses) {
+  for (let idx = 0; idx < courses.length; idx++) {
+    const course = courses[idx];
     courseIds.push(course.id);
     const courseOriginalPrice = Number(course.price) || (originalPrice / courses.length);
     
-    // Effective discounted price for this course
+    // Effective discounted full price for this course in the bundle
     let effectiveCoursePrice = 0;
     if (totalOriginalCoursePrice > 0) {
       effectiveCoursePrice = Math.round((courseOriginalPrice / totalOriginalCoursePrice) * totalPrice * 100) / 100;
@@ -416,33 +445,50 @@ export async function processBundleCheckout(params: {
       effectiveCoursePrice = Math.round((totalPrice / courses.length) * 100) / 100;
     }
 
+    // Amount charged in this specific payment (today's charge)
+    const chargedCourseAmount = isMonthly
+      ? Math.round((effectiveCoursePrice / numMonths) * 100) / 100
+      : effectiveCoursePrice;
+
+    const installmentSuffix = isMonthly
+      ? `(قسط 1 من ${numMonths} - شهرياً)`
+      : `(دفع كلي كامل)`;
+
     const noteText = isCustomBundle
-      ? `شراء باقة مخصصة (${courses.length} مواد) - ${course.title_ar || course.title}`
-      : `شراء باقة: ${bundleTitleAr || bundleTitle} - ${course.title_ar || course.title}`;
+      ? `شراء باقة مخصصة (${courses.length} مواد) - ${course.title_ar || course.title} ${installmentSuffix}`
+      : `شراء باقة: ${bundleTitleAr || bundleTitle} - ${course.title_ar || course.title} ${installmentSuffix}`;
 
     const installmentPlanMetadata = {
       is_bundle: true,
       bundle_id: resolvedBundleId || null,
       bundle_title: bundleTitleAr || bundleTitle,
       bundle_type: isCustomBundle ? "custom" : "prebuilt",
-      bundle_total: totalPrice,
+      payment_plan: paymentPlan,
+      total_bundle_price: totalPrice,
       bundle_original_total: originalPrice,
       discount_percentage: discountPercentage,
       course_original_price: courseOriginalPrice,
       course_bundle_price: effectiveCoursePrice,
+      total_months: isMonthly ? numMonths : 1,
+      month_number: 1,
+      monthly_amount: chargedCourseAmount,
+      total_amount: effectiveCoursePrice,
       transaction_group: transactionGroupId,
+      payment_method: paymentMethod,
     };
 
-    // Insert payment record
+    // 1. Insert itemized payment record
     const { data: paymentRecord, error: payErr } = await supabase
       .from("payments")
       .insert({
         user_id: userId,
         course_id: course.id,
-        amount: effectiveCoursePrice,
-        payment_method: paymentMethod as any,
-        status: "paid",
-        paid_at: new Date().toISOString(),
+        amount: chargedCourseAmount,
+        payment_method: (paymentMethod === "online" || paymentMethod === "tabby" || paymentMethod === "bank_transfer" || paymentMethod === "manual")
+          ? paymentMethod
+          : "online",
+        status: paymentStatus,
+        paid_at: isBankTransfer ? null : new Date().toISOString(),
         transaction_id: `${transactionGroupId}_${course.id.substring(0, 4)}`,
         notes: noteText,
         installment_plan: installmentPlanMetadata as any,
@@ -452,16 +498,43 @@ export async function processBundleCheckout(params: {
 
     if (payErr) {
       console.error("Error inserting itemized bundle payment:", payErr);
+    } else if (!primaryPaymentId && paymentRecord) {
+      primaryPaymentId = paymentRecord.id;
     }
 
-    // Upsert enrollment with 100% access
+    // 2. If monthly installment, insert or update monthly_installments table
+    if (isMonthly) {
+      const periodStart = new Date().toISOString();
+      const periodEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+
+      const { error: monthlyErr } = await supabase
+        .from("monthly_installments")
+        .upsert({
+          course_id: course.id,
+          user_id: userId,
+          monthly_amount: chargedCourseAmount,
+          total_amount: effectiveCoursePrice,
+          total_months: numMonths,
+          months_paid: isBankTransfer ? 0 : 1,
+          status: isBankTransfer ? "pending" : "active",
+          current_period_start: periodStart,
+          current_period_end: periodEnd,
+          last_payment_id: paymentRecord?.id || null,
+        }, { onConflict: "course_id,user_id" });
+
+      if (monthlyErr) {
+        console.error(`Error recording monthly installment for course ${course.id}:`, monthlyErr);
+      }
+    }
+
+    // 3. Upsert enrollment (active access if online, pending if bank transfer)
     const { error: enrollErr } = await supabase
       .from("enrollments")
       .upsert({
         user_id: userId,
         course_id: course.id,
-        status: "active",
-        paid_percentage: 100,
+        status: isBankTransfer ? "pending" : "active",
+        paid_percentage: isMonthly ? Math.round((1 / numMonths) * 100) : 100,
         enrolled_at: new Date().toISOString(),
       }, { onConflict: "user_id,course_id" });
 
@@ -469,10 +542,10 @@ export async function processBundleCheckout(params: {
       console.error(`Error enrolling user in course ${course.id}:`, enrollErr);
     }
 
-    // Credit instructor earnings based on the discounted bundle price
+    // 4. Credit instructor earnings (pending release upon payment confirmation)
     if (course.instructor_id) {
       const commissionRate = Number(course.instructor_commission) || 30;
-      const teacherEarning = Math.round(effectiveCoursePrice * (commissionRate / 100) * 100) / 100;
+      const teacherEarning = Math.round(chargedCourseAmount * (commissionRate / 100) * 100) / 100;
 
       const { error: earnErr } = await supabase
         .from("instructor_earnings")
@@ -481,7 +554,7 @@ export async function processBundleCheckout(params: {
           course_id: course.id,
           amount: teacherEarning,
           commission_rate: commissionRate,
-          status: "pending",
+          status: isBankTransfer ? "pending" : "pending",
           payment_id: paymentRecord?.id || null,
         });
 
@@ -491,7 +564,7 @@ export async function processBundleCheckout(params: {
     }
   }
 
-  // Record bundle purchase
+  // 5. Record bundle purchase in bundle_purchases
   let bundlePurchaseId = "";
   if (resolvedBundleId) {
     const { data: bPurch, error: bPurchErr } = await supabase
@@ -499,8 +572,8 @@ export async function processBundleCheckout(params: {
       .insert({
         bundle_id: resolvedBundleId,
         user_id: userId,
-        amount_paid: totalPrice,
-        status: "completed",
+        amount_paid: amountPaidToday,
+        status: isBankTransfer ? "pending" : "completed",
         purchased_at: new Date().toISOString(),
       })
       .select("id")
@@ -518,5 +591,12 @@ export async function processBundleCheckout(params: {
     bundlePurchaseId,
     unlockedCoursesCount: courses.length,
     courseIds,
+    primaryPaymentId,
+    isPending: isBankTransfer,
+    paymentPlan,
+    amountPaidToday,
+    monthlyAmount: isMonthly ? amountPaidToday : undefined,
+    installmentMonths: isMonthly ? numMonths : undefined,
   };
 }
+
