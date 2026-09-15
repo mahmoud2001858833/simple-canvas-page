@@ -184,8 +184,40 @@ export const BundleCheckoutModal = ({
 
       // 3. Tabby Option: Split in 4 installments
       if (paymentMethod === "tabby") {
+        const tabbyToast = toast.loading(isRTL ? "جارٍ تحويلك إلى صفحة تابي (Tabby)..." : "Redirecting to Tabby checkout...");
+
+        // Create tracking request for Tabby so edge function validates price
+        const bundleDisplayTitle = isRTL ? (bundleTitleAr || bundleTitle) : (bundleTitle || bundleTitleAr);
+        let tabbyRequestId: string | null = null;
+        try {
+          const { data: tempReq } = await supabase
+            .from("custom_course_requests")
+            .insert({
+              user_id: user.id,
+              title: bundleDisplayTitle,
+              course_name: bundleDisplayTitle,
+              delivery_method: "recorded",
+              final_price: amountDueToday,
+              estimated_price: amountDueToday,
+              status: "pending",
+              notes: JSON.stringify({
+                is_bundle: true,
+                bundle_id: resolvedBundleId,
+                total_price: totalPrice,
+                course_ids: courses.map((c) => c.id),
+              }),
+            } as any)
+            .select("id")
+            .maybeSingle();
+
+          if (tempReq?.id) tabbyRequestId = tempReq.id;
+        } catch (tErr) {
+          console.warn("Tabby tracking request creation note:", tErr);
+        }
+
         const { data: tabbyData, error: tabbyErr } = await supabase.functions.invoke("create-tabby-session", {
           body: {
+            requestId: tabbyRequestId,
             bundleId: resolvedBundleId,
             userId: user.id,
             customerEmail: user.email,
@@ -194,8 +226,9 @@ export const BundleCheckoutModal = ({
           },
         });
 
+        toast.dismiss(tabbyToast);
+
         if (!tabbyErr && tabbyData?.checkout_url) {
-          toast.loading(isRTL ? "جارٍ تحويلك إلى صفحة تابي (Tabby)..." : "Redirecting to Tabby checkout...");
           window.location.href = tabbyData.checkout_url;
           return;
         }
@@ -205,12 +238,68 @@ export const BundleCheckoutModal = ({
       }
 
       // 4. Online Payment (AlinmaPay): Direct Bank Gateway Redirection
-      toast.loading(isRTL ? "جارٍ الاتصال ببوابة البنك وتحويلك لصفحة الدفع..." : "Connecting to bank gateway...");
+      const loadingToast = toast.loading(
+        isRTL ? "جارٍ الاتصال ببوابة البنك وتحويلك لصفحة الدفع..." : "Connecting to bank gateway..."
+      );
+
+      const bundleDisplayTitle = isRTL ? (bundleTitleAr || bundleTitle) : (bundleTitle || bundleTitleAr);
+      let trackingRequestId: string | null = null;
+
+      // Authoritative pricing record in custom_course_requests guarantees gateway creates session
+      try {
+        const { data: tempReq, error: tempReqErr } = await supabase
+          .from("custom_course_requests")
+          .insert({
+            user_id: user.id,
+            title: bundleDisplayTitle,
+            course_name: bundleDisplayTitle,
+            delivery_method: "recorded",
+            final_price: amountDueToday,
+            estimated_price: amountDueToday,
+            status: "pending",
+            notes: JSON.stringify({
+              is_bundle: true,
+              bundle_id: resolvedBundleId,
+              bundle_title: bundleDisplayTitle,
+              payment_plan: paymentPlan,
+              installment_months: installmentMonths,
+              total_price: totalPrice,
+              courses: courses.map((c) => ({ id: c.id, title: c.title, price: c.price })),
+            }),
+          } as any)
+          .select("id")
+          .maybeSingle();
+
+        if (tempReq?.id) {
+          trackingRequestId = tempReq.id;
+        } else if (tempReqErr) {
+          console.warn("Tracking request note:", tempReqErr);
+        }
+      } catch (reqCreateErr) {
+        console.warn("Tracking request creation exception:", reqCreateErr);
+      }
+
+      // Save pending bundle checkout to sessionStorage so PaymentSuccess can restore state
+      try {
+        sessionStorage.setItem(
+          "pending_bundle_checkout",
+          JSON.stringify({
+            bundleId: resolvedBundleId,
+            bundleTitle: bundleDisplayTitle,
+            amountPaidToday: amountDueToday,
+            paymentPlan,
+            installmentMonths,
+            courseIds: courses.map((c) => c.id),
+            requestId: trackingRequestId,
+          })
+        );
+      } catch {}
 
       const { data: bankData, error: bankErr } = await supabase.functions.invoke("create-alinma-payment", {
         body: {
+          requestId: trackingRequestId || null,
           bundleId: resolvedBundleId,
-          bundleTitle: isRTL ? (bundleTitleAr || bundleTitle) : (bundleTitle || bundleTitleAr),
+          bundleTitle: bundleDisplayTitle,
           userId: user.id,
           customerEmail: user.email,
           amount: amountDueToday,
@@ -219,6 +308,8 @@ export const BundleCheckoutModal = ({
           origin: window.location.origin,
         },
       });
+
+      toast.dismiss(loadingToast);
 
       if (bankErr) {
         console.error("create-alinma-payment error:", bankErr);
@@ -237,6 +328,7 @@ export const BundleCheckoutModal = ({
       }
 
       if (bankData?.redirect_url) {
+        toast.success(isRTL ? "تم تجهيز جلسة الدفع! جاري تحويلك إلى البنك..." : "Redirecting to bank gateway...");
         // DIRECT REDIRECT TO THE BANK PAYMENT PAGE
         window.location.href = bankData.redirect_url;
         return;
@@ -646,7 +738,9 @@ export const BundleCheckoutModal = ({
                   <ShieldCheck className="w-4 h-4 text-emerald-400" />
                   {paymentMethod === "bank_transfer"
                     ? (isRTL ? `تأكيد الطلب والتحويل بمبلغ ${amountDueToday} ر.س` : `Confirm Order for ${amountDueToday} SAR`)
-                    : (isRTL ? `دفع ${amountDueToday} ر.س وتفعيل المقررات فوراً` : `Pay ${amountDueToday} SAR & Unlock Now`)}
+                    : paymentMethod === "tabby"
+                    ? (isRTL ? `الانتقال إلى تابي لدفع ${amountDueToday} ر.س` : `Proceed to Tabby for ${amountDueToday} SAR`)
+                    : (isRTL ? `الانتقال إلى صفحة البنك للدفع (${amountDueToday} ر.س)` : `Proceed to Bank Payment (${amountDueToday} SAR)`)}
                 </>
               )}
             </Button>

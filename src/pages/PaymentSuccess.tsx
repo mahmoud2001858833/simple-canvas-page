@@ -112,9 +112,22 @@ export const PaymentSuccess = () => {
   const request = payment?.custom_course_requests as any;
   const resolvedCourseId = courseIdParam || course?.id || payment?.course_id;
 
+  // Also check sessionStorage for pending bundle checkout if bundleIdParam is not in URL
+  let sessionBundleInfo: any = null;
+  try {
+    const rawSession = sessionStorage.getItem("pending_bundle_checkout");
+    if (rawSession) sessionBundleInfo = JSON.parse(rawSession);
+  } catch {}
+
+  const reqNotes = request?.notes;
+  let parsedReqNotes: any = null;
+  if (typeof reqNotes === 'string' && reqNotes.startsWith('{')) {
+    try { parsedReqNotes = JSON.parse(reqNotes); } catch {}
+  }
+
   const instPlan = payment?.installment_plan as any;
-  const resolvedBundleId = bundleIdParam || instPlan?.bundle_id;
-  const isBundle = Boolean(resolvedBundleId || instPlan?.is_bundle);
+  const resolvedBundleId = bundleIdParam || instPlan?.bundle_id || parsedReqNotes?.bundle_id || sessionBundleInfo?.bundleId;
+  const isBundle = Boolean(resolvedBundleId || instPlan?.is_bundle || parsedReqNotes?.is_bundle || sessionBundleInfo);
 
   // Fetch bundle details if bundle transaction
   const { data: bundleData } = useQuery({
@@ -223,14 +236,18 @@ export const PaymentSuccess = () => {
               .select('course_id')
               .eq('bundle_id', resolvedBundleId);
 
-            if (bCourses && bCourses.length > 0) {
-              for (const bc of bCourses) {
+            const courseIdsToEnroll: string[] = (bCourses && bCourses.length > 0)
+              ? bCourses.map((b) => b.course_id)
+              : (sessionBundleInfo?.courseIds || parsedReqNotes?.course_ids || []);
+
+            if (courseIdsToEnroll.length > 0) {
+              for (const cId of courseIdsToEnroll) {
                 await supabase
                   .from('enrollments')
                   .upsert(
                     {
                       user_id: user.id,
-                      course_id: bc.course_id,
+                      course_id: cId,
                       status: 'active',
                       paid_percentage: 100,
                       enrolled_at: new Date().toISOString(),
@@ -246,7 +263,7 @@ export const PaymentSuccess = () => {
                 bundle_id: resolvedBundleId,
                 user_id: user.id,
                 payment_id: targetPaymentId || null,
-                amount_paid: Number(payment?.amount || bundleData?.price || 0),
+                amount_paid: Number(payment?.amount || bundleData?.price || sessionBundleInfo?.amountPaidToday || 0),
                 status: 'active',
                 purchased_at: new Date().toISOString(),
               });
