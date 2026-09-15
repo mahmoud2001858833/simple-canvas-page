@@ -91,11 +91,13 @@ serve(async (req) => {
     const body = await req.json().catch(() => null);
     if (!body) return json({ error: "Invalid request body" }, 400);
 
-    const { amount, courseId, requestId, userId, customerEmail, couponCode, installmentPercent, planType } =
+    const { amount, courseId, requestId, bundleId, bundleTitle, userId, customerEmail, couponCode, installmentPercent, planType } =
       body as Record<string, unknown>;
     const uid = String(userId || "").trim();
     const cid = typeof courseId === "string" && courseId.trim() ? courseId.trim() : null;
     const rid = typeof requestId === "string" && requestId.trim() ? requestId.trim() : null;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const bid = typeof bundleId === "string" && uuidRegex.test(bundleId.trim()) ? bundleId.trim() : null;
     const email = String(customerEmail || "").trim();
     const coupon = typeof couponCode === "string" && couponCode.trim() ? couponCode.trim() : null;
     const targetPercent = Number(installmentPercent) > 0 ? Math.min(100, Number(installmentPercent)) : 100;
@@ -206,6 +208,43 @@ serve(async (req) => {
       if (rp == null) return json({ error: "Request price is invalid" }, 400);
       actualAmount = Number(rp);
       itemTitle = request.title;
+    } else if (bid) {
+      const { data: bundle } = await supabase
+        .from("course_bundles")
+        .select("id, title, title_ar, price")
+        .eq("id", bid)
+        .maybeSingle();
+
+      const bPrice = bundle?.price != null ? Number(bundle.price) : Number(amount);
+      itemTitle = bundle?.title_ar || bundle?.title || String(bundleTitle || "Course Bundle");
+
+      if (isMonthlyPlan) {
+        const totalMonths = Number(installmentPercent) > 0 ? Number(installmentPercent) : 3;
+        actualAmount = Math.ceil(bPrice / totalMonths);
+        monthlyPlanMeta = {
+          type: "monthly",
+          is_bundle: true,
+          bundle_id: bid,
+          total_months: totalMonths,
+          month_number: 1,
+          total_amount: bPrice,
+        };
+      } else {
+        actualAmount = bPrice;
+      }
+    } else if (Number(amount) > 0) {
+      actualAmount = Number(amount);
+      itemTitle = String(bundleTitle || "Course Bundle");
+      if (isMonthlyPlan) {
+        const totalMonths = Number(installmentPercent) > 0 ? Number(installmentPercent) : 3;
+        monthlyPlanMeta = {
+          type: "monthly",
+          is_bundle: true,
+          total_months: totalMonths,
+          month_number: 1,
+          total_amount: Number(amount),
+        };
+      }
     }
 
     // Apply coupon server-side so the gateway charges the discounted amount
@@ -261,7 +300,9 @@ serve(async (req) => {
             ? (monthlyPlanMeta
               ? `Monthly installment: month ${monthlyPlanMeta.month_number} of ${monthlyPlanMeta.total_months}`
               : `Installment: ${targetPercent}% (paid before: ${currentPaidPercent}%)`)
-            : null,
+            : (bid || monthlyPlanMeta
+              ? (monthlyPlanMeta ? `Bundle Monthly installment: month 1 of ${monthlyPlanMeta.total_months}` : `Bundle: ${itemTitle}`)
+              : null),
         ].filter(Boolean).join(" | "),
         installment_plan: cid
           ? (monthlyPlanMeta ?? {
@@ -269,7 +310,7 @@ serve(async (req) => {
             new_paid_percentage: targetPercent,
             is_continuation: currentPaidPercent > 0,
           })
-          : null,
+          : (monthlyPlanMeta ?? (bid ? { is_bundle: true, bundle_id: bid, total_bundle_price: actualAmount } : null)),
       })
       .select()
       .single();
@@ -300,11 +341,16 @@ serve(async (req) => {
     const clientIp = merchantIp;
     const rawClientIp = extractClientIp(req);
     console.log("Client IP (raw):", rawClientIp, "-> sent IP:", merchantIp);
-    // Build return URL — redirect directly to course page after payment
-    const siteUrl = "https://www.josoorcom.com";
+    // Build return URL — redirect directly to course page or bundle success after payment
+    const rawOrigin = typeof body.origin === "string" && body.origin.startsWith("http")
+      ? body.origin.trim().replace(/\/+$/, "")
+      : "https://www.josoorcom.com";
+    const siteUrl = rawOrigin;
     const receiptUrl = cid
       ? `${siteUrl}/payment/success?payment_id=${payment.id}&course_id=${cid}&order_id=${orderId}`
-      : `${siteUrl}/payment/success?payment_id=${payment.id}&order_id=${orderId}`;
+      : (bid
+        ? `${siteUrl}/payment/success?payment_id=${payment.id}&bundle_id=${bid}&order_id=${orderId}`
+        : `${siteUrl}/payment/success?payment_id=${payment.id}&order_id=${orderId}`);
 
     const userData = JSON.stringify({
       paymentId: payment.id,

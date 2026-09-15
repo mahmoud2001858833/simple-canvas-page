@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { courseId, requestId, userId, customerEmail, customerName, customerPhone } = await req.json();
+    const { courseId, requestId, bundleId, userId, customerEmail, customerName, customerPhone } = await req.json();
 
     // Validate required fields
     if (!userId || typeof userId !== 'string') {
@@ -29,10 +29,10 @@ serve(async (req) => {
       );
     }
 
-    // Must have either courseId or requestId
-    if (!courseId && !requestId) {
+    // Must have either courseId, requestId, or bundleId
+    if (!courseId && !requestId && !bundleId) {
       return new Response(
-        JSON.stringify({ error: 'Must provide courseId or requestId' }),
+        JSON.stringify({ error: 'Must provide courseId, requestId or bundleId' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -172,7 +172,38 @@ serve(async (req) => {
       }
 
       validatedAmount = Number(price);
-      itemTitle = request.title;
+    } else if (bundleId) {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(bundleId)) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid bundle ID format' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const { data: bundle, error: bundleError } = await supabaseClient
+        .from('course_bundles')
+        .select('price, title, title_ar')
+        .eq('id', bundleId)
+        .single();
+
+      if (bundleError || !bundle) {
+        console.error('Bundle not found:', bundleError);
+        return new Response(
+          JSON.stringify({ error: 'Bundle not found' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (!bundle.price || bundle.price <= 0) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid bundle price' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      validatedAmount = Number(bundle.price);
+      itemTitle = bundle.title_ar || bundle.title;
     } else {
       return new Response(
         JSON.stringify({ error: 'Invalid request' }),
@@ -207,6 +238,8 @@ serve(async (req) => {
         amount: validatedAmount, // Server-validated amount
         payment_method: 'tabby',
         status: 'pending',
+        notes: `Tabby checkout: ${itemTitle}`,
+        installment_plan: bundleId ? { is_bundle: true, bundle_id: bundleId, total_bundle_price: validatedAmount } : null,
       })
       .select()
       .single();
@@ -258,9 +291,11 @@ serve(async (req) => {
       lang: 'ar',
       merchant_code: 'jasorkom',
       merchant_urls: {
-        success: `${origin}/payment/success?payment_id=${payment.id}`,
-        cancel: `${origin}/payment/failed?error=cancelled&course_id=${courseId || ''}&request_id=${requestId || ''}`,
-        failure: `${origin}/payment/failed?error=declined&course_id=${courseId || ''}&request_id=${requestId || ''}`,
+        success: bundleId
+          ? `${origin}/payment/success?payment_id=${payment.id}&bundle_id=${bundleId}`
+          : `${origin}/payment/success?payment_id=${payment.id}`,
+        cancel: `${origin}/payment/failed?error=cancelled&course_id=${courseId || ''}&request_id=${requestId || ''}&bundle_id=${bundleId || ''}`,
+        failure: `${origin}/payment/failed?error=declined&course_id=${courseId || ''}&request_id=${requestId || ''}&bundle_id=${bundleId || ''}`,
       },
     };
 

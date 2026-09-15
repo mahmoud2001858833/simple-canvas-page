@@ -579,6 +579,65 @@ serve(async (req) => {
       }).catch((e) => console.warn("xAPI track on webhook error:", e));
     }
 
+    // Bundle fulfillment
+    const instPlan = payment.installment_plan as Record<string, unknown> | null;
+    const isBundlePayment = Boolean(instPlan?.is_bundle || instPlan?.bundle_id || payload.bundleId);
+    const resolvedBundleId = String(instPlan?.bundle_id || payload.bundleId || "").trim();
+
+    if (newStatus === "paid" && isBundlePayment && resolvedBundleId) {
+      console.log(`Processing bundle activation for bundle ${resolvedBundleId}, user ${payment.user_id}`);
+      const { data: bCourses } = await supabase
+        .from("bundle_courses")
+        .select("course_id")
+        .eq("bundle_id", resolvedBundleId);
+
+      if (bCourses && bCourses.length > 0) {
+        for (const item of bCourses) {
+          const { data: existEnr } = await supabase
+            .from("enrollments")
+            .select("id")
+            .eq("user_id", payment.user_id)
+            .eq("course_id", item.course_id)
+            .maybeSingle();
+
+          if (existEnr) {
+            await supabase
+              .from("enrollments")
+              .update({ status: "active", paid_percentage: 100 })
+              .eq("id", existEnr.id);
+          } else {
+            await supabase.from("enrollments").insert({
+              user_id: payment.user_id,
+              course_id: item.course_id,
+              status: "active",
+              paid_percentage: 100,
+            });
+          }
+        }
+      }
+
+      // Record bundle purchase
+      await supabase.from("bundle_purchases").insert({
+        bundle_id: resolvedBundleId,
+        user_id: payment.user_id,
+        payment_id: payment.id,
+        amount_paid: Number(payment.amount || 0),
+        status: "active",
+        purchased_at: new Date().toISOString(),
+      }).then(() => {}).catch((e: unknown) => console.warn("bundle_purchases insert note:", e));
+
+      // Notify student
+      await supabase.from("notifications").insert({
+        user_id: payment.user_id,
+        title: "Bundle Activated",
+        title_ar: "تم تفعيل الباقة بنجاح",
+        message: "Your payment has been received and all bundle courses are now fully active.",
+        message_ar: "تم استلام دفعتك بنجاح وتم تفعيل كافة مقررات الباقة في حسابك فوراً.",
+        type: "success",
+        link: "/dashboard/student",
+      });
+    }
+
     // Custom course request status update
     if (newStatus === "paid" && payment.request_id) {
       await supabase

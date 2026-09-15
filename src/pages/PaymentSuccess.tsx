@@ -14,7 +14,8 @@ import {
   GraduationCap, 
   ArrowRight, 
   Receipt,
-  PlayCircle
+  PlayCircle,
+  Package
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { trackXapi } from '@/lib/xapi';
@@ -30,6 +31,7 @@ export const PaymentSuccess = () => {
   const rawPaymentId = searchParams.get('payment_id') || searchParams.get('paymentId');
   const transactionId = searchParams.get('transaction_id') || searchParams.get('transactionId') || searchParams.get('trackId') || searchParams.get('orderId') || searchParams.get('TrackID');
   const courseIdParam = searchParams.get('course_id') || searchParams.get('courseId');
+  const bundleIdParam = searchParams.get('bundle_id') || searchParams.get('bundleId');
   const resultParam = searchParams.get('result') || searchParams.get('Result') || searchParams.get('status');
   const responseCodeParam = searchParams.get('responseCode') || searchParams.get('response_code') || searchParams.get('code') || searchParams.get('ResponseCode');
 
@@ -110,6 +112,31 @@ export const PaymentSuccess = () => {
   const request = payment?.custom_course_requests as any;
   const resolvedCourseId = courseIdParam || course?.id || payment?.course_id;
 
+  const instPlan = payment?.installment_plan as any;
+  const resolvedBundleId = bundleIdParam || instPlan?.bundle_id;
+  const isBundle = Boolean(resolvedBundleId || instPlan?.is_bundle);
+
+  // Fetch bundle details if bundle transaction
+  const { data: bundleData } = useQuery({
+    queryKey: ['payment-success-bundle', resolvedBundleId],
+    queryFn: async () => {
+      if (!resolvedBundleId) return null;
+      const { data } = await supabase
+        .from('course_bundles')
+        .select(`
+          *,
+          bundle_courses (
+            course_id,
+            courses (id, title, title_ar, price)
+          )
+        `)
+        .eq('id', resolvedBundleId)
+        .maybeSingle();
+      return data;
+    },
+    enabled: Boolean(resolvedBundleId),
+  });
+
   // Trigger confetti on mount
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -188,6 +215,48 @@ export const PaymentSuccess = () => {
           setIsActivated(true);
         }
 
+        // 2b. Guaranteed bundle courses activation
+        if (resolvedBundleId && user.id) {
+          try {
+            const { data: bCourses } = await supabase
+              .from('bundle_courses')
+              .select('course_id')
+              .eq('bundle_id', resolvedBundleId);
+
+            if (bCourses && bCourses.length > 0) {
+              for (const bc of bCourses) {
+                await supabase
+                  .from('enrollments')
+                  .upsert(
+                    {
+                      user_id: user.id,
+                      course_id: bc.course_id,
+                      status: 'active',
+                      paid_percentage: 100,
+                      enrolled_at: new Date().toISOString(),
+                    },
+                    { onConflict: 'user_id,course_id' }
+                  );
+              }
+            }
+
+            await supabase
+              .from('bundle_purchases')
+              .insert({
+                bundle_id: resolvedBundleId,
+                user_id: user.id,
+                payment_id: targetPaymentId || null,
+                amount_paid: Number(payment?.amount || bundleData?.price || 0),
+                status: 'active',
+                purchased_at: new Date().toISOString(),
+              });
+
+            setIsActivated(true);
+          } catch (bErr) {
+            console.warn('Bundle activation error:', bErr);
+          }
+        }
+
         // 3. Invalidate all query caches so all course and dashboard pages reflect instant enrollment
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ['my-enrollments'] }),
@@ -197,6 +266,7 @@ export const PaymentSuccess = () => {
           queryClient.invalidateQueries({ queryKey: ['course'] }),
           queryClient.invalidateQueries({ queryKey: ['admin-payments'] }),
           queryClient.invalidateQueries({ queryKey: ['my-payments'] }),
+          queryClient.invalidateQueries({ queryKey: ['student-bundles'] }),
         ]);
 
         // 4. Track registration event
@@ -210,18 +280,21 @@ export const PaymentSuccess = () => {
         try {
           localStorage.removeItem('pending_checkout');
           sessionStorage.removeItem('pending_checkout');
+          sessionStorage.removeItem('pending_bundle_checkout');
         } catch {}
 
         // 5. Notify both webhooks in the background with full userData for permanent database confirmation
         const webhookPayload = {
           paymentId: targetPaymentId,
           courseId: targetCourseId,
+          bundleId: resolvedBundleId,
           trackId: transactionId || payment?.transaction_id || targetPaymentId,
           transactionId: transactionId || payment?.tabby_payment_id,
           additionalDetails: {
             userData: JSON.stringify({
               paymentId: targetPaymentId,
               courseId: targetCourseId,
+              bundleId: resolvedBundleId,
               orderId: transactionId || payment?.transaction_id,
             }),
           },
@@ -245,17 +318,21 @@ export const PaymentSuccess = () => {
     };
 
     executeInstantActivation();
-  }, [user, resolvedCourseId, payment, rawPaymentId, transactionId, resultParam, responseCodeParam, queryClient, refetch, course]);
+  }, [user, resolvedCourseId, resolvedBundleId, payment, rawPaymentId, transactionId, resultParam, responseCodeParam, queryClient, refetch, course, bundleData]);
 
-  // 3-Second Automatic Countdown to redirect directly into the course
+  // 3-Second Automatic Countdown to redirect directly into the course or dashboard
   useEffect(() => {
-    if (!resolvedCourseId) return;
+    if (!resolvedCourseId && !isBundle) return;
 
     const timer = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          navigate(`/courses/${resolvedCourseId}`, { replace: true });
+          if (resolvedCourseId) {
+            navigate(`/courses/${resolvedCourseId}`, { replace: true });
+          } else {
+            navigate('/dashboard/student', { replace: true });
+          }
           return 0;
         }
         return prev - 1;
@@ -263,14 +340,14 @@ export const PaymentSuccess = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [resolvedCourseId, navigate]);
+  }, [resolvedCourseId, isBundle, navigate]);
 
   // Handle direct navigation click
   const handleOpenCourseNow = () => {
     if (resolvedCourseId) {
       navigate(`/courses/${resolvedCourseId}`, { replace: true });
     } else {
-      navigate('/dashboard?tab=courses', { replace: true });
+      navigate('/dashboard/student', { replace: true });
     }
   };
 
@@ -295,24 +372,34 @@ export const PaymentSuccess = () => {
             >
               <h1 className="text-3xl font-bold text-emerald-800 dark:text-emerald-400 mb-2 flex items-center justify-center gap-2">
                 <PartyPopper className="h-8 w-8 text-emerald-600" />
-                {isRTL ? 'تم الدفع وتفعيل الدورة فوراً!' : 'Payment Successful & Course Active!'}
+                {isBundle
+                  ? (isRTL ? 'تم الدفع وتفعيل الباقة بنجاح!' : 'Payment Successful & Bundle Active!')
+                  : (isRTL ? 'تم الدفع وتفعيل الدورة فوراً!' : 'Payment Successful & Course Active!')}
               </h1>
               <p className="text-muted-foreground text-base">
-                {isRTL 
-                  ? 'تهانينا! تم تأكيد الدفع وتفعيل اشتراكك بالدورة بنسبة 100%. يمكنك البدء في الدراسة الآن.'
-                  : 'Congratulations! Your payment has been confirmed and course access is 100% active. You can start studying now.'
-                }
+                {isBundle
+                  ? (isRTL
+                    ? `تهانينا! تم تأكيد الدفع عبر بوابة البنك وتفعيل كافة مقررات الباقة في حسابك فوراً.`
+                    : 'Congratulations! Your payment has been confirmed by the bank and all bundle courses are unlocked.')
+                  : (isRTL 
+                    ? 'تهانينا! تم تأكيد الدفع وتفعيل اشتراكك بالدورة بنسبة 100%. يمكنك البدء في الدراسة الآن.'
+                    : 'Congratulations! Your payment has been confirmed and course access is 100% active. You can start studying now.'
+                  )}
               </p>
               
               {/* Countdown notification */}
-              {resolvedCourseId && (
+              {(resolvedCourseId || isBundle) && (
                 <div className="mt-4 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl inline-flex items-center gap-2 text-emerald-700 dark:text-emerald-300 text-sm font-semibold">
                   <PlayCircle className="w-4 h-4 animate-pulse text-emerald-600" />
                   <span>
-                    {isRTL 
-                      ? `جاري فتح محتوى الدورة تلقائياً خلال ${countdown} ثوانٍ...`
-                      : `Opening your course automatically in ${countdown}s...`
-                    }
+                    {isBundle
+                      ? (isRTL
+                        ? `جاري توجيهك إلى لوحة تحكم الطالب خلال ${countdown} ثوانٍ...`
+                        : `Opening your student dashboard in ${countdown}s...`)
+                      : (isRTL 
+                        ? `جاري فتح محتوى الدورة تلقائياً خلال ${countdown} ثوانٍ...`
+                        : `Opening your course automatically in ${countdown}s...`
+                      )}
                   </span>
                 </div>
               )}
@@ -333,15 +420,17 @@ export const PaymentSuccess = () => {
                     size="lg"
                     onClick={handleOpenCourseNow}
                   >
-                    <GraduationCap className="h-6 w-6" />
-                    {isRTL ? 'ابدأ مشاهدة الدورة الآن' : 'Start Watching Course Now'}
+                    {isBundle ? <Package className="h-6 w-6" /> : <GraduationCap className="h-6 w-6" />}
+                    {isBundle
+                      ? (isRTL ? 'تصفح مواد الباقة في لوحة التحكم' : 'Explore Bundle Courses')
+                      : (isRTL ? 'ابدأ مشاهدة الدورة الآن' : 'Start Watching Course Now')}
                     <ArrowRight className="h-5 w-5" />
                   </Button>
 
                   <Button 
                     variant="outline" 
                     className="w-full"
-                    onClick={() => navigate('/dashboard?tab=courses')}
+                    onClick={() => navigate('/dashboard/student')}
                   >
                     {isRTL ? 'عرض دوراتي في لوحة التحكم' : 'View My Courses in Dashboard'}
                   </Button>
@@ -356,10 +445,12 @@ export const PaymentSuccess = () => {
                 </div>
 
                 {/* Item Details */}
-                {(course || request) && (
+                {(course || request || bundleData || isBundle) && (
                   <div className="flex items-center gap-4 p-4 border rounded-xl bg-card">
                     <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                      {course ? (
+                      {isBundle ? (
+                        <Package className="h-6 w-6 text-primary" />
+                      ) : course ? (
                         <GraduationCap className="h-6 w-6 text-primary" />
                       ) : (
                         <BookOpen className="h-6 w-6 text-primary" />
@@ -367,18 +458,22 @@ export const PaymentSuccess = () => {
                     </div>
                     <div className="flex-1">
                       <h3 className="font-semibold text-base">
-                        {course 
+                        {isBundle
+                          ? (bundleData ? (isRTL ? bundleData.title_ar : bundleData.title) : instPlan?.bundle_title || (isRTL ? 'باقة تعليمية متكاملة' : 'Integrated Bundle'))
+                          : course 
                           ? (isRTL ? course.title_ar : course.title)
                           : request?.title
                         }
                       </h3>
                       <p className="text-xs text-muted-foreground">
-                        {course ? (isRTL ? 'دورة تدريبية مفعلة' : 'Active Course') : (isRTL ? 'طلب مخصص' : 'Custom Request')}
+                        {isBundle
+                          ? (isRTL ? `باقة تعليمية (${bundleData?.bundle_courses?.length || ''} مواد مفعلة فوراً)` : `Bundle (${bundleData?.bundle_courses?.length || ''} courses active)`)
+                          : course ? (isRTL ? 'دورة تدريبية مفعلة' : 'Active Course') : (isRTL ? 'طلب مخصص' : 'Custom Request')}
                       </p>
                     </div>
                     <div className="text-right">
                       <p className="font-bold text-emerald-600 text-base">
-                        {payment?.amount || '1'} {isRTL ? 'ر.س' : 'SAR'}
+                        {payment?.amount || bundleData?.price || '1'} {isRTL ? 'ر.س' : 'SAR'}
                       </p>
                     </div>
                   </div>

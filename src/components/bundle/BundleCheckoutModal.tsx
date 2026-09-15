@@ -109,60 +109,145 @@ export const BundleCheckoutModal = ({
 
     setIsProcessing(true);
     try {
-      const res = await processBundleCheckout({
-        userId: user.id,
-        userEmail: user.email,
-        bundleId,
-        bundleTitle,
-        bundleTitleAr,
-        totalPrice,
-        originalPrice,
-        discountPercentage,
-        courses: courses.map((c) => ({
-          id: c.id,
-          title: c.title,
-          title_ar: c.title_ar,
-          price: c.price,
-          instructor_id: c.instructor_id || null,
-          instructor_commission: c.instructor_commission ?? 30,
-        })),
-        paymentPlan,
-        installmentMonths: paymentPlan === "monthly" ? installmentMonths : undefined,
-        paymentMethod: paymentMethod === "tabby" ? "tabby" : paymentMethod,
-        isCustomBundle,
-      });
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      let resolvedBundleId = bundleId;
 
-      if (res.success) {
-        setCheckoutResult(res);
-        if (onSuccess) onSuccess(res);
+      // 1. Ensure custom or missing bundle record exists with a valid UUID
+      if (isCustomBundle || !resolvedBundleId || !uuidRegex.test(resolvedBundleId)) {
+        const { data: newBundle, error: createBundleErr } = await supabase
+          .from("course_bundles")
+          .insert({
+            title: bundleTitle || `Custom Bundle (${courses.length} courses)`,
+            title_ar: bundleTitleAr || `بكج مخصص (${courses.length} مواد)`,
+            price: totalPrice,
+            original_price: originalPrice,
+            discount_percentage: discountPercentage,
+            is_active: false,
+          })
+          .select("id")
+          .single();
 
-        if (paymentMethod === "bank_transfer") {
-          toast.success(
-            isRTL
-              ? "تم تسجيل طلب الباقة بنجاح! يرجى إتمام التحويل البنكي وإرفاق الإيصال."
-              : "Bundle order registered! Please submit your transfer receipt."
-          );
-        } else {
-          toast.success(
-            isRTL
-              ? `تهانينا! تم تفعيل ${courses.length} مواد في باقتك بنجاح!`
-              : `Congratulations! ${courses.length} bundle courses unlocked!`
-          );
+        if (createBundleErr) {
+          console.error("Error creating custom bundle record:", createBundleErr);
+        } else if (newBundle) {
+          resolvedBundleId = newBundle.id;
+          const links = courses.map((c, i) => ({
+            bundle_id: resolvedBundleId!,
+            course_id: c.id,
+            sort_order: i + 1,
+          }));
+          await supabase.from("bundle_courses").insert(links);
         }
       }
+
+      // 2. Bank Transfer Option: Record pending order and navigate to receipt upload
+      if (paymentMethod === "bank_transfer") {
+        const res = await processBundleCheckout({
+          userId: user.id,
+          userEmail: user.email,
+          bundleId: resolvedBundleId,
+          bundleTitle,
+          bundleTitleAr,
+          totalPrice,
+          originalPrice,
+          discountPercentage,
+          courses: courses.map((c) => ({
+            id: c.id,
+            title: c.title,
+            title_ar: c.title_ar,
+            price: c.price,
+            instructor_id: c.instructor_id || null,
+            instructor_commission: c.instructor_commission ?? 30,
+          })),
+          paymentPlan,
+          installmentMonths: paymentPlan === "monthly" ? installmentMonths : undefined,
+          paymentMethod: "bank_transfer",
+          isCustomBundle,
+        });
+
+        if (res.success) {
+          if (onSuccess) onSuccess(res);
+          toast.success(
+            isRTL
+              ? "تم إنشاء طلب الباقة بنجاح! يرجى إتمام التحويل البنكي وإرفاق الإيصال."
+              : "Bundle order created! Please submit your transfer receipt."
+          );
+          onClose();
+          if (res.primaryPaymentId) {
+            navigate(`/payment/pending?payment_id=${res.primaryPaymentId}`);
+          } else {
+            navigate("/dashboard/student");
+          }
+          return;
+        }
+      }
+
+      // 3. Tabby Option: Split in 4 installments
+      if (paymentMethod === "tabby") {
+        const { data: tabbyData, error: tabbyErr } = await supabase.functions.invoke("create-tabby-session", {
+          body: {
+            bundleId: resolvedBundleId,
+            userId: user.id,
+            customerEmail: user.email,
+            customerName: user.user_metadata?.full_name || user.email?.split("@")[0] || "Student",
+            origin: window.location.origin,
+          },
+        });
+
+        if (!tabbyErr && tabbyData?.checkout_url) {
+          toast.loading(isRTL ? "جارٍ تحويلك إلى صفحة تابي (Tabby)..." : "Redirecting to Tabby checkout...");
+          window.location.href = tabbyData.checkout_url;
+          return;
+        }
+
+        console.warn("Tabby session not initialized, falling back to online bank gateway:", tabbyErr);
+        toast.info(isRTL ? "سيتم توجيهك إلى بوابة الدفع البنكية" : "Redirecting to bank payment gateway");
+      }
+
+      // 4. Online Payment (AlinmaPay): Direct Bank Gateway Redirection
+      toast.loading(isRTL ? "جارٍ الاتصال ببوابة البنك وتحويلك لصفحة الدفع..." : "Connecting to bank gateway...");
+
+      const { data: bankData, error: bankErr } = await supabase.functions.invoke("create-alinma-payment", {
+        body: {
+          bundleId: resolvedBundleId,
+          bundleTitle: isRTL ? (bundleTitleAr || bundleTitle) : (bundleTitle || bundleTitleAr),
+          userId: user.id,
+          customerEmail: user.email,
+          amount: amountDueToday,
+          installmentPercent: paymentPlan === "monthly" ? installmentMonths : 100,
+          planType: paymentPlan === "monthly" ? "monthly" : "chapters",
+          origin: window.location.origin,
+        },
+      });
+
+      if (bankErr) {
+        console.error("create-alinma-payment error:", bankErr);
+        const errMsg = bankErr.message || "";
+        if (errMsg.includes("not configured")) {
+          toast.error(
+            isRTL
+              ? "بوابة الدفع الإلكتروني تخضع للصيانة حالياً. يرجى اختيار التحويل البنكي."
+              : "Online gateway under maintenance. Please use Bank Transfer."
+          );
+          setPaymentMethod("bank_transfer");
+        } else {
+          toast.error(isRTL ? "تعذر إنشاء جلسة الدفع مع البنك. يرجى المحاولة لاحقاً." : "Failed to initiate bank payment");
+        }
+        return;
+      }
+
+      if (bankData?.redirect_url) {
+        // DIRECT REDIRECT TO THE BANK PAYMENT PAGE
+        window.location.href = bankData.redirect_url;
+        return;
+      } else {
+        throw new Error(isRTL ? "لم يتم استلام رابط صفحة الدفع من البنك" : "No redirect URL received from bank");
+      }
     } catch (err: any) {
+      console.error("Bundle checkout failed:", err);
       toast.error(err.message || (isRTL ? "فشل إتمام الشراء" : "Purchase failed"));
     } finally {
       setIsProcessing(false);
-    }
-  };
-
-  const handleFinishAndNavigate = () => {
-    onClose();
-    if (checkoutResult?.isPending && checkoutResult.primaryPaymentId) {
-      navigate(`/payment/pending?payment_id=${checkoutResult.primaryPaymentId}`);
-    } else {
-      navigate("/dashboard/student");
     }
   };
 
