@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
@@ -6,7 +6,7 @@ import {
   Package, Plus, Search, Edit3, Trash2, CheckCircle2, XCircle, 
   Settings, ShoppingBag, Sparkles, AlertCircle, Percent, DollarSign,
   BookOpen, Eye, ArrowUpDown, Layers, RefreshCw, Check, Info, Users,
-  X, CheckSquare, Square, ChevronRight
+  X, CheckSquare, Square, ChevronRight, UploadCloud, Loader2, Image as ImageIcon
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -54,6 +54,54 @@ export const BundlesManagement = () => {
   const [formValidDays, setFormValidDays] = useState<number>(0);
   const [selectedCourseIds, setSelectedCourseIds] = useState<string[]>([]);
   const [courseSearch, setCourseSearch] = useState("");
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [showManualUrl, setShowManualUrl] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast.error(isRTL ? "يرجى اختيار ملف صورة صالح (PNG, JPG, WEBP)" : "Please select a valid image file");
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error(isRTL ? "حجم الصورة يجب ألا يتجاوز 10 ميغابايت" : "Image size must not exceed 10MB");
+      return;
+    }
+
+    setIsUploadingImage(true);
+    try {
+      const { data: authUser } = await supabase.auth.getUser();
+      const safeName = file.name.replace(/[^\w.\-]/g, "_");
+      const fileName = `${authUser?.user?.id || "admin"}/bundle-thumbnails/${Date.now()}-${safeName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("chat-images")
+        .upload(fileName, file, { contentType: file.type, upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase.storage
+        .from("chat-images")
+        .getPublicUrl(fileName);
+
+      if (publicUrlData?.publicUrl) {
+        setFormThumbnail(publicUrlData.publicUrl);
+        toast.success(isRTL ? "تم رفع صورة الباقة بنجاح" : "Bundle image uploaded successfully");
+      } else {
+        throw new Error(isRTL ? "تعذر استخراج رابط الصورة بعد الرفع" : "Failed to retrieve uploaded image URL");
+      }
+    } catch (error: any) {
+      console.error("Bundle thumbnail upload error:", error);
+      toast.error((isRTL ? "فشل رفع صورة الباقة: " : "Failed to upload bundle image: ") + (error?.message || ""));
+    } finally {
+      setIsUploadingImage(false);
+      if (e.target) e.target.value = "";
+    }
+  };
 
   // Custom Bundle Settings State
   const [customSettings, setCustomSettings] = useState<CustomBundleSettings>(DEFAULT_BUNDLE_SETTINGS);
@@ -1096,27 +1144,137 @@ export const BundlesManagement = () => {
               </div>
             </div>
 
-            {/* Thumbnail URL & Active switch */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <Label className="text-sm font-semibold">
-                  {isRTL ? "رابط غلاف الباقة (اختياري)" : "Cover Image URL (optional)"}
-                </Label>
-                <Input
-                  value={formThumbnail}
-                  onChange={(e) => setFormThumbnail(e.target.value)}
-                  placeholder="https://..."
-                  className="rounded-xl"
+            {/* Thumbnail Upload Section & Active switch */}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-semibold flex items-center gap-1.5">
+                    <ImageIcon className="w-4 h-4 text-amber-500" />
+                    {isRTL ? "صورة غلاف الباقة" : "Bundle Cover Image"}
+                  </Label>
+                  <button
+                    type="button"
+                    onClick={() => setShowManualUrl(!showManualUrl)}
+                    className="text-[11px] text-muted-foreground hover:text-foreground underline"
+                  >
+                    {showManualUrl 
+                      ? (isRTL ? "إخفاء الرابط اليدوي" : "Hide manual URL") 
+                      : (isRTL ? "أو إدخال رابط مباشر" : "Or enter direct URL")}
+                  </button>
+                </div>
+
+                {/* Hidden File Input */}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                  disabled={isUploadingImage}
                 />
+
+                {formThumbnail ? (
+                  /* Image Preview Card */
+                  <div className="relative group rounded-2xl overflow-hidden border border-amber-200/60 dark:border-amber-900/40 bg-slate-50 dark:bg-slate-900/50 shadow-sm">
+                    <div className="aspect-video w-full max-h-48 overflow-hidden bg-slate-100 dark:bg-slate-950 flex items-center justify-center">
+                      <img
+                        src={formThumbnail}
+                        alt="Bundle Cover"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        onError={(e) => {
+                          (e.target as any).src = "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=800&auto=format&fit=crop&q=60";
+                        }}
+                      />
+                    </div>
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 p-4">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={isUploadingImage}
+                        className="gap-1.5 shadow-md bg-white/90 dark:bg-slate-900/90 hover:bg-white text-xs font-semibold"
+                      >
+                        <UploadCloud className="w-3.5 h-3.5" />
+                        {isRTL ? "تغيير الصورة" : "Change Image"}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => setFormThumbnail("")}
+                        className="gap-1.5 shadow-md text-xs font-semibold"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        {isRTL ? "حذف" : "Remove"}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  /* Upload Dropzone Box */
+                  <div
+                    onClick={() => !isUploadingImage && fileInputRef.current?.click()}
+                    className={`relative border-2 border-dashed rounded-2xl p-6 flex flex-col items-center justify-center gap-3 text-center cursor-pointer transition-all duration-200 ${
+                      isUploadingImage
+                        ? "border-amber-400 bg-amber-50/40 dark:bg-amber-950/20 cursor-wait"
+                        : "border-slate-200 dark:border-slate-800 hover:border-amber-400 dark:hover:border-amber-500 hover:bg-amber-50/30 dark:hover:bg-amber-950/10"
+                    }`}
+                  >
+                    {isUploadingImage ? (
+                      <div className="flex flex-col items-center gap-2 py-2">
+                        <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
+                        <span className="text-xs font-medium text-amber-600 dark:text-amber-400">
+                          {isRTL ? "جاري رفع الصورة إلى التخزين السحابي..." : "Uploading image..."}
+                        </span>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="w-12 h-12 rounded-2xl bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                          <UploadCloud className="w-6 h-6" />
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                            {isRTL ? "اضغط هنا لاختيار صورة من جهازك" : "Click to select image from your device"}
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">
+                            {isRTL ? "يدعم PNG, JPG, WEBP حتى 10 ميغابايت" : "Supports PNG, JPG, WEBP up to 10MB"}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="rounded-xl text-xs gap-1.5 border-amber-200 dark:border-amber-900/50 hover:bg-amber-50 dark:hover:bg-amber-950/30 text-amber-700 dark:text-amber-300"
+                        >
+                          <UploadCloud className="w-3.5 h-3.5" />
+                          {isRTL ? "رفع صورة جديدة" : "Upload New Image"}
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Optional direct URL input if toggled */}
+                {showManualUrl && (
+                  <div className="pt-2 animate-in fade-in slide-in-from-top-1">
+                    <Input
+                      value={formThumbnail}
+                      onChange={(e) => setFormThumbnail(e.target.value)}
+                      placeholder="https://..."
+                      className="rounded-xl text-xs h-9"
+                    />
+                  </div>
+                )}
               </div>
 
-              <div className="flex items-center justify-between pt-6">
+              {/* Active Status Switch */}
+              <div className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800">
                 <div className="space-y-0.5">
                   <Label className="text-sm font-semibold">
-                    {isRTL ? "تفعيل الباقة وظهورها" : "Bundle Active Status"}
+                    {isRTL ? "تفعيل الباقة وظهورها للطلاب" : "Activate Bundle & Publish"}
                   </Label>
                   <p className="text-[11px] text-muted-foreground">
-                    {isRTL ? "تظهر في الصفحة الرئيسية وكشف البكجات" : "Visible on homepage and catalog"}
+                    {isRTL ? "ستظهر الباقة فوراً في الصفحة الرئيسية وقائمة البكجات" : "Bundle will immediately be visible on homepage"}
                   </p>
                 </div>
                 <Switch

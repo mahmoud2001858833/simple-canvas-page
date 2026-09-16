@@ -71,6 +71,7 @@ export const BundleCheckoutModal = ({
   const [installmentMonths, setInstallmentMonths] = useState<number>(3); // 2, 3, 4
   const [paymentMethod, setPaymentMethod] = useState<"online" | "bank_transfer" | "tabby">("online");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [redirectingUrl, setRedirectingUrl] = useState<string | null>(null);
   const [checkoutResult, setCheckoutResult] = useState<BundleCheckoutResult | null>(null);
 
   // Installment Calculations
@@ -244,42 +245,9 @@ export const BundleCheckoutModal = ({
 
       const bundleDisplayTitle = isRTL ? (bundleTitleAr || bundleTitle) : (bundleTitle || bundleTitleAr);
       let trackingRequestId: string | null = null;
+      let finalRedirectUrl: string | null = null;
 
-      // Authoritative pricing record in custom_course_requests guarantees gateway creates session
-      try {
-        const { data: tempReq, error: tempReqErr } = await supabase
-          .from("custom_course_requests")
-          .insert({
-            user_id: user.id,
-            title: bundleDisplayTitle,
-            course_name: bundleDisplayTitle,
-            delivery_method: "recorded",
-            final_price: amountDueToday,
-            estimated_price: amountDueToday,
-            status: "pending",
-            notes: JSON.stringify({
-              is_bundle: true,
-              bundle_id: resolvedBundleId,
-              bundle_title: bundleDisplayTitle,
-              payment_plan: paymentPlan,
-              installment_months: installmentMonths,
-              total_price: totalPrice,
-              courses: courses.map((c) => ({ id: c.id, title: c.title, price: c.price })),
-            }),
-          } as any)
-          .select("id")
-          .maybeSingle();
-
-        if (tempReq?.id) {
-          trackingRequestId = tempReq.id;
-        } else if (tempReqErr) {
-          console.warn("Tracking request note:", tempReqErr);
-        }
-      } catch (reqCreateErr) {
-        console.warn("Tracking request creation exception:", reqCreateErr);
-      }
-
-      // Save pending bundle checkout to sessionStorage so PaymentSuccess can restore state
+      // Save pending bundle checkout to sessionStorage so PaymentSuccess can restore state immediately
       try {
         sessionStorage.setItem(
           "pending_bundle_checkout",
@@ -290,50 +258,147 @@ export const BundleCheckoutModal = ({
             paymentPlan,
             installmentMonths,
             courseIds: courses.map((c) => c.id),
-            requestId: trackingRequestId,
           })
         );
       } catch {}
 
-      const { data: bankData, error: bankErr } = await supabase.functions.invoke("create-alinma-payment", {
-        body: {
-          requestId: trackingRequestId || null,
-          bundleId: resolvedBundleId,
-          bundleTitle: bundleDisplayTitle,
-          userId: user.id,
-          customerEmail: user.email,
-          amount: amountDueToday,
-          installmentPercent: paymentPlan === "monthly" ? installmentMonths : 100,
-          planType: paymentPlan === "monthly" ? "monthly" : "chapters",
-          origin: window.location.origin,
-        },
-      });
+      // Strategy A: Direct Vercel Serverless Function /api/create-bundle-payment
+      // Uses Service Role to guarantee authoritative request creation without RLS hurdles
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData?.session?.access_token;
+
+        if (accessToken) {
+          const apiRes = await fetch("/api/create-bundle-payment", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({
+              bundleId: resolvedBundleId,
+              bundleTitle: bundleDisplayTitle,
+              bundleTitleAr,
+              amount: amountDueToday,
+              courseIds: courses.map((c) => c.id),
+              paymentPlan,
+              installmentMonths,
+              origin: window.location.origin,
+            }),
+          });
+
+          if (apiRes.ok) {
+            const apiData = await apiRes.json();
+            if (apiData?.redirect_url) {
+              finalRedirectUrl = apiData.redirect_url;
+              if (apiData.request_id) trackingRequestId = apiData.request_id;
+            }
+          } else {
+            console.warn("Vercel /api/create-bundle-payment responded with status:", apiRes.status);
+          }
+        }
+      } catch (apiErr) {
+        console.warn("Vercel /api/create-bundle-payment fetch exception, falling back to direct Edge Function:", apiErr);
+      }
+
+      // Strategy B: Fallback directly to Supabase Edge Function create-alinma-payment
+      if (!finalRedirectUrl) {
+        try {
+          const { data: tempReq, error: tempReqErr } = await supabase
+            .from("custom_course_requests")
+            .insert({
+              user_id: user.id,
+              title: bundleDisplayTitle,
+              description: `باقة مواد: ${bundleDisplayTitle}`,
+              delivery_method: "recorded",
+              status: "pending",
+              institution: "Josoor",
+              specialty: "Bundle",
+              course_name: bundleDisplayTitle,
+              doctor_name: "Josoor",
+              academic_year: "Current",
+              section: "A",
+              final_price: amountDueToday,
+              estimated_price: amountDueToday,
+              notes: JSON.stringify({
+                is_bundle: true,
+                bundle_id: resolvedBundleId,
+                bundle_title: bundleDisplayTitle,
+                payment_plan: paymentPlan,
+                installment_months: installmentMonths,
+                total_price: totalPrice,
+                course_ids: courses.map((c) => c.id),
+              }),
+            } as any)
+            .select()
+            .single();
+
+          if (tempReq?.id) {
+            trackingRequestId = tempReq.id;
+          } else if (tempReqErr) {
+            console.warn("Direct tracking request creation note:", tempReqErr);
+          }
+        } catch (reqCreateErr) {
+          console.warn("Tracking request exception:", reqCreateErr);
+        }
+
+        const { data: bankData, error: bankErr } = await supabase.functions.invoke("create-alinma-payment", {
+          body: {
+            requestId: trackingRequestId || null,
+            bundleId: resolvedBundleId,
+            bundleTitle: bundleDisplayTitle,
+            userId: user.id,
+            customerEmail: user.email,
+            amount: amountDueToday,
+            installmentPercent: paymentPlan === "monthly" ? installmentMonths : 100,
+            planType: paymentPlan === "monthly" ? "monthly" : "chapters",
+            origin: window.location.origin,
+          },
+        });
+
+        if (bankErr) {
+          toast.dismiss(loadingToast);
+          let errDetail = bankErr.message || "";
+          try {
+            const errContext = await (bankErr as any).context?.json?.();
+            if (errContext?.error) errDetail = errContext.error;
+            if (errContext?.details) errDetail += ` (${errContext.details})`;
+          } catch {}
+
+          console.error("create-alinma-payment invocation error:", bankErr, errDetail);
+
+          if (errDetail.includes("not configured")) {
+            toast.error(
+              isRTL
+                ? "بوابة الدفع الإلكتروني تخضع للصيانة حالياً. يرجى اختيار التحويل البنكي."
+                : "Online gateway under maintenance. Please use Bank Transfer."
+            );
+            setPaymentMethod("bank_transfer");
+          } else {
+            toast.error(
+              isRTL
+                ? `تعذر إنشاء جلسة الدفع مع البنك: ${errDetail}`
+                : `Bank payment session error: ${errDetail}`
+            );
+          }
+          return;
+        }
+
+        if (bankData?.redirect_url) {
+          finalRedirectUrl = bankData.redirect_url;
+        }
+      }
 
       toast.dismiss(loadingToast);
 
-      if (bankErr) {
-        console.error("create-alinma-payment error:", bankErr);
-        const errMsg = bankErr.message || "";
-        if (errMsg.includes("not configured")) {
-          toast.error(
-            isRTL
-              ? "بوابة الدفع الإلكتروني تخضع للصيانة حالياً. يرجى اختيار التحويل البنكي."
-              : "Online gateway under maintenance. Please use Bank Transfer."
-          );
-          setPaymentMethod("bank_transfer");
-        } else {
-          toast.error(isRTL ? "تعذر إنشاء جلسة الدفع مع البنك. يرجى المحاولة لاحقاً." : "Failed to initiate bank payment");
-        }
-        return;
-      }
-
-      if (bankData?.redirect_url) {
+      if (finalRedirectUrl) {
+        setRedirectingUrl(finalRedirectUrl);
         toast.success(isRTL ? "تم تجهيز جلسة الدفع! جاري تحويلك إلى البنك..." : "Redirecting to bank gateway...");
-        // DIRECT REDIRECT TO THE BANK PAYMENT PAGE
-        window.location.href = bankData.redirect_url;
+        // IMMEDIATE DIRECT REDIRECTION TO THE BANK PAYMENT PAGE
+        window.location.assign(finalRedirectUrl);
         return;
       } else {
-        throw new Error(isRTL ? "لم يتم استلام رابط صفحة الدفع من البنك" : "No redirect URL received from bank");
+        throw new Error(isRTL ? "لم يتم استلام رابط صفحة الدفع من بوابة البنك" : "No redirect URL received from bank");
       }
     } catch (err: any) {
       console.error("Bundle checkout failed:", err);
@@ -721,6 +786,22 @@ export const BundleCheckoutModal = ({
                 </div>
               </div>
             </div>
+
+            {/* Direct Bank Redirection Banner (if active) */}
+            {redirectingUrl && (
+              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-center space-y-2 animate-in fade-in">
+                <p className="text-xs font-bold text-amber-800 dark:text-amber-200">
+                  {isRTL ? "تم تجهيز جلسة الدفع البنكية! إذا لم يتم نقلك تلقائياً:" : "Bank payment session ready! If not redirected automatically:"}
+                </p>
+                <a
+                  href={redirectingUrl}
+                  className="inline-flex items-center justify-center gap-2 w-full px-5 py-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-sm shadow-lg transition-all"
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  {isRTL ? "الانتقال فوراً إلى صفحة البنك للدفع" : "Go Directly to Bank Payment Page"}
+                </a>
+              </div>
+            )}
 
             {/* Submit Button */}
             <Button
