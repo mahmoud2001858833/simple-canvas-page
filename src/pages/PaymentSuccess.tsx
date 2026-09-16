@@ -182,7 +182,7 @@ export const PaymentSuccess = () => {
         // 1. Authoritative RPC confirmation (SECURITY DEFINER - bypasses RLS and triggers activation)
         if (targetPaymentId) {
           try {
-            await supabase.rpc('confirm_payment_on_return', {
+            await (supabase as any).rpc('confirm_payment_on_return', {
               p_payment_id: targetPaymentId,
               p_order_id: targetOrderId,
             });
@@ -206,8 +206,129 @@ export const PaymentSuccess = () => {
           }
         }
 
-        // 2. Guaranteed enrollment activation
-        if (targetCourseId && user.id) {
+        // 2. Detect if this is a bundle payment
+        let isBundlePayment = Boolean(isBundle || resolvedBundleId);
+        if (!isBundlePayment && targetCourseId) {
+          try {
+            const { data: cRow } = await supabase
+              .from('courses')
+              .select('category')
+              .eq('id', targetCourseId)
+              .maybeSingle();
+            if (cRow?.category === 'bundle') {
+              isBundlePayment = true;
+            } else {
+              const { data: bRow } = await supabase
+                .from('course_bundles')
+                .select('id')
+                .eq('id', targetCourseId)
+                .maybeSingle();
+              if (bRow?.id) {
+                isBundlePayment = true;
+              }
+            }
+          } catch {}
+        }
+
+        // 3. Guaranteed Activation
+        if (isBundlePayment && user.id) {
+          // USER INSTRUCTION: "ولما تتفعل يتفعل جميع الدورات بالمنصة"
+          // Activate all courses in the bundle AND all active platform courses!
+          console.log("Activating all platform courses for bundle purchase, user:", user.id);
+
+          try {
+            // A. Fetch all active courses across Josoorcom
+            const { data: platformCourses } = await supabase
+              .from('courses')
+              .select('id')
+              .eq('is_active', true)
+              .neq('category', 'bundle');
+
+            // B. Fetch any explicitly attached bundle courses
+            const effectiveBundleId = resolvedBundleId || targetCourseId;
+            let bundleLinkedCourseIds: string[] = [];
+            if (effectiveBundleId) {
+              const { data: bCourses } = await supabase
+                .from('bundle_courses')
+                .select('course_id')
+                .eq('bundle_id', effectiveBundleId);
+              if (bCourses) {
+                bundleLinkedCourseIds = bCourses.map((b) => b.course_id);
+              }
+            }
+
+            const allCoursesToUnlock = Array.from(
+              new Set([
+                ...bundleLinkedCourseIds,
+                ...(platformCourses || []).map((c) => c.id),
+                ...(sessionBundleInfo?.courseIds || parsedReqNotes?.course_ids || []),
+              ])
+            );
+
+            console.log(`Unlocking total of ${allCoursesToUnlock.length} courses on the platform!`);
+
+            // C. Enroll the student in ALL courses with 100% full access
+            for (const cId of allCoursesToUnlock) {
+              try {
+                await supabase
+                  .from('enrollments')
+                  .upsert(
+                    {
+                      user_id: user.id,
+                      course_id: cId,
+                      status: 'active',
+                      paid_percentage: 100,
+                      enrolled_at: new Date().toISOString(),
+                    },
+                    { onConflict: 'user_id,course_id' }
+                  );
+              } catch (eErr) {
+                console.warn(`Enrollment error for course ${cId}:`, eErr);
+              }
+            }
+
+            // D. Also mark the bundle course itself active
+            if (targetCourseId) {
+              try {
+                await supabase
+                  .from('enrollments')
+                  .upsert(
+                    {
+                      user_id: user.id,
+                      course_id: targetCourseId,
+                      status: 'active',
+                      paid_percentage: 100,
+                      enrolled_at: new Date().toISOString(),
+                    },
+                    { onConflict: 'user_id,course_id' }
+                  );
+              } catch {}
+            }
+
+            // E. Record bundle purchase tracking
+            if (effectiveBundleId) {
+              try {
+                await supabase
+                  .from('bundle_purchases')
+                  .insert({
+                    bundle_id: effectiveBundleId,
+                    user_id: user.id,
+                    payment_id: targetPaymentId || null,
+                    amount_paid: Number(payment?.amount || bundleData?.price || sessionBundleInfo?.amountPaidToday || 0),
+                    status: 'active',
+                    purchased_at: new Date().toISOString(),
+                  });
+              } catch (bpErr) {
+                console.warn('Bundle purchase insert note:', bpErr);
+              }
+            }
+
+            setIsActivated(true);
+          } catch (bundleErr) {
+            console.error('Bundle platform-wide activation error:', bundleErr);
+          }
+        } else if (targetCourseId && user.id) {
+          // Standard single course activation
           try {
             await supabase
               .from('enrollments')
@@ -226,52 +347,6 @@ export const PaymentSuccess = () => {
           }
 
           setIsActivated(true);
-        }
-
-        // 2b. Guaranteed bundle courses activation
-        if (resolvedBundleId && user.id) {
-          try {
-            const { data: bCourses } = await supabase
-              .from('bundle_courses')
-              .select('course_id')
-              .eq('bundle_id', resolvedBundleId);
-
-            const courseIdsToEnroll: string[] = (bCourses && bCourses.length > 0)
-              ? bCourses.map((b) => b.course_id)
-              : (sessionBundleInfo?.courseIds || parsedReqNotes?.course_ids || []);
-
-            if (courseIdsToEnroll.length > 0) {
-              for (const cId of courseIdsToEnroll) {
-                await supabase
-                  .from('enrollments')
-                  .upsert(
-                    {
-                      user_id: user.id,
-                      course_id: cId,
-                      status: 'active',
-                      paid_percentage: 100,
-                      enrolled_at: new Date().toISOString(),
-                    },
-                    { onConflict: 'user_id,course_id' }
-                  );
-              }
-            }
-
-            await supabase
-              .from('bundle_purchases')
-              .insert({
-                bundle_id: resolvedBundleId,
-                user_id: user.id,
-                payment_id: targetPaymentId || null,
-                amount_paid: Number(payment?.amount || bundleData?.price || sessionBundleInfo?.amountPaidToday || 0),
-                status: 'active',
-                purchased_at: new Date().toISOString(),
-              });
-
-            setIsActivated(true);
-          } catch (bErr) {
-            console.warn('Bundle activation error:', bErr);
-          }
         }
 
         // 3. Invalidate all query caches so all course and dashboard pages reflect instant enrollment
@@ -345,7 +420,9 @@ export const PaymentSuccess = () => {
       setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          if (resolvedCourseId) {
+          if (isBundle) {
+            navigate('/dashboard/student?tab=courses', { replace: true });
+          } else if (resolvedCourseId) {
             navigate(`/courses/${resolvedCourseId}`, { replace: true });
           } else {
             navigate('/dashboard/student', { replace: true });
@@ -361,7 +438,9 @@ export const PaymentSuccess = () => {
 
   // Handle direct navigation click
   const handleOpenCourseNow = () => {
-    if (resolvedCourseId) {
+    if (isBundle) {
+      navigate('/dashboard/student?tab=courses', { replace: true });
+    } else if (resolvedCourseId) {
       navigate(`/courses/${resolvedCourseId}`, { replace: true });
     } else {
       navigate('/dashboard/student', { replace: true });
@@ -396,8 +475,8 @@ export const PaymentSuccess = () => {
               <p className="text-muted-foreground text-base">
                 {isBundle
                   ? (isRTL
-                    ? `تهانينا! تم تأكيد الدفع عبر بوابة البنك وتفعيل كافة مقررات الباقة في حسابك فوراً.`
-                    : 'Congratulations! Your payment has been confirmed by the bank and all bundle courses are unlocked.')
+                    ? `تهانينا! تم تأكيد الدفع عبر بوابة البنك وتفعيل كافة مقررات المنصة في حسابك فوراً.`
+                    : 'Congratulations! Your payment has been confirmed and all platform courses are now unlocked in your account.')
                   : (isRTL 
                     ? 'تهانينا! تم تأكيد الدفع وتفعيل اشتراكك بالدورة بنسبة 100%. يمكنك البدء في الدراسة الآن.'
                     : 'Congratulations! Your payment has been confirmed and course access is 100% active. You can start studying now.'
@@ -439,7 +518,7 @@ export const PaymentSuccess = () => {
                   >
                     {isBundle ? <Package className="h-6 w-6" /> : <GraduationCap className="h-6 w-6" />}
                     {isBundle
-                      ? (isRTL ? 'تصفح مواد الباقة في لوحة التحكم' : 'Explore Bundle Courses')
+                      ? (isRTL ? 'تصفح جميع المقررات المفتوحة في حسابي' : 'Explore All Unlocked Courses')
                       : (isRTL ? 'ابدأ مشاهدة الدورة الآن' : 'Start Watching Course Now')}
                     <ArrowRight className="h-5 w-5" />
                   </Button>

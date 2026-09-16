@@ -17,9 +17,11 @@ import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import {
   processBundleCheckout,
   BundleCheckoutResult,
+  syncBundleToCourses,
 } from "@/services/bundleService";
 
 export interface BundleCheckoutItem {
@@ -93,6 +95,15 @@ export const BundleCheckoutModal = ({
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     toast.success(isRTL ? `تم نسخ ${label}` : `${label} copied`);
+  };
+
+  const handleFinishAndNavigate = () => {
+    onClose();
+    if (checkoutResult?.primaryPaymentId) {
+      navigate(`/payment/pending?payment_id=${checkoutResult.primaryPaymentId}`);
+    } else {
+      navigate("/dashboard/student?tab=courses");
+    }
   };
 
   // Execution
@@ -342,8 +353,23 @@ export const BundleCheckoutModal = ({
           console.warn("Tracking request exception:", reqCreateErr);
         }
 
+        // Ensure bundle exists in courses table as a genuine course
+        try {
+          await syncBundleToCourses({
+            id: resolvedBundleId,
+            title: bundleTitle || bundleDisplayTitle,
+            title_ar: bundleTitleAr || bundleDisplayTitle,
+            price: amountDueToday,
+            original_price: totalPrice,
+            is_active: true,
+          });
+        } catch (cErr) {
+          console.warn("Direct course sync note:", cErr);
+        }
+
         const { data: bankData, error: bankErr } = await supabase.functions.invoke("create-alinma-payment", {
           body: {
+            courseId: resolvedBundleId, // Treated as a native course!
             requestId: trackingRequestId || null,
             bundleId: resolvedBundleId,
             bundleTitle: bundleDisplayTitle,

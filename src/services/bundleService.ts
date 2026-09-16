@@ -89,6 +89,56 @@ export async function saveCustomBundleSettings(settings: CustomBundleSettings): 
 }
 
 /**
+ * Helper to ensure bundle is mirrored into courses table (category = 'bundle')
+ * This allows create-alinma-payment to treat it like a native course for instant gateway redirection
+ */
+export async function syncBundleToCourses(bundle: {
+  id: string;
+  title: string;
+  title_ar: string;
+  description?: string | null;
+  description_ar?: string | null;
+  price: number;
+  original_price?: number | null;
+  thumbnail_url?: string | null;
+  is_active?: boolean;
+}): Promise<void> {
+  try {
+    // 1. Try authoritative RPC helper
+    await (supabase as any).rpc("ensure_bundle_course", {
+      p_bundle_id: bundle.id,
+      p_title: bundle.title,
+      p_title_ar: bundle.title_ar,
+      p_price: Number(bundle.price) || 0,
+      p_original_price: bundle.original_price ? Number(bundle.original_price) : Number(bundle.price),
+      p_thumbnail_url: bundle.thumbnail_url || null,
+    });
+  } catch (rpcErr) {
+    // Fallback to direct upsert in courses
+    try {
+      await supabase.from("courses").upsert({
+        id: bundle.id,
+        title: bundle.title,
+        title_ar: bundle.title_ar,
+        description: bundle.description || `باقة: ${bundle.title_ar || bundle.title}`,
+        description_ar: bundle.description_ar || `باقة: ${bundle.title_ar || bundle.title}`,
+        price: Number(bundle.price) || 0,
+        original_price: bundle.original_price ? Number(bundle.original_price) : Number(bundle.price),
+        thumbnail_url: bundle.thumbnail_url || null,
+        category: "bundle",
+        is_active: bundle.is_active ?? true,
+        is_approved: true,
+        approval_status: "approved",
+        monthly_installment_enabled: true,
+        monthly_installment_months: 3,
+      }, { onConflict: "id" });
+    } catch (upsertErr) {
+      console.warn("Direct course upsert note:", upsertErr);
+    }
+  }
+}
+
+/**
  * Fetch all active public bundles with their associated courses and instructor info
  */
 export async function getActiveBundles(): Promise<CourseBundle[]> {
@@ -101,6 +151,11 @@ export async function getActiveBundles(): Promise<CourseBundle[]> {
 
     if (error) throw error;
     if (!bundles || bundles.length === 0) return [];
+
+    // Background sync to ensure all active bundles exist in courses table
+    bundles.forEach((b) => {
+      syncBundleToCourses(b).catch(() => {});
+    });
 
     return await populateBundleDetails(bundles);
   } catch (e) {
@@ -121,6 +176,11 @@ export async function getAllBundles(): Promise<CourseBundle[]> {
 
     if (error) throw error;
     if (!bundles || bundles.length === 0) return [];
+
+    // Background sync to ensure all bundles exist in courses table
+    bundles.forEach((b) => {
+      syncBundleToCourses(b).catch(() => {});
+    });
 
     return await populateBundleDetails(bundles);
   } catch (e) {
@@ -257,6 +317,19 @@ export async function createCourseBundle(data: {
     if (relErr) throw relErr;
   }
 
+  // Authoritatively sync newly created bundle into courses table
+  await syncBundleToCourses({
+    id: bundleId,
+    title: bundleFields.title,
+    title_ar: bundleFields.title_ar,
+    description: bundleFields.description,
+    description_ar: bundleFields.description_ar,
+    price: bundleFields.price,
+    original_price: bundleFields.original_price,
+    thumbnail_url: bundleFields.thumbnail_url,
+    is_active: bundleFields.is_active,
+  });
+
   return bundleId;
 }
 
@@ -304,6 +377,19 @@ export async function updateCourseBundle(
       if (relErr) throw relErr;
     }
   }
+
+  // Authoritatively sync updated bundle into courses table
+  if (data.title || data.title_ar || data.price !== undefined || data.is_active !== undefined) {
+    const { data: latest } = await supabase
+      .from("course_bundles")
+      .select("*")
+      .eq("id", bundleId)
+      .maybeSingle();
+
+    if (latest) {
+      await syncBundleToCourses(latest);
+    }
+  }
 }
 
 /**
@@ -314,6 +400,9 @@ export async function deleteCourseBundle(bundleId: string): Promise<void> {
   await supabase.from("bundle_courses").delete().eq("bundle_id", bundleId);
   const { error } = await supabase.from("course_bundles").delete().eq("id", bundleId);
   if (error) throw error;
+
+  // Clean up mirrored course
+  await supabase.from("courses").delete().eq("id", bundleId).eq("category", "bundle");
 }
 
 /**

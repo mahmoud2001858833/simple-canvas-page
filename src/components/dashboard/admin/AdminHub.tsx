@@ -80,7 +80,7 @@ export const AdminHub = ({ onNavigate }: AdminHubProps) => {
         supabase.from('support_chats').select('id', { count: 'exact', head: true }).eq('status', 'open'),
         supabase.from('payments').select('id', { count: 'exact', head: true }).eq('status', 'pending').lt('created_at', dayAgo),
         supabase.from('screen_capture_attempts').select('id', { count: 'exact', head: true }).gte('created_at', dayAgo),
-        supabase.from('payout_negotiations').select('id', { count: 'exact', head: true }).in('status', ['offer_sent_by_admin', 'counter_offer_by_teacher']),
+        (supabase as any).from('payout_negotiations').select('id', { count: 'exact', head: true }).in('status', ['offer_sent_by_admin', 'counter_offer_by_teacher']),
       ]);
 
       return {

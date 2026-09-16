@@ -67,46 +67,74 @@ export default async function handler(req: any, res: any) {
 
     const displayTitle = bundleTitleAr || bundleTitle || 'Course Bundle';
 
-    // 1. Create guaranteed authoritative custom_course_requests row with SERVICE ROLE KEY
-    // This bypasses any RLS hurdles and guarantees create-alinma-payment has an authoritative price
-    const { data: requestRow, error: reqErr } = await supabaseAdmin
-      .from('custom_course_requests')
-      .insert({
-        user_id: user.id,
-        title: displayTitle,
-        description: `باقة دورات: ${displayTitle}`,
-        delivery_method: 'recorded',
-        status: 'pending',
-        final_price: finalAmount,
-        estimated_price: finalAmount,
-        course_name: displayTitle,
-        institution: 'Josoor',
-        specialty: 'Bundle',
-        doctor_name: 'Josoor',
-        academic_year: 'Current',
-        section: 'A',
-        notes: JSON.stringify({
-          is_bundle: true,
-          bundle_id: bundleId,
-          bundle_title: displayTitle,
-          payment_plan: paymentPlan,
-          installment_months: installmentMonths,
-          course_ids: courseIds,
-        }),
-      })
-      .select('id')
-      .single();
-
-    if (reqErr || !requestRow) {
-      console.error('Failed to create tracking request:', reqErr);
-      return res.status(500).json({ error: 'Failed to create tracking request record', details: reqErr });
+    // 1. Ensure the bundle exists in `courses` table as a genuine course
+    // This allows create-alinma-payment to treat it like a regular course with authoritative pricing
+    try {
+      await supabaseAdmin
+        .from('courses')
+        .upsert({
+          id: bundleId,
+          title: bundleTitle || 'Course Bundle',
+          title_ar: bundleTitleAr || bundleTitle || 'باقة دورات',
+          price: finalAmount,
+          original_price: finalAmount,
+          is_active: true,
+          is_approved: true,
+          approval_status: 'approved',
+          category: 'bundle',
+          monthly_installment_enabled: true,
+          monthly_installment_months: Number(installmentMonths) || 3,
+          description: `باقة دورات شاملة: ${displayTitle}`,
+          description_ar: `باقة دورات شاملة: ${displayTitle}`,
+        }, { onConflict: 'id' });
+    } catch (courseSyncErr) {
+      console.warn('Upsert bundle to courses table note:', courseSyncErr);
     }
 
-    const trackingRequestId = requestRow.id;
+    // 2. Create authoritative custom_course_requests row with SERVICE ROLE KEY
+    let trackingRequestId: string | null = null;
+    try {
+      const { data: requestRow, error: reqErr } = await supabaseAdmin
+        .from('custom_course_requests')
+        .insert({
+          user_id: user.id,
+          title: displayTitle,
+          description: `باقة دورات: ${displayTitle}`,
+          delivery_method: 'recorded',
+          status: 'pending',
+          final_price: finalAmount,
+          estimated_price: finalAmount,
+          course_name: displayTitle,
+          institution: 'Josoor',
+          specialty: 'Bundle',
+          doctor_name: 'Josoor',
+          academic_year: 'Current',
+          section: 'A',
+          notes: JSON.stringify({
+            is_bundle: true,
+            bundle_id: bundleId,
+            bundle_title: displayTitle,
+            payment_plan: paymentPlan,
+            installment_months: installmentMonths,
+            course_ids: courseIds,
+          }),
+        })
+        .select('id')
+        .single();
 
-    // 2. Invoke create-alinma-payment edge function with the guaranteed trackingRequestId
+      if (requestRow?.id) {
+        trackingRequestId = requestRow.id;
+      } else if (reqErr) {
+        console.warn('Request row note:', reqErr);
+      }
+    } catch (e) {
+      console.warn('Custom request insertion exception:', e);
+    }
+
+    // 3. Invoke create-alinma-payment edge function treating the bundle as a course
     const payload = {
-      requestId: trackingRequestId,
+      courseId: bundleId, // Treated as a native course!
+      requestId: trackingRequestId || null,
       bundleId: bundleId || null,
       bundleTitle: displayTitle,
       userId: user.id,
@@ -117,7 +145,7 @@ export default async function handler(req: any, res: any) {
       origin: clientOrigin || 'https://www.josoorcom.com',
     };
 
-    console.log('Forwarding bundle payment to create-alinma-payment with requestId:', trackingRequestId);
+    console.log('Forwarding bundle payment to create-alinma-payment as courseId:', bundleId);
 
     const edgeRes = await fetch(`${SUPABASE_URL}/functions/v1/create-alinma-payment`, {
       method: 'POST',
