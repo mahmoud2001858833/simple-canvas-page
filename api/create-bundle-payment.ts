@@ -144,6 +144,7 @@ export default async function handler(req: any, res: any) {
 
     // Invoke create-alinma-payment edge function natively as a bundle
     const payload = {
+      requestId: trackingRequestId || null,
       bundleId: bundleId || null,
       bundleTitle: displayTitle,
       userId: user.id,
@@ -155,6 +156,7 @@ export default async function handler(req: any, res: any) {
     };
 
     console.log('Forwarding bundle payment to create-alinma-payment:', {
+      requestId: payload.requestId,
       bundleId: payload.bundleId,
       amount: payload.amount,
     });

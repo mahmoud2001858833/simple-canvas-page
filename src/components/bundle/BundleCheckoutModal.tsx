@@ -308,8 +308,30 @@ export const BundleCheckoutModal = ({
 
         if (tempReq?.id) {
           trackingRequestId = tempReq.id;
-        } else if (tempReqErr) {
-          console.warn("Direct tracking request creation note:", tempReqErr);
+        } else {
+          console.warn("Primary tracking request creation note:", tempReqErr);
+          // Minimal fallback insertion
+          const { data: minReq } = await supabase
+            .from("custom_course_requests")
+            .insert({
+              user_id: user.id,
+              title: bundleDisplayTitle || "باقة دورات",
+              delivery_method: "recorded",
+              status: "pending",
+              final_price: amountDueToday,
+              estimated_price: amountDueToday,
+              notes: JSON.stringify({
+                is_bundle: true,
+                bundle_id: resolvedBundleId,
+                bundle_title: bundleDisplayTitle,
+                payment_plan: paymentPlan,
+                installment_months: installmentMonths,
+                course_ids: courses.map((c) => c.id),
+              }),
+            })
+            .select("id")
+            .single();
+          if (minReq?.id) trackingRequestId = minReq.id;
         }
       } catch (reqCreateErr) {
         console.warn("Tracking request exception:", reqCreateErr);
@@ -383,6 +405,7 @@ export const BundleCheckoutModal = ({
       if (!finalRedirectUrl) {
         const { data: bankData, error: bankErr } = await supabase.functions.invoke("create-alinma-payment", {
           body: {
+            requestId: trackingRequestId,
             bundleId: resolvedBundleId,
             bundleTitle: bundleDisplayTitle,
             userId: user.id,

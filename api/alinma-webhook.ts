@@ -333,34 +333,46 @@ export default async function handler(req: any, res: any) {
         console.log(`Course ${payment.course_id} unlocked for user ${payment.user_id}`);
       }
 
-      // 2b. If bundle payment: unlock ALL platform courses and bundle courses
+      // 2b. If bundle payment: unlock ONLY courses that belong to the purchased bundle
       const isBundle = payment.installment_plan?.is_bundle || payment.installment_plan?.bundle_id || parsedUserData?.bundleId;
       const bId = payment.installment_plan?.bundle_id || parsedUserData?.bundleId;
       if (isBundle && payment.user_id) {
         try {
-          const { data: platformCourses } = await supabase
-            .from('courses')
-            .select('id')
-            .eq('is_active', true)
-            .neq('category', 'bundle');
-
           let bundleLinkedCourseIds: string[] = [];
           if (bId) {
             const { data: bCourses } = await supabase
               .from('bundle_courses')
               .select('course_id')
               .eq('bundle_id', bId);
-            if (bCourses) {
+            if (bCourses && bCourses.length > 0) {
               bundleLinkedCourseIds = bCourses.map((b: any) => b.course_id);
             }
           }
 
-          const allToUnlock = Array.from(new Set([
-            ...bundleLinkedCourseIds,
-            ...(platformCourses || []).map((c: any) => c.id),
-          ]));
+          let reqCourseIds: string[] = [];
+          if (payment.request_id) {
+            const { data: reqRow } = await supabase
+              .from('custom_course_requests')
+              .select('notes')
+              .eq('id', payment.request_id)
+              .maybeSingle();
+            if (reqRow?.notes) {
+              try {
+                const parsed = JSON.parse(reqRow.notes);
+                if (Array.isArray(parsed?.course_ids)) {
+                  reqCourseIds = parsed.course_ids;
+                }
+              } catch {}
+            }
+          }
 
-          for (const cId of allToUnlock) {
+          const bundleCoursesToUnlock = Array.from(new Set([
+            ...bundleLinkedCourseIds,
+            ...reqCourseIds,
+            ...(Array.isArray(parsedUserData?.courseIds) ? parsedUserData.courseIds : []),
+          ].filter(Boolean)));
+
+          for (const cId of bundleCoursesToUnlock) {
             await supabase.from('enrollments').upsert({
               user_id: payment.user_id,
               course_id: cId,
@@ -369,9 +381,9 @@ export default async function handler(req: any, res: any) {
               enrolled_at: new Date().toISOString(),
             }, { onConflict: 'user_id,course_id' });
           }
-          console.log(`Unlocked all ${allToUnlock.length} platform courses for user ${payment.user_id}`);
+          console.log(`Unlocked ${bundleCoursesToUnlock.length} bundle courses for user ${payment.user_id}`);
         } catch (bErr) {
-          console.warn('Error activating all bundle courses in webhook:', bErr);
+          console.warn('Error activating bundle courses in webhook:', bErr);
         }
       }
 

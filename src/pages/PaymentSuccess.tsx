@@ -232,19 +232,12 @@ export const PaymentSuccess = () => {
 
         // 3. Guaranteed Activation
         if (isBundlePayment && user.id) {
-          // USER INSTRUCTION: "ولما تتفعل يتفعل جميع الدورات بالمنصة"
-          // Activate all courses in the bundle AND all active platform courses!
-          console.log("Activating all platform courses for bundle purchase, user:", user.id);
+          // USER INSTRUCTION: "بدي عندما يتم شراء البكج بتفعل الدورات الموجودة بس بالبكج"
+          // Activate ONLY the courses that belong to this specific bundle!
+          console.log("Activating bundle-specific courses for purchase, user:", user.id);
 
           try {
-            // A. Fetch all active courses across Josoorcom
-            const { data: platformCourses } = await supabase
-              .from('courses')
-              .select('id')
-              .eq('is_active', true)
-              .neq('category', 'bundle');
-
-            // B. Fetch any explicitly attached bundle courses
+            // A. Fetch any explicitly attached bundle courses from DB
             const effectiveBundleId = resolvedBundleId || targetCourseId;
             let bundleLinkedCourseIds: string[] = [];
             if (effectiveBundleId) {
@@ -252,23 +245,24 @@ export const PaymentSuccess = () => {
                 .from('bundle_courses')
                 .select('course_id')
                 .eq('bundle_id', effectiveBundleId);
-              if (bCourses) {
+              if (bCourses && bCourses.length > 0) {
                 bundleLinkedCourseIds = bCourses.map((b) => b.course_id);
               }
             }
 
-            const allCoursesToUnlock = Array.from(
+            // B. Resolve bundle courses from DB, session storage, or request metadata
+            const bundleCoursesToUnlock = Array.from(
               new Set([
                 ...bundleLinkedCourseIds,
-                ...(platformCourses || []).map((c) => c.id),
-                ...(sessionBundleInfo?.courseIds || parsedReqNotes?.course_ids || []),
-              ])
+                ...(sessionBundleInfo?.courseIds || []),
+                ...(parsedReqNotes?.course_ids || []),
+              ].filter(Boolean))
             );
 
-            console.log(`Unlocking total of ${allCoursesToUnlock.length} courses on the platform!`);
+            console.log(`Unlocking ${bundleCoursesToUnlock.length} bundle courses for student:`, bundleCoursesToUnlock);
 
-            // C. Enroll the student in ALL courses with 100% full access
-            for (const cId of allCoursesToUnlock) {
+            // C. Enroll the student in ONLY the courses included in this bundle
+            for (const cId of bundleCoursesToUnlock) {
               try {
                 await supabase
                   .from('enrollments')
