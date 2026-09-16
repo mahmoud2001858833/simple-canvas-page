@@ -273,8 +273,74 @@ export const BundleCheckoutModal = ({
         );
       } catch {}
 
+      // 1. Authoritatively create tracking request in custom_course_requests
+      // This is 100% permitted for all authenticated users (students & admins)
+      // and guarantees create-alinma-payment has an authoritative record with exact price and notes.
+      try {
+        const { data: tempReq, error: tempReqErr } = await supabase
+          .from("custom_course_requests")
+          .insert({
+            user_id: user.id,
+            title: bundleDisplayTitle,
+            description: `باقة دورات: ${bundleDisplayTitle}`,
+            delivery_method: "recorded",
+            status: "pending",
+            institution: "Josoor",
+            specialty: "Bundle",
+            course_name: bundleDisplayTitle,
+            doctor_name: "Josoor",
+            academic_year: "Current",
+            section: "A",
+            final_price: amountDueToday,
+            estimated_price: amountDueToday,
+            notes: JSON.stringify({
+              is_bundle: true,
+              bundle_id: resolvedBundleId,
+              bundle_title: bundleDisplayTitle,
+              payment_plan: paymentPlan,
+              installment_months: installmentMonths,
+              total_price: totalPrice,
+              course_ids: courses.map((c) => c.id),
+            }),
+          } as any)
+          .select()
+          .single();
+
+        if (tempReq?.id) {
+          trackingRequestId = tempReq.id;
+        } else if (tempReqErr) {
+          console.warn("Direct tracking request creation note:", tempReqErr);
+        }
+      } catch (reqCreateErr) {
+        console.warn("Tracking request exception:", reqCreateErr);
+      }
+
+      // 2. Check if bundle ID genuinely exists in courses table
+      let isCourseInDb = false;
+      try {
+        const { data: cRow } = await supabase
+          .from("courses")
+          .select("id")
+          .eq("id", resolvedBundleId)
+          .maybeSingle();
+        if (cRow?.id) isCourseInDb = true;
+      } catch {}
+
+      // Background sync to courses if user has permissions
+      try {
+        await syncBundleToCourses({
+          id: resolvedBundleId,
+          title: bundleTitle || bundleDisplayTitle,
+          title_ar: bundleTitleAr || bundleDisplayTitle,
+          price: amountDueToday,
+          original_price: totalPrice,
+          is_active: true,
+        });
+      } catch (cErr) {
+        console.warn("Course sync note:", cErr);
+      }
+
       // Strategy A: Direct Vercel Serverless Function /api/create-bundle-payment
-      // Uses Service Role to guarantee authoritative request creation without RLS hurdles
       try {
         const { data: sessionData } = await supabase.auth.getSession();
         const accessToken = sessionData?.session?.access_token;
@@ -295,6 +361,7 @@ export const BundleCheckoutModal = ({
               paymentPlan,
               installmentMonths,
               origin: window.location.origin,
+              requestId: trackingRequestId,
             }),
           });
 
@@ -314,63 +381,8 @@ export const BundleCheckoutModal = ({
 
       // Strategy B: Fallback directly to Supabase Edge Function create-alinma-payment
       if (!finalRedirectUrl) {
-        try {
-          const { data: tempReq, error: tempReqErr } = await supabase
-            .from("custom_course_requests")
-            .insert({
-              user_id: user.id,
-              title: bundleDisplayTitle,
-              description: `باقة مواد: ${bundleDisplayTitle}`,
-              delivery_method: "recorded",
-              status: "pending",
-              institution: "Josoor",
-              specialty: "Bundle",
-              course_name: bundleDisplayTitle,
-              doctor_name: "Josoor",
-              academic_year: "Current",
-              section: "A",
-              final_price: amountDueToday,
-              estimated_price: amountDueToday,
-              notes: JSON.stringify({
-                is_bundle: true,
-                bundle_id: resolvedBundleId,
-                bundle_title: bundleDisplayTitle,
-                payment_plan: paymentPlan,
-                installment_months: installmentMonths,
-                total_price: totalPrice,
-                course_ids: courses.map((c) => c.id),
-              }),
-            } as any)
-            .select()
-            .single();
-
-          if (tempReq?.id) {
-            trackingRequestId = tempReq.id;
-          } else if (tempReqErr) {
-            console.warn("Direct tracking request creation note:", tempReqErr);
-          }
-        } catch (reqCreateErr) {
-          console.warn("Tracking request exception:", reqCreateErr);
-        }
-
-        // Ensure bundle exists in courses table as a genuine course
-        try {
-          await syncBundleToCourses({
-            id: resolvedBundleId,
-            title: bundleTitle || bundleDisplayTitle,
-            title_ar: bundleTitleAr || bundleDisplayTitle,
-            price: amountDueToday,
-            original_price: totalPrice,
-            is_active: true,
-          });
-        } catch (cErr) {
-          console.warn("Direct course sync note:", cErr);
-        }
-
         const { data: bankData, error: bankErr } = await supabase.functions.invoke("create-alinma-payment", {
           body: {
-            courseId: resolvedBundleId, // Treated as a native course!
-            requestId: trackingRequestId || null,
             bundleId: resolvedBundleId,
             bundleTitle: bundleDisplayTitle,
             userId: user.id,

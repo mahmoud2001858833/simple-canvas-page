@@ -333,6 +333,48 @@ export default async function handler(req: any, res: any) {
         console.log(`Course ${payment.course_id} unlocked for user ${payment.user_id}`);
       }
 
+      // 2b. If bundle payment: unlock ALL platform courses and bundle courses
+      const isBundle = payment.installment_plan?.is_bundle || payment.installment_plan?.bundle_id || parsedUserData?.bundleId;
+      const bId = payment.installment_plan?.bundle_id || parsedUserData?.bundleId;
+      if (isBundle && payment.user_id) {
+        try {
+          const { data: platformCourses } = await supabase
+            .from('courses')
+            .select('id')
+            .eq('is_active', true)
+            .neq('category', 'bundle');
+
+          let bundleLinkedCourseIds: string[] = [];
+          if (bId) {
+            const { data: bCourses } = await supabase
+              .from('bundle_courses')
+              .select('course_id')
+              .eq('bundle_id', bId);
+            if (bCourses) {
+              bundleLinkedCourseIds = bCourses.map((b: any) => b.course_id);
+            }
+          }
+
+          const allToUnlock = Array.from(new Set([
+            ...bundleLinkedCourseIds,
+            ...(platformCourses || []).map((c: any) => c.id),
+          ]));
+
+          for (const cId of allToUnlock) {
+            await supabase.from('enrollments').upsert({
+              user_id: payment.user_id,
+              course_id: cId,
+              status: 'active',
+              paid_percentage: 100,
+              enrolled_at: new Date().toISOString(),
+            }, { onConflict: 'user_id,course_id' });
+          }
+          console.log(`Unlocked all ${allToUnlock.length} platform courses for user ${payment.user_id}`);
+        } catch (bErr) {
+          console.warn('Error activating all bundle courses in webhook:', bErr);
+        }
+      }
+
       // 3. If custom course request
       if (payment.request_id) {
         await supabase

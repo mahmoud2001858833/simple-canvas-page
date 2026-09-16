@@ -131,10 +131,19 @@ export default async function handler(req: any, res: any) {
       console.warn('Custom request insertion exception:', e);
     }
 
-    // 3. Invoke create-alinma-payment edge function treating the bundle as a course
+    // 3. Check if course exists in courses table; otherwise use trackingRequestId
+    let isCourseInDb = false;
+    try {
+      const { data: checkRow } = await supabaseAdmin
+        .from('courses')
+        .select('id')
+        .eq('id', bundleId)
+        .maybeSingle();
+      if (checkRow?.id) isCourseInDb = true;
+    } catch {}
+
+    // Invoke create-alinma-payment edge function natively as a bundle
     const payload = {
-      courseId: bundleId, // Treated as a native course!
-      requestId: trackingRequestId || null,
       bundleId: bundleId || null,
       bundleTitle: displayTitle,
       userId: user.id,
@@ -145,7 +154,10 @@ export default async function handler(req: any, res: any) {
       origin: clientOrigin || 'https://www.josoorcom.com',
     };
 
-    console.log('Forwarding bundle payment to create-alinma-payment as courseId:', bundleId);
+    console.log('Forwarding bundle payment to create-alinma-payment:', {
+      bundleId: payload.bundleId,
+      amount: payload.amount,
+    });
 
     const edgeRes = await fetch(`${SUPABASE_URL}/functions/v1/create-alinma-payment`, {
       method: 'POST',
