@@ -793,7 +793,7 @@ export const CourseCommunityChat: React.FC<CourseCommunityChatProps> = ({
                             <MoreVertical className="w-3 h-3" />
                           </button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="text-xs text-right" dir="rtl">
+                        <DropdownMenuContent align="start" className="text-xs text-right">
                           <DropdownMenuItem
                             onClick={() =>
                               setReplyingTo({
@@ -932,7 +932,7 @@ export const CourseCommunityChat: React.FC<CourseCommunityChatProps> = ({
                     <Paperclip className="w-5 h-5" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="text-xs text-right" dir="rtl">
+                <DropdownMenuContent align="end" className="text-xs text-right">
                   <DropdownMenuItem
                     onClick={() => fileInputRef.current?.click()}
                     disabled={!canStudentSendMedia}

@@ -25,6 +25,7 @@ const QuestionBankManager = lazy(() => import('@/components/dashboard/instructor
 const InstructorAssignedRequests = lazy(() => import('@/components/dashboard/instructor/InstructorAssignedRequests').then(m => ({ default: m.InstructorAssignedRequests })));
 const StudentEngagementAnalytics = lazy(() => import('@/components/dashboard/instructor/StudentEngagementAnalytics').then(m => ({ default: m.StudentEngagementAnalytics })));
 const InstructorCommunitiesManagement = lazy(() => import('@/components/dashboard/instructor/InstructorCommunitiesManagement').then(m => ({ default: m.InstructorCommunitiesManagement })));
+const TeacherFinancialStatusCard = lazy(() => import('@/components/dashboard/instructor/TeacherFinancialStatusCard').then(m => ({ default: m.TeacherFinancialStatusCard || m.default })));
 
 type TabType = 'overview' | 'courses' | 'communities' | 'assignments' | 'question-bank' | 'assigned-requests' | 'students' | 'student-engagement' | 'earnings' | 'withdrawals' | 'payouts' | 'messages' | 'analytics' | 'ai-assistant';
 
