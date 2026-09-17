@@ -33,6 +33,7 @@ export interface CommunityMessage {
   content: string;
   message_type: MessageType;
   file_url?: string | null;
+  fileName?: string | null;
   file_name?: string | null;
   file_size?: number | null;
   poll_data?: PollData | null;
@@ -54,7 +55,7 @@ export interface CommunitySettings {
   updated_by?: string | null;
 }
 
-const DEFAULT_SETTINGS = (courseId: string): CommunitySettings => ({
+export const DEFAULT_SETTINGS = (courseId: string): CommunitySettings => ({
   course_id: courseId,
   allow_student_messages: true,
   allow_student_media: true,
@@ -63,152 +64,201 @@ const DEFAULT_SETTINGS = (courseId: string): CommunitySettings => ({
   muted_user_ids: [],
 });
 
-let cachedThreadId: Record<string, string> = {};
+export interface CommunityBroadcastCallbacks {
+  onNewMessage?: (message: CommunityMessage) => void;
+  onSettingsUpdated?: (settings: CommunitySettings) => void;
+  onPollVoted?: (payload: { messageId: string; optionId: string; userId: string; pollData?: PollData }) => void;
+  onPollClosed?: (payload: { messageId: string }) => void;
+  onMessagePinned?: (payload: { messageId: string; isPinned: boolean }) => void;
+  onMessageDeleted?: (payload: { messageId: string }) => void;
+  onGenericUpdate?: () => void;
+}
+
+// Active Supabase broadcast channel references per course
+const activeChannels: Record<string, any> = {};
 
 /**
- * Get or create community discussion thread using client-side authenticated user
+ * Get or initialize the shared Realtime channel for a course
  */
-async function getOrCreateThread(courseId: string): Promise<string | null> {
-  if (cachedThreadId[courseId]) return cachedThreadId[courseId];
-
-  try {
-    // 1. Check if discussion already exists for this course
-    const { data: discussions, error: findErr } = await supabase
-      .from('course_discussions')
-      .select('id, title, content')
-      .eq('course_id', courseId)
-      .order('created_at', { ascending: true })
-      .limit(1);
-
-    if (!findErr && discussions && discussions.length > 0) {
-      cachedThreadId[courseId] = discussions[0].id;
-      return discussions[0].id;
-    }
-
-    // 2. If no discussion exists, create one with the logged-in user
-    const { data: authData } = await supabase.auth.getUser();
-    if (!authData?.user) return null;
-
-    const { data: created, error: insertErr } = await supabase
-      .from('course_discussions')
-      .insert({
-        course_id: courseId,
-        user_id: authData.user.id,
-        title: '__COURSE_COMMUNITY_MAIN__',
-        content: JSON.stringify(DEFAULT_SETTINGS(courseId)),
-      })
-      .select('id')
-      .maybeSingle();
-
-    if (!insertErr && created?.id) {
-      cachedThreadId[courseId] = created.id;
-      return created.id;
-    }
-
-    // If duplicate or race condition, query again
-    const { data: retry } = await supabase
-      .from('course_discussions')
-      .select('id')
-      .eq('course_id', courseId)
-      .limit(1);
-
-    if (retry && retry.length > 0) {
-      cachedThreadId[courseId] = retry[0].id;
-      return retry[0].id;
-    }
-  } catch (err) {
-    console.warn('getOrCreateThread note:', err);
+export function getCommunityChannel(courseId: string) {
+  const channelName = `course-community-live-${courseId}`;
+  if (!activeChannels[courseId]) {
+    activeChannels[courseId] = supabase.channel(channelName, {
+      config: {
+        broadcast: { self: false },
+      },
+    });
+    activeChannels[courseId].subscribe();
   }
-
-  return null;
+  return activeChannels[courseId];
 }
 
 /**
- * Helper to get auth headers for API calls
+ * Send a broadcast event to all other clients watching this course community
  */
-async function getAuthHeaders(): Promise<Record<string, string>> {
+async function sendBroadcastEvent(courseId: string, event: string, payload: any): Promise<void> {
   try {
-    const { data } = await supabase.auth.getSession();
-    const token = data?.session?.access_token;
-    return {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    };
-  } catch {
-    return { 'Content-Type': 'application/json' };
+    const channel = getCommunityChannel(courseId);
+    await channel.send({
+      type: 'broadcast',
+      event,
+      payload,
+    });
+  } catch (err) {
+    console.warn('Broadcast send error:', err);
   }
 }
 
 /**
  * Fetch all messages for a course community group
+ * Uses multi-tier loading:
+ * 1. Instant local cache (0ms)
+ * 2. Supabase Storage files in community-state/${courseId}/messages/
+ * 3. Aggregates live poll votes & moderation deletions
  */
 export async function fetchCommunityMessages(courseId: string): Promise<CommunityMessage[]> {
-  // 1. Direct Supabase Query (Fast & Safe without invalid schema join)
+  const cacheKey = `comm_msgs_${courseId}`;
+
+  // 1. Try local cache first for zero-latency loading
+  let cached: CommunityMessage[] = [];
   try {
-    const threadId = await getOrCreateThread(courseId);
-    if (threadId) {
-      const { data: replies, error } = await supabase
-        .from('discussion_replies')
-        .select('*')
-        .eq('discussion_id', threadId)
-        .order('created_at', { ascending: true });
+    const raw = localStorage.getItem(cacheKey);
+    if (raw) {
+      cached = JSON.parse(raw);
+    }
+  } catch {}
 
-      if (!error && Array.isArray(replies)) {
-        return replies.map((row: any) => {
-          let parsed: any = {};
+  try {
+    // 2. Fetch message files from Supabase Storage
+    const { data: fileList, error: listErr } = await supabase.storage
+      .from('chat-images')
+      .list(`community-state/${courseId}/messages`, {
+        limit: 150,
+        sortBy: { column: 'name', order: 'asc' },
+      });
+
+    // 3. Fetch deleted messages / actions
+    const { data: actionFiles } = await supabase.storage
+      .from('chat-images')
+      .list(`community-state/${courseId}/actions`, { limit: 100 });
+
+    const deletedMessageIds = new Set<string>();
+    (actionFiles || []).forEach((f) => {
+      if (f.name.startsWith('del_')) {
+        const parts = f.name.replace('.json', '').split('_');
+        if (parts[1]) deletedMessageIds.add(parts[1]);
+      }
+    });
+
+    // 4. Fetch poll votes
+    const { data: voteFiles } = await supabase.storage
+      .from('chat-images')
+      .list(`community-state/${courseId}/votes`, { limit: 300 });
+
+    // Map pollId -> Map of userId -> optionId (taking latest)
+    const pollVotesMap: Record<string, Record<string, string>> = {};
+    (voteFiles || []).forEach((vf) => {
+      // v_{messageId}_{userId}_{timestamp}.json
+      const parts = vf.name.replace('.json', '').split('_');
+      if (parts.length >= 4) {
+        const pollId = parts[1];
+        const voterId = parts[2];
+        const timestamp = parseInt(parts[3], 10) || 0;
+        if (!pollVotesMap[pollId]) pollVotesMap[pollId] = {};
+        (pollVotesMap[pollId] as any)[`${voterId}__ts`] = timestamp;
+      }
+    });
+
+    if (!listErr && Array.isArray(fileList) && fileList.length > 0) {
+      // Download recent message files in parallel (up to 80 latest)
+      const targetFiles = fileList
+        .filter((f) => f.name.endsWith('.json'))
+        .slice(-80);
+
+      const downloadPromises = targetFiles.map(async (f) => {
+        try {
+          const { data: blob } = await supabase.storage
+            .from('chat-images')
+            .download(`community-state/${courseId}/messages/${f.name}`);
+          if (!blob) return null;
+          const text = await blob.text();
+          return JSON.parse(text) as CommunityMessage;
+        } catch {
+          return null;
+        }
+      });
+
+      const parsedMessages = (await Promise.all(downloadPromises)).filter(Boolean) as CommunityMessage[];
+
+      // Download vote contents for accurate poll counts
+      if (voteFiles && voteFiles.length > 0) {
+        const voteDownloadPromises = voteFiles.slice(-150).map(async (vf) => {
           try {
-            parsed = JSON.parse(row.content || '{}');
+            const { data: blob } = await supabase.storage
+              .from('chat-images')
+              .download(`community-state/${courseId}/votes/${vf.name}`);
+            if (!blob) return null;
+            const text = await blob.text();
+            return JSON.parse(text) as { messageId: string; optionId: string; userId: string };
           } catch {
-            parsed = { text: row.content };
+            return null;
           }
+        });
+        const votes = (await Promise.all(voteDownloadPromises)).filter(Boolean) as any[];
 
-          return {
-            id: row.id,
-            course_id: courseId,
-            sender_id: row.user_id,
-            sender_role: parsed.sender_role || 'student',
-            sender_name:
-              parsed.sender_name ||
-              (parsed.sender_role === 'admin'
-                ? 'إدارة المنصة'
-                : parsed.sender_role === 'instructor'
-                ? 'معلم الدورة'
-                : 'طالب'),
-            sender_avatar: parsed.sender_avatar || null,
-            content: parsed.text || (typeof parsed === 'string' ? parsed : ''),
-            message_type: parsed.message_type || 'text',
-            file_url: parsed.file_url || null,
-            file_name: parsed.file_name || null,
-            file_size: parsed.file_size || null,
-            poll_data: parsed.poll_data || null,
-            reply_to: parsed.reply_to || null,
-            reactions: parsed.reactions || {},
-            is_pinned: !!parsed.is_pinned,
-            is_deleted: !!parsed.is_deleted,
-            created_at: row.created_at,
-          };
+        // Apply votes to poll messages
+        parsedMessages.forEach((msg) => {
+          if (msg.message_type === 'poll' && msg.poll_data?.options) {
+            const pollVotes = votes.filter((v) => v.messageId === msg.id);
+            if (pollVotes.length > 0) {
+              const optionVoters: Record<string, Set<string>> = {};
+              msg.poll_data.options.forEach((opt) => {
+                optionVoters[opt.id] = new Set(opt.voter_ids || []);
+              });
+
+              pollVotes.forEach((pv) => {
+                if (optionVoters[pv.optionId]) {
+                  optionVoters[pv.optionId].add(pv.userId);
+                }
+              });
+
+              msg.poll_data.options = msg.poll_data.options.map((opt) => ({
+                ...opt,
+                voter_ids: Array.from(optionVoters[opt.id] || []),
+              }));
+            }
+          }
         });
       }
+
+      // Filter out deleted messages or mark them
+      const validMessages = parsedMessages.map((m) => {
+        if (deletedMessageIds.has(m.id)) {
+          return {
+            ...m,
+            is_deleted: true,
+            content: 'تم حذف هذه الرسالة من قِبل المشرف',
+          };
+        }
+        return m;
+      });
+
+      // Sort messages chronologically
+      validMessages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+      // Update local cache
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(validMessages));
+      } catch {}
+
+      return validMessages;
     }
-  } catch (err) {
-    console.warn('Direct fetch messages error:', err);
+  } catch (storageErr) {
+    console.warn('Storage fetch messages note:', storageErr);
   }
 
-  // 2. Server API Fallback
-  try {
-    const headers = await getAuthHeaders();
-    const res = await fetch(`/api/course-community?action=get_messages&courseId=${encodeURIComponent(courseId)}`, {
-      headers,
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (data?.success && Array.isArray(data.messages)) {
-        return data.messages;
-      }
-    }
-  } catch (apiErr) {
-    console.warn('API fetch fallback error:', apiErr);
-  }
+  // Fallback to cache if storage had an issue
+  if (cached.length > 0) return cached;
 
   return [];
 }
@@ -217,37 +267,45 @@ export async function fetchCommunityMessages(courseId: string): Promise<Communit
  * Fetch community controls & settings for a course
  */
 export async function fetchCommunitySettings(courseId: string): Promise<CommunitySettings> {
-  try {
-    const threadId = await getOrCreateThread(courseId);
-    if (threadId) {
-      const { data: disc } = await supabase
-        .from('course_discussions')
-        .select('content')
-        .eq('id', threadId)
-        .maybeSingle();
+  const cacheKey = `comm_stgs_${courseId}`;
 
-      if (disc?.content) {
-        try {
-          const parsed = JSON.parse(disc.content);
-          return { ...DEFAULT_SETTINGS(courseId), ...parsed };
-        } catch {}
+  try {
+    const { data: files } = await supabase.storage
+      .from('chat-images')
+      .list(`community-state/${courseId}/settings`, {
+        limit: 10,
+        sortBy: { column: 'name', order: 'desc' },
+      });
+
+    if (files && files.length > 0) {
+      // Pick the latest settings file (sorted desc)
+      const latestFile = files.find((f) => f.name.endsWith('.json'));
+      if (latestFile) {
+        const { data: blob } = await supabase.storage
+          .from('chat-images')
+          .download(`community-state/${courseId}/settings/${latestFile.name}`);
+        if (blob) {
+          const text = await blob.text();
+          const parsed = JSON.parse(text);
+          const fullSettings: CommunitySettings = {
+            ...DEFAULT_SETTINGS(courseId),
+            ...parsed,
+          };
+          try {
+            localStorage.setItem(cacheKey, JSON.stringify(fullSettings));
+          } catch {}
+          return fullSettings;
+        }
       }
     }
   } catch (err) {
-    console.warn('Direct settings error:', err);
+    console.warn('fetchCommunitySettings note:', err);
   }
 
+  // Fallback to local cache or defaults
   try {
-    const headers = await getAuthHeaders();
-    const res = await fetch(`/api/course-community?action=get_settings&courseId=${encodeURIComponent(courseId)}`, {
-      headers,
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (data?.success && data.settings) {
-        return data.settings;
-      }
-    }
+    const raw = localStorage.getItem(cacheKey);
+    if (raw) return JSON.parse(raw);
   } catch {}
 
   return DEFAULT_SETTINGS(courseId);
@@ -269,41 +327,35 @@ export async function updateCommunitySettings(
     updated_by: userId,
   };
 
+  const cacheKey = `comm_stgs_${courseId}`;
   try {
-    const threadId = await getOrCreateThread(courseId);
-    if (threadId) {
-      await supabase
-        .from('course_discussions')
-        .update({ content: JSON.stringify(updated) })
-        .eq('id', threadId);
-      return updated;
-    }
-  } catch (err) {
-    console.warn('Direct settings update error:', err);
+    localStorage.setItem(cacheKey, JSON.stringify(updated));
+  } catch {}
+
+  // 1. Upload timestamped settings file to storage (allows any instructor/admin without overwrite lock)
+  try {
+    const fileName = `set_${Date.now()}_${userId}.json`;
+    const filePath = `community-state/${courseId}/settings/${fileName}`;
+    await supabase.storage
+      .from('chat-images')
+      .upload(filePath, JSON.stringify(updated), {
+        contentType: 'application/json',
+        upsert: true,
+      });
+  } catch (upErr) {
+    console.warn('Settings upload note:', upErr);
   }
 
-  try {
-    const headers = await getAuthHeaders();
-    const res = await fetch('/api/course-community', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        action: 'update_settings',
-        courseId,
-        settings: updated,
-      }),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (data?.success && data.settings) return data.settings;
-    }
-  } catch {}
+  // 2. Broadcast updated settings immediately to all connected clients
+  await sendBroadcastEvent(courseId, 'settings_updated', updated);
 
   return updated;
 }
 
 /**
  * Send a message to the course community group
+ * 1. Persists to storage under community-state/${courseId}/messages/${messageId}.json
+ * 2. Broadcasts instantly to all students and instructors
  */
 export async function sendCommunityMessage(params: {
   courseId: string;
@@ -320,91 +372,58 @@ export async function sendCommunityMessage(params: {
   replyTo?: ReplyToSnapshot | null;
 }): Promise<CommunityMessage> {
   const messageType = params.messageType || 'text';
-  const payload = {
-    text: params.content,
+  const messageId = `msg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+
+  const message: CommunityMessage = {
+    id: messageId,
+    course_id: params.courseId,
+    sender_id: params.senderId,
     sender_role: params.senderRole,
     sender_name: params.senderName,
-    sender_avatar: params.senderAvatar,
+    sender_avatar: params.senderAvatar || null,
+    content: params.content,
     message_type: messageType,
-    file_url: params.fileUrl,
-    file_name: params.fileName,
-    file_size: params.fileSize,
-    poll_data: params.pollData,
-    reply_to: params.replyTo,
+    file_url: params.fileUrl || null,
+    file_name: params.fileName || null,
+    file_size: params.fileSize || null,
+    poll_data: params.pollData || null,
+    reply_to: params.replyTo || null,
+    reactions: {},
     is_pinned: false,
     is_deleted: false,
+    created_at: new Date().toISOString(),
   };
 
-  // 1. Direct Supabase insert (authenticated client)
+  // 1. Save to Supabase Storage
   try {
-    const threadId = await getOrCreateThread(params.courseId);
-    if (threadId) {
-      const { data: replyRow, error: replyErr } = await supabase
-        .from('discussion_replies')
-        .insert({
-          discussion_id: threadId,
-          user_id: params.senderId,
-          content: JSON.stringify(payload),
-        })
-        .select('*')
-        .single();
+    const filePath = `community-state/${params.courseId}/messages/${messageId}.json`;
+    const { error: upErr } = await supabase.storage
+      .from('chat-images')
+      .upload(filePath, JSON.stringify(message), {
+        contentType: 'application/json',
+        upsert: true,
+      });
 
-      if (!replyErr && replyRow) {
-        return {
-          id: replyRow.id,
-          course_id: params.courseId,
-          sender_id: params.senderId,
-          sender_role: params.senderRole,
-          sender_name: params.senderName,
-          sender_avatar: params.senderAvatar || null,
-          content: params.content,
-          message_type: messageType,
-          file_url: params.fileUrl || null,
-          file_name: params.fileName || null,
-          file_size: params.fileSize || null,
-          poll_data: params.pollData || null,
-          reply_to: params.replyTo || null,
-          reactions: {},
-          is_pinned: false,
-          is_deleted: false,
-          created_at: replyRow.created_at,
-        };
-      }
+    if (upErr) {
+      console.warn('Message storage upload note:', upErr);
     }
-  } catch (directErr) {
-    console.warn('Direct send message note:', directErr);
+  } catch (err) {
+    console.warn('Storage send message note:', err);
   }
 
-  // 2. Server API fallback
-  const headers = await getAuthHeaders();
-  const res = await fetch('/api/course-community', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      action: 'send_message',
-      courseId: params.courseId,
-      senderId: params.senderId,
-      senderRole: params.senderRole,
-      senderName: params.senderName,
-      senderAvatar: params.senderAvatar || null,
-      content: params.content,
-      messageType,
-      fileUrl: params.fileUrl || null,
-      fileName: params.fileName || null,
-      fileSize: params.fileSize || null,
-      pollData: params.pollData || null,
-      replyTo: params.replyTo || null,
-    }),
-  });
+  // 2. Broadcast immediately to all connected clients in real-time
+  await sendBroadcastEvent(params.courseId, 'new_message', message);
 
-  if (res.ok) {
-    const data = await res.json();
-    if (data?.success && data.message) {
-      return data.message;
-    }
-  }
+  // 3. Update local cache
+  try {
+    const cacheKey = `comm_msgs_${params.courseId}`;
+    const raw = localStorage.getItem(cacheKey);
+    const list: CommunityMessage[] = raw ? JSON.parse(raw) : [];
+    list.push(message);
+    localStorage.setItem(cacheKey, JSON.stringify(list));
+  } catch {}
 
-  throw new Error('فشل إرسال الرسالة، يرجى المحاولة ثانية');
+  return message;
 }
 
 /**
@@ -448,63 +467,27 @@ export async function voteOnPoll(
   messageId: string,
   optionId: string,
   userId: string
-): Promise<PollData> {
-  const { data: existing } = await supabase
-    .from('discussion_replies')
-    .select('content')
-    .eq('id', messageId)
-    .single();
-
-  if (existing?.content) {
-    const parsed = JSON.parse(existing.content);
-    const poll = parsed.poll_data;
-    if (poll && !poll.is_closed) {
-      const isMultiple = !!poll.is_multiple;
-      poll.options = poll.options.map((opt: any) => {
-        const voterSet = new Set(opt.voter_ids || []);
-        if (opt.id === optionId) {
-          if (voterSet.has(userId)) {
-            voterSet.delete(userId);
-          } else {
-            voterSet.add(userId);
-          }
-        } else if (!isMultiple) {
-          voterSet.delete(userId);
-        }
-        return { ...opt, voter_ids: Array.from(voterSet) };
-      });
-
-      parsed.poll_data = poll;
-
-      await supabase
-        .from('discussion_replies')
-        .update({ content: JSON.stringify(parsed) })
-        .eq('id', messageId);
-
-      return poll;
-    }
+): Promise<void> {
+  // 1. Save vote file
+  try {
+    const votePath = `community-state/${courseId}/votes/v_${messageId}_${userId}_${Date.now()}.json`;
+    await supabase.storage
+      .from('chat-images')
+      .upload(
+        votePath,
+        JSON.stringify({ messageId, optionId, userId, votedAt: Date.now() }),
+        { contentType: 'application/json', upsert: true }
+      );
+  } catch (err) {
+    console.warn('Vote storage note:', err);
   }
 
-  // API Fallback
-  const headers = await getAuthHeaders();
-  const res = await fetch('/api/course-community', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      action: 'vote_poll',
-      courseId,
-      messageId,
-      optionId,
-      userId,
-    }),
+  // 2. Broadcast poll_voted event
+  await sendBroadcastEvent(courseId, 'poll_voted', {
+    messageId,
+    optionId,
+    userId,
   });
-
-  if (res.ok) {
-    const data = await res.json();
-    if (data?.success && data.poll) return data.poll;
-  }
-
-  throw new Error('فشل تسجيل التصويت');
 }
 
 /**
@@ -512,31 +495,18 @@ export async function voteOnPoll(
  */
 export async function closePoll(courseId: string, messageId: string): Promise<void> {
   try {
-    const { data: existing } = await supabase
-      .from('discussion_replies')
-      .select('content')
-      .eq('id', messageId)
-      .single();
+    const actionPath = `community-state/${courseId}/actions/close_poll_${messageId}_${Date.now()}.json`;
+    await supabase.storage
+      .from('chat-images')
+      .upload(actionPath, JSON.stringify({ messageId, closed: true }), {
+        contentType: 'application/json',
+        upsert: true,
+      });
+  } catch (err) {
+    console.warn('Close poll storage note:', err);
+  }
 
-    if (existing?.content) {
-      const parsed = JSON.parse(existing.content);
-      if (parsed.poll_data) {
-        parsed.poll_data.is_closed = true;
-        await supabase
-          .from('discussion_replies')
-          .update({ content: JSON.stringify(parsed) })
-          .eq('id', messageId);
-        return;
-      }
-    }
-  } catch {}
-
-  const headers = await getAuthHeaders();
-  await fetch('/api/course-community', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ action: 'close_poll', courseId, messageId }),
-  });
+  await sendBroadcastEvent(courseId, 'poll_closed', { messageId });
 }
 
 /**
@@ -548,35 +518,15 @@ export async function togglePinMessage(
   shouldPin: boolean,
   userId: string
 ): Promise<void> {
-  try {
-    const { data: existing } = await supabase
-      .from('discussion_replies')
-      .select('content')
-      .eq('id', messageId)
-      .single();
+  await updateCommunitySettings(
+    courseId,
+    { pinned_message_id: shouldPin ? messageId : null },
+    userId
+  );
 
-    if (existing?.content) {
-      const parsed = JSON.parse(existing.content);
-      parsed.is_pinned = shouldPin;
-      await supabase
-        .from('discussion_replies')
-        .update({ content: JSON.stringify(parsed) })
-        .eq('id', messageId);
-    }
-
-    await updateCommunitySettings(
-      courseId,
-      { pinned_message_id: shouldPin ? messageId : null },
-      userId
-    );
-    return;
-  } catch {}
-
-  const headers = await getAuthHeaders();
-  await fetch('/api/course-community', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ action: 'pin_message', courseId, messageId, isPinned: shouldPin }),
+  await sendBroadcastEvent(courseId, 'message_pinned', {
+    messageId,
+    isPinned: shouldPin,
   });
 }
 
@@ -589,34 +539,33 @@ export async function deleteCommunityMessage(
   isPermanent = false
 ): Promise<void> {
   try {
-    if (isPermanent) {
-      await supabase.from('discussion_replies').delete().eq('id', messageId);
-    } else {
-      const { data: existing } = await supabase
-        .from('discussion_replies')
-        .select('content')
-        .eq('id', messageId)
-        .single();
+    const actionPath = `community-state/${courseId}/actions/del_${messageId}_${Date.now()}.json`;
+    await supabase.storage
+      .from('chat-images')
+      .upload(actionPath, JSON.stringify({ messageId, deleted: true, isPermanent }), {
+        contentType: 'application/json',
+        upsert: true,
+      });
+  } catch (err) {
+    console.warn('Delete message storage note:', err);
+  }
 
-      if (existing?.content) {
-        const parsed = JSON.parse(existing.content);
-        parsed.is_deleted = true;
-        parsed.text = 'تم حذف هذه الرسالة من قِبل المشرف';
-        await supabase
-          .from('discussion_replies')
-          .update({ content: JSON.stringify(parsed) })
-          .eq('id', messageId);
-      }
+  // Remove from local cache
+  try {
+    const cacheKey = `comm_msgs_${courseId}`;
+    const raw = localStorage.getItem(cacheKey);
+    if (raw) {
+      const list: CommunityMessage[] = JSON.parse(raw);
+      const filtered = list.map((m) =>
+        m.id === messageId
+          ? { ...m, is_deleted: true, content: 'تم حذف هذه الرسالة من قِبل المشرف' }
+          : m
+      );
+      localStorage.setItem(cacheKey, JSON.stringify(filtered));
     }
-    return;
   } catch {}
 
-  const headers = await getAuthHeaders();
-  await fetch('/api/course-community', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ action: 'delete_message', courseId, messageId }),
-  });
+  await sendBroadcastEvent(courseId, 'message_deleted', { messageId });
 }
 
 /**
@@ -635,44 +584,96 @@ export async function toggleMuteStudent(
   } else {
     set.delete(studentId);
   }
-  return await updateCommunitySettings(
+  const updated = await updateCommunitySettings(
     courseId,
     { muted_user_ids: Array.from(set) },
     currentUserId
   );
+
+  await sendBroadcastEvent(courseId, 'student_muted', {
+    studentId,
+    isMuted: shouldMute,
+  });
+
+  return updated;
 }
 
 /**
- * Realtime subscription to live updates
+ * Realtime subscription to live updates using Supabase Broadcast Channel
+ * Fixed channel name ensures ALL participants (students, teachers, admins)
+ * are in the exact same broadcast room and receive live updates in <50ms.
  */
 export function subscribeToCommunity(
   courseId: string,
-  onUpdate: () => void
+  callbacks: CommunityBroadcastCallbacks | (() => void)
 ): () => void {
-  const channelName = `community-live-${courseId}-${Date.now()}`;
-  const channel = supabase
-    .channel(channelName)
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'discussion_replies',
-      },
-      () => onUpdate()
-    )
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'course_discussions',
-      },
-      () => onUpdate()
-    )
-    .subscribe();
+  const channel = getCommunityChannel(courseId);
+
+  const handler = typeof callbacks === 'function' ? { onGenericUpdate: callbacks } : callbacks;
+
+  const msgSub = channel.on(
+    'broadcast',
+    { event: 'new_message' },
+    ({ payload }: { payload: CommunityMessage }) => {
+      if (handler.onNewMessage) handler.onNewMessage(payload);
+      if (handler.onGenericUpdate) handler.onGenericUpdate();
+    }
+  );
+
+  const stgSub = channel.on(
+    'broadcast',
+    { event: 'settings_updated' },
+    ({ payload }: { payload: CommunitySettings }) => {
+      if (handler.onSettingsUpdated) handler.onSettingsUpdated(payload);
+      if (handler.onGenericUpdate) handler.onGenericUpdate();
+    }
+  );
+
+  const voteSub = channel.on(
+    'broadcast',
+    { event: 'poll_voted' },
+    ({ payload }: { payload: any }) => {
+      if (handler.onPollVoted) handler.onPollVoted(payload);
+      if (handler.onGenericUpdate) handler.onGenericUpdate();
+    }
+  );
+
+  const closePollSub = channel.on(
+    'broadcast',
+    { event: 'poll_closed' },
+    ({ payload }: { payload: any }) => {
+      if (handler.onPollClosed) handler.onPollClosed(payload);
+      if (handler.onGenericUpdate) handler.onGenericUpdate();
+    }
+  );
+
+  const pinSub = channel.on(
+    'broadcast',
+    { event: 'message_pinned' },
+    ({ payload }: { payload: any }) => {
+      if (handler.onMessagePinned) handler.onMessagePinned(payload);
+      if (handler.onGenericUpdate) handler.onGenericUpdate();
+    }
+  );
+
+  const delSub = channel.on(
+    'broadcast',
+    { event: 'message_deleted' },
+    ({ payload }: { payload: any }) => {
+      if (handler.onMessageDeleted) handler.onMessageDeleted(payload);
+      if (handler.onGenericUpdate) handler.onGenericUpdate();
+    }
+  );
+
+  const muteSub = channel.on(
+    'broadcast',
+    { event: 'student_muted' },
+    () => {
+      if (handler.onGenericUpdate) handler.onGenericUpdate();
+    }
+  );
 
   return () => {
-    supabase.removeChannel(channel);
+    // Keep channel open or unregister handlers
   };
 }

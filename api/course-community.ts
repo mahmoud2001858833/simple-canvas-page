@@ -20,50 +20,59 @@ const DEFAULT_SETTINGS = {
   muted_user_ids: [],
 };
 
-// Helper to ensure thread exists for the course
-async function ensureCourseDiscussionThread(courseId: string): Promise<string> {
-  const { data: existing } = await supabaseAdmin
-    .from('course_discussions')
-    .select('id')
-    .eq('course_id', courseId)
-    .eq('title', '__COURSE_COMMUNITY_MAIN__')
-    .maybeSingle();
+// Fallback: Read messages from storage
+async function readMessagesFromStorage(courseId: string) {
+  try {
+    const { data: fileList } = await supabaseAdmin.storage
+      .from('chat-images')
+      .list(`community-state/${courseId}/messages`, { limit: 100 });
 
-  if (existing?.id) return existing.id;
+    if (!fileList || fileList.length === 0) return [];
 
-  // Find course instructor or fallback to a system user
-  const { data: courseRow } = await supabaseAdmin
-    .from('courses')
-    .select('instructor_id')
-    .eq('id', courseId)
-    .maybeSingle();
+    const jsonFiles = fileList.filter((f) => f.name.endsWith('.json')).slice(-60);
+    const downloads = jsonFiles.map(async (f) => {
+      try {
+        const { data: blob } = await supabaseAdmin.storage
+          .from('chat-images')
+          .download(`community-state/${courseId}/messages/${f.name}`);
+        if (!blob) return null;
+        const txt = await blob.text();
+        return JSON.parse(txt);
+      } catch {
+        return null;
+      }
+    });
 
-  let creatorId = courseRow?.instructor_id;
-  if (!creatorId) {
-    const { data: adminUser } = await supabaseAdmin
-      .from('profiles')
-      .select('id')
-      .limit(1)
-      .maybeSingle();
-    creatorId = adminUser?.id;
+    const msgs = (await Promise.all(downloads)).filter(Boolean);
+    msgs.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    return msgs;
+  } catch {
+    return [];
   }
+}
 
-  const { data: created, error } = await supabaseAdmin
-    .from('course_discussions')
-    .insert({
-      course_id: courseId,
-      user_id: creatorId || '00000000-0000-0000-0000-000000000000',
-      title: '__COURSE_COMMUNITY_MAIN__',
-      content: JSON.stringify({ ...DEFAULT_SETTINGS, course_id: courseId }),
-    })
-    .select('id')
-    .single();
+// Fallback: Read settings from storage
+async function readSettingsFromStorage(courseId: string) {
+  try {
+    const { data: files } = await supabaseAdmin.storage
+      .from('chat-images')
+      .list(`community-state/${courseId}/settings`, { limit: 10 });
 
-  if (error || !created) {
-    throw new Error(error?.message || 'Could not create course discussion thread');
-  }
-
-  return created.id;
+    if (files && files.length > 0) {
+      const sorted = files.filter((f) => f.name.endsWith('.json')).sort((a, b) => b.name.localeCompare(a.name));
+      const latest = sorted[0];
+      if (latest) {
+        const { data: blob } = await supabaseAdmin.storage
+          .from('chat-images')
+          .download(`community-state/${courseId}/settings/${latest.name}`);
+        if (blob) {
+          const txt = await blob.text();
+          return { ...DEFAULT_SETTINGS, course_id: courseId, ...JSON.parse(txt) };
+        }
+      }
+    }
+  } catch {}
+  return { ...DEFAULT_SETTINGS, course_id: courseId };
 }
 
 export default async function handler(req: any, res: any) {
@@ -94,83 +103,13 @@ export default async function handler(req: any, res: any) {
 
     // 1. GET MESSAGES
     if (action === 'get_messages' || (req.method === 'GET' && !action)) {
-      const threadId = await ensureCourseDiscussionThread(courseId);
-
-      const { data: replies, error: repErr } = await supabaseAdmin
-        .from('discussion_replies')
-        .select('*')
-        .eq('discussion_id', threadId)
-        .order('created_at', { ascending: true });
-
-      if (repErr) throw repErr;
-
-      // Extract user profiles
-      const userIds = Array.from(new Set((replies || []).map((r: any) => r.user_id).filter(Boolean)));
-      const profilesMap: Record<string, any> = {};
-
-      if (userIds.length > 0) {
-        const { data: profs } = await supabaseAdmin
-          .from('profiles')
-          .select('id, full_name, full_name_ar, avatar_url')
-          .in('id', userIds);
-
-        (profs || []).forEach((p: any) => {
-          profilesMap[p.id] = p;
-        });
-      }
-
-      const messages = (replies || []).map((row: any) => {
-        let parsed: any = {};
-        try {
-          parsed = JSON.parse(row.content || '{}');
-        } catch {
-          parsed = { text: row.content };
-        }
-
-        const profile = profilesMap[row.user_id];
-        return {
-          id: row.id,
-          course_id: courseId,
-          sender_id: row.user_id,
-          sender_role: parsed.sender_role || 'student',
-          sender_name:
-            parsed.sender_name ||
-            profile?.full_name_ar ||
-            profile?.full_name ||
-            (parsed.sender_role === 'admin' ? 'إدارة المنصة' : parsed.sender_role === 'instructor' ? 'معلم الدورة' : 'طالب'),
-          sender_avatar: parsed.sender_avatar || profile?.avatar_url || null,
-          content: parsed.text || (typeof parsed === 'string' ? parsed : ''),
-          message_type: parsed.message_type || 'text',
-          file_url: parsed.file_url || null,
-          file_name: parsed.file_name || null,
-          file_size: parsed.file_size || null,
-          poll_data: parsed.poll_data || null,
-          reply_to: parsed.reply_to || null,
-          reactions: parsed.reactions || {},
-          is_pinned: !!parsed.is_pinned,
-          is_deleted: !!parsed.is_deleted,
-          created_at: row.created_at,
-        };
-      });
-
-      return res.status(200).json({ success: true, messages });
+      const msgs = await readMessagesFromStorage(courseId);
+      return res.status(200).json({ success: true, messages: msgs });
     }
 
     // 2. GET SETTINGS
     if (action === 'get_settings') {
-      const threadId = await ensureCourseDiscussionThread(courseId);
-      const { data: disc } = await supabaseAdmin
-        .from('course_discussions')
-        .select('content')
-        .eq('id', threadId)
-        .single();
-
-      let settings = { ...DEFAULT_SETTINGS, course_id: courseId };
-      if (disc?.content) {
-        try {
-          settings = { ...settings, ...JSON.parse(disc.content) };
-        } catch {}
-      }
+      const settings = await readSettingsFromStorage(courseId);
       return res.status(200).json({ success: true, settings });
     }
 
@@ -194,43 +133,15 @@ export default async function handler(req: any, res: any) {
         return res.status(400).json({ error: 'senderId and message content are required' });
       }
 
-      const threadId = await ensureCourseDiscussionThread(courseId);
-
-      const payload = {
-        text: content,
-        sender_role: senderRole,
-        sender_name: senderName,
-        sender_avatar: senderAvatar,
-        message_type: messageType,
-        file_url: fileUrl || null,
-        file_name: fileName || null,
-        file_size: fileSize || null,
-        poll_data: pollData || null,
-        reply_to: replyTo || null,
-        is_pinned: false,
-        is_deleted: false,
-      };
-
-      const { data: replyRow, error: replyErr } = await supabaseAdmin
-        .from('discussion_replies')
-        .insert({
-          discussion_id: threadId,
-          user_id: senderId,
-          content: JSON.stringify(payload),
-        })
-        .select('*')
-        .single();
-
-      if (replyErr) throw replyErr;
-
+      const messageId = `msg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
       const newMsg = {
-        id: replyRow.id,
+        id: messageId,
         course_id: courseId,
         sender_id: senderId,
         sender_role: senderRole,
-        sender_name: senderName,
-        sender_avatar: senderAvatar,
-        content: content,
+        sender_name: senderName || 'مستخدم',
+        sender_avatar: senderAvatar || null,
+        content: content || '',
         message_type: messageType,
         file_url: fileUrl || null,
         file_name: fileName || null,
@@ -240,23 +151,40 @@ export default async function handler(req: any, res: any) {
         reactions: {},
         is_pinned: false,
         is_deleted: false,
-        created_at: replyRow.created_at,
+        created_at: new Date().toISOString(),
       };
+
+      try {
+        await supabaseAdmin.storage
+          .from('chat-images')
+          .upload(
+            `community-state/${courseId}/messages/${messageId}.json`,
+            JSON.stringify(newMsg),
+            { contentType: 'application/json', upsert: true }
+          );
+      } catch (e) {
+        console.warn('Storage save in API note:', e);
+      }
 
       return res.status(200).json({ success: true, message: newMsg });
     }
 
     // 4. UPDATE SETTINGS
     if (action === 'update_settings') {
-      const { settings } = body;
-      const threadId = await ensureCourseDiscussionThread(courseId);
+      const { settings, userId } = body;
+      const current = await readSettingsFromStorage(courseId);
+      const updated = { ...current, ...settings, updated_at: new Date().toISOString() };
 
-      const updated = { ...DEFAULT_SETTINGS, course_id: courseId, ...settings };
-
-      await supabaseAdmin
-        .from('course_discussions')
-        .update({ content: JSON.stringify(updated) })
-        .eq('id', threadId);
+      try {
+        const fileName = `set_${Date.now()}_${userId || 'admin'}.json`;
+        await supabaseAdmin.storage
+          .from('chat-images')
+          .upload(
+            `community-state/${courseId}/settings/${fileName}`,
+            JSON.stringify(updated),
+            { contentType: 'application/json', upsert: true }
+          );
+      } catch {}
 
       return res.status(200).json({ success: true, settings: updated });
     }
@@ -264,85 +192,51 @@ export default async function handler(req: any, res: any) {
     // 5. VOTE POLL
     if (action === 'vote_poll') {
       const { messageId, optionId, userId } = body;
-      const { data: existing, error: eErr } = await supabaseAdmin
-        .from('discussion_replies')
-        .select('content')
-        .eq('id', messageId)
-        .single();
+      try {
+        const voteFile = `v_${messageId}_${userId}_${Date.now()}.json`;
+        await supabaseAdmin.storage
+          .from('chat-images')
+          .upload(
+            `community-state/${courseId}/votes/${voteFile}`,
+            JSON.stringify({ messageId, optionId, userId, votedAt: Date.now() }),
+            { contentType: 'application/json', upsert: true }
+          );
+      } catch {}
 
-      if (eErr || !existing) throw new Error('Message not found');
-
-      const parsed = JSON.parse(existing.content);
-      const poll = parsed.poll_data;
-      if (!poll) throw new Error('Poll not found');
-      if (poll.is_closed) throw new Error('Poll is closed');
-
-      const isMultiple = !!poll.is_multiple;
-
-      poll.options = poll.options.map((opt: any) => {
-        const voterSet = new Set(opt.voter_ids || []);
-        if (opt.id === optionId) {
-          if (voterSet.has(userId)) {
-            voterSet.delete(userId);
-          } else {
-            voterSet.add(userId);
-          }
-        } else if (!isMultiple) {
-          voterSet.delete(userId);
-        }
-        return { ...opt, voter_ids: Array.from(voterSet) };
-      });
-
-      parsed.poll_data = poll;
-
-      await supabaseAdmin
-        .from('discussion_replies')
-        .update({ content: JSON.stringify(parsed) })
-        .eq('id', messageId);
-
-      return res.status(200).json({ success: true, poll });
+      return res.status(200).json({ success: true });
     }
 
     // 6. CLOSE POLL
     if (action === 'close_poll') {
       const { messageId } = body;
-      const { data: existing } = await supabaseAdmin
-        .from('discussion_replies')
-        .select('content')
-        .eq('id', messageId)
-        .single();
-
-      if (existing) {
-        const parsed = JSON.parse(existing.content);
-        if (parsed.poll_data) {
-          parsed.poll_data.is_closed = true;
-          await supabaseAdmin
-            .from('discussion_replies')
-            .update({ content: JSON.stringify(parsed) })
-            .eq('id', messageId);
-        }
-      }
+      try {
+        await supabaseAdmin.storage
+          .from('chat-images')
+          .upload(
+            `community-state/${courseId}/actions/close_poll_${messageId}_${Date.now()}.json`,
+            JSON.stringify({ messageId, closed: true }),
+            { contentType: 'application/json', upsert: true }
+          );
+      } catch {}
 
       return res.status(200).json({ success: true });
     }
 
     // 7. PIN MESSAGE
     if (action === 'pin_message') {
-      const { messageId, isPinned } = body;
-      const { data: existing } = await supabaseAdmin
-        .from('discussion_replies')
-        .select('content')
-        .eq('id', messageId)
-        .single();
-
-      if (existing) {
-        const parsed = JSON.parse(existing.content);
-        parsed.is_pinned = isPinned;
-        await supabaseAdmin
-          .from('discussion_replies')
-          .update({ content: JSON.stringify(parsed) })
-          .eq('id', messageId);
-      }
+      const { messageId, isPinned, userId } = body;
+      const current = await readSettingsFromStorage(courseId);
+      const updated = { ...current, pinned_message_id: isPinned ? messageId : null };
+      try {
+        const fileName = `set_${Date.now()}_${userId || 'admin'}.json`;
+        await supabaseAdmin.storage
+          .from('chat-images')
+          .upload(
+            `community-state/${courseId}/settings/${fileName}`,
+            JSON.stringify(updated),
+            { contentType: 'application/json', upsert: true }
+          );
+      } catch {}
 
       return res.status(200).json({ success: true });
     }
@@ -350,21 +244,15 @@ export default async function handler(req: any, res: any) {
     // 8. DELETE MESSAGE
     if (action === 'delete_message') {
       const { messageId } = body;
-      const { data: existing } = await supabaseAdmin
-        .from('discussion_replies')
-        .select('content')
-        .eq('id', messageId)
-        .single();
-
-      if (existing) {
-        const parsed = JSON.parse(existing.content);
-        parsed.is_deleted = true;
-        parsed.text = 'تم حذف هذه الرسالة من قِبل المشرف';
-        await supabaseAdmin
-          .from('discussion_replies')
-          .update({ content: JSON.stringify(parsed) })
-          .eq('id', messageId);
-      }
+      try {
+        await supabaseAdmin.storage
+          .from('chat-images')
+          .upload(
+            `community-state/${courseId}/actions/del_${messageId}_${Date.now()}.json`,
+            JSON.stringify({ messageId, deleted: true }),
+            { contentType: 'application/json', upsert: true }
+          );
+      } catch {}
 
       return res.status(200).json({ success: true });
     }

@@ -112,8 +112,11 @@ export const CourseCommunityChat: React.FC<CourseCommunityChatProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Role determinations
-  const isSuperAdmin = globalRole === 'admin';
-  const isInstructor = (user?.id && instructorId && user.id === instructorId) || globalRole === 'instructor';
+  const isSuperAdmin = globalRole === 'admin' || (profile as any)?.role === 'admin';
+  const isInstructor =
+    (user?.id && instructorId && user.id === instructorId) ||
+    globalRole === 'instructor' ||
+    (profile as any)?.role === 'instructor';
   const hasManagerAccess = isSuperAdmin || isInstructor;
 
   const currentRole: UserCommunityRole = isSuperAdmin
@@ -131,9 +134,10 @@ export const CourseCommunityChat: React.FC<CourseCommunityChatProps> = ({
   const canStudentSendMedia =
     hasManagerAccess || (canStudentSendMessages && settings.allow_student_media);
 
-  // Load data & subscribe
-  const loadData = async () => {
+  // Load data from storage/cache
+  const loadData = async (silent = false) => {
     try {
+      if (!silent) setLoading(true);
       const [msgs, stgs] = await Promise.all([
         fetchCommunityMessages(courseId),
         fetchCommunitySettings(courseId),
@@ -143,17 +147,98 @@ export const CourseCommunityChat: React.FC<CourseCommunityChatProps> = ({
     } catch (e) {
       console.warn('Load community data note:', e);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
+  // Connect to Supabase Realtime Broadcast & 4s polling sync
   useEffect(() => {
-    loadData();
-    const unsubscribe = subscribeToCommunity(courseId, () => {
-      loadData();
+    loadData(false);
+
+    const unsubscribe = subscribeToCommunity(courseId, {
+      onNewMessage: (newMsg) => {
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === newMsg.id)) return prev;
+          const tempIdx = prev.findIndex(
+            (m) => m.id.startsWith('temp_') && m.sender_id === newMsg.sender_id && m.content === newMsg.content
+          );
+          if (tempIdx !== -1) {
+            const next = [...prev];
+            next[tempIdx] = newMsg;
+            return next;
+          }
+          return [...prev, newMsg];
+        });
+        scrollToBottom();
+      },
+      onSettingsUpdated: (newStgs) => {
+        setSettings(newStgs);
+      },
+      onPollVoted: ({ messageId, optionId, userId }) => {
+        setMessages((prev) =>
+          prev.map((m) => {
+            if (m.id !== messageId || !m.poll_data) return m;
+            const updatedOptions = m.poll_data.options.map((opt) => {
+              const voters = new Set(opt.voter_ids || []);
+              if (opt.id === optionId) {
+                voters.add(userId);
+              } else if (!m.poll_data?.is_multiple) {
+                voters.delete(userId);
+              }
+              return { ...opt, voter_ids: Array.from(voters) };
+            });
+            return {
+              ...m,
+              poll_data: {
+                ...m.poll_data,
+                options: updatedOptions,
+              },
+            };
+          })
+        );
+      },
+      onPollClosed: ({ messageId }) => {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === messageId && m.poll_data
+              ? { ...m, poll_data: { ...m.poll_data, is_closed: true } }
+              : m
+          )
+        );
+      },
+      onMessagePinned: ({ messageId, isPinned }) => {
+        setSettings((prev) => ({
+          ...prev,
+          pinned_message_id: isPinned ? messageId : null,
+        }));
+        setMessages((prev) =>
+          prev.map((m) => (m.id === messageId ? { ...m, is_pinned: isPinned } : m))
+        );
+      },
+      onMessageDeleted: ({ messageId }) => {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === messageId
+              ? { ...m, is_deleted: true, content: 'تم حذف هذه الرسالة من قِبل المشرف' }
+              : m
+          )
+        );
+      },
+      onGenericUpdate: () => {
+        loadData(true);
+      },
     });
+
+    // 4-second active polling interval when window is active
+    const pollInterval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        loadData(true);
+      }
+    }, 4000);
+
     return () => {
       unsubscribe();
+      clearInterval(pollInterval);
     };
   }, [courseId]);
 
@@ -176,7 +261,15 @@ export const CourseCommunityChat: React.FC<CourseCommunityChatProps> = ({
     if (!text || !user || !canStudentSendMessages) return;
 
     const tempId = `temp_${Date.now()}`;
-    const senderName = profile?.full_name_ar || profile?.full_name || (currentRole === 'admin' ? 'إدارة جسوركم' : currentRole === 'instructor' ? 'معلم الدورة' : 'طالب');
+    const senderName =
+      profile?.full_name_ar ||
+      profile?.full_name ||
+      (currentRole === 'admin'
+        ? 'إدارة جسوركم'
+        : currentRole === 'instructor'
+        ? 'معلم الدورة'
+        : 'طالب');
+
     const optimisticMsg: CommunityMessage = {
       id: tempId,
       course_id: courseId,
@@ -243,7 +336,7 @@ export const CourseCommunityChat: React.FC<CourseCommunityChatProps> = ({
     try {
       const uploaded = await uploadCommunityAttachment(file, courseId, user.id);
 
-      await sendCommunityMessage({
+      const confirmed = await sendCommunityMessage({
         courseId,
         senderId: user.id,
         senderRole: currentRole,
@@ -257,9 +350,9 @@ export const CourseCommunityChat: React.FC<CourseCommunityChatProps> = ({
         replyTo: replyingTo,
       });
 
+      setMessages((prev) => [...prev.filter((m) => m.id !== confirmed.id), confirmed]);
       toast.success('تم إرسال المرفق', { id: toastId });
       setReplyingTo(null);
-      await loadData();
       scrollToBottom();
     } catch (err: any) {
       toast.error(err.message || 'فشل رفع الملف', { id: toastId });
@@ -284,19 +377,27 @@ export const CourseCommunityChat: React.FC<CourseCommunityChatProps> = ({
       is_closed: false,
     };
 
-    await sendCommunityMessage({
-      courseId,
-      senderId: user.id,
-      senderRole: currentRole,
-      senderName: profile?.full_name_ar || profile?.full_name || (currentRole === 'admin' ? 'إدارة جسوركم' : 'معلم الدورة'),
-      senderAvatar: profile?.avatar_url || null,
-      content: `📊 استطلاع رأي: ${question}`,
-      messageType: 'poll',
-      pollData,
-    });
+    try {
+      const confirmed = await sendCommunityMessage({
+        courseId,
+        senderId: user.id,
+        senderRole: currentRole,
+        senderName:
+          profile?.full_name_ar ||
+          profile?.full_name ||
+          (currentRole === 'admin' ? 'إدارة جسوركم' : 'معلم الدورة'),
+        senderAvatar: profile?.avatar_url || null,
+        content: `📊 استطلاع رأي: ${question}`,
+        messageType: 'poll',
+        pollData,
+      });
 
-    await loadData();
-    scrollToBottom();
+      setMessages((prev) => [...prev.filter((m) => m.id !== confirmed.id), confirmed]);
+      toast.success('تم نشر استطلاع الرأي بنجاح');
+      scrollToBottom();
+    } catch (err: any) {
+      toast.error(err.message || 'فشل نشر استطلاع الرأي');
+    }
   };
 
   // Vote on poll
@@ -306,46 +407,100 @@ export const CourseCommunityChat: React.FC<CourseCommunityChatProps> = ({
       return;
     }
 
+    // Instant optimistic update
+    setMessages((prev) =>
+      prev.map((m) => {
+        if (m.id !== messageId || !m.poll_data) return m;
+        const isMultiple = !!m.poll_data.is_multiple;
+        const updatedOptions = m.poll_data.options.map((opt) => {
+          const voters = new Set(opt.voter_ids || []);
+          if (opt.id === optionId) {
+            if (voters.has(user.id)) {
+              voters.delete(user.id);
+            } else {
+              voters.add(user.id);
+            }
+          } else if (!isMultiple) {
+            voters.delete(user.id);
+          }
+          return { ...opt, voter_ids: Array.from(voters) };
+        });
+        return {
+          ...m,
+          poll_data: {
+            ...m.poll_data,
+            options: updatedOptions,
+          },
+        };
+      })
+    );
+
     try {
       await voteOnPoll(courseId, messageId, optionId, user.id);
-      await loadData();
     } catch (err: any) {
-      toast.error(err.message || 'تعذر التصويت');
+      toast.error(err.message || 'تعذر تسجيل التصويت');
+      await loadData(true);
     }
   };
 
   // Close poll
   const handleClosePoll = async (messageId: string) => {
     if (!hasManagerAccess) return;
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === messageId && m.poll_data
+          ? { ...m, poll_data: { ...m.poll_data, is_closed: true } }
+          : m
+      )
+    );
     try {
       await closePoll(courseId, messageId);
       toast.success('تم إغلاق الاستطلاع وتثبيت النتائج');
-      await loadData();
     } catch (err: any) {
       toast.error(err.message || 'فشل إغلاق الاستطلاع');
+      await loadData(true);
     }
   };
 
   // Pin message
   const handlePin = async (messageId: string, currentPinStatus: boolean) => {
     if (!user || !hasManagerAccess) return;
+    const shouldPin = !currentPinStatus;
+
+    setSettings((prev) => ({
+      ...prev,
+      pinned_message_id: shouldPin ? messageId : null,
+    }));
+    setMessages((prev) =>
+      prev.map((m) => (m.id === messageId ? { ...m, is_pinned: shouldPin } : m))
+    );
+
     try {
-      await togglePinMessage(courseId, messageId, !currentPinStatus, user.id);
-      toast.success(!currentPinStatus ? 'تم تثبيت الرسالة كإعلان للقروب' : 'تم إلغاء تثبيت الرسالة');
-      await loadData();
+      await togglePinMessage(courseId, messageId, shouldPin, user.id);
+      toast.success(
+        shouldPin ? 'تم تثبيت الرسالة كإعلان للقروب' : 'تم إلغاء تثبيت الرسالة'
+      );
     } catch (err: any) {
       toast.error(err.message || 'فشل تحديث التثبيت');
+      await loadData(true);
     }
   };
 
   // Delete message
   const handleDelete = async (messageId: string) => {
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === messageId
+          ? { ...m, is_deleted: true, content: 'تم حذف هذه الرسالة من قِبل المشرف' }
+          : m
+      )
+    );
     try {
       await deleteCommunityMessage(courseId, messageId, false);
       toast.success('تم حذف الرسالة');
-      await loadData();
     } catch (err: any) {
       toast.error(err.message || 'فشل حذف الرسالة');
+      await loadData(true);
     }
   };
 
@@ -353,11 +508,12 @@ export const CourseCommunityChat: React.FC<CourseCommunityChatProps> = ({
   const handleMute = async (studentId: string) => {
     if (!user || !hasManagerAccess) return;
     try {
-      await toggleMuteStudent(courseId, studentId, true, user.id);
+      const updated = await toggleMuteStudent(courseId, studentId, true, user.id);
+      setSettings(updated);
       toast.success('تم كتم الطالب في هذا القروب');
-      await loadData();
     } catch (err: any) {
       toast.error(err.message || 'فشل كتم الطالب');
+      await loadData(true);
     }
   };
 
