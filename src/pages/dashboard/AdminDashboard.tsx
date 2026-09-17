@@ -50,8 +50,9 @@ const TeachersOnboardingManagement = lazy(() => import('@/components/dashboard/a
 const PayoutNegotiationsManagement = lazy(() => import('@/components/dashboard/admin/PayoutNegotiationsManagement').then(m => ({ default: m.PayoutNegotiationsManagement })));
 const MegaAIOperationsHub = lazy(() => import('@/components/dashboard/admin/MegaAIOperationsHub').then(m => ({ default: m.MegaAIOperationsHub })));
 const BundlesManagement = lazy(() => import('@/components/dashboard/admin/BundlesManagement').then(m => ({ default: m.BundlesManagement })));
+const AdminCommunitiesManagement = lazy(() => import('@/components/dashboard/admin/AdminCommunitiesManagement').then(m => ({ default: m.AdminCommunitiesManagement })));
 
-type TabType = 'overview' | 'users' | 'user-insights' | 'instructor-detail' | 'student-detail' | 'courses' | 'course-approvals' | 'bundles' | 'requests' | 'payments' | 'live-payments' | 'abandoned-payments' | 'payment-methods' | 'monthly-installments' | 'financial-dashboard' | 'accounting' | 'withdrawals' | 'coupons' | 'universities' | 'colleges' | 'majors' | 'students-by-major' | 'reports' | 'notifications' | 'logs' | 'general' | 'settings' | 'support' | 'instructor-settings' | 'instructor-payouts' | 'student-refunds' | 'terms' | 'nelc' | 'capture-attempts' | 'workflow' | 'video-analytics' | 'instructor-specialties' | 'preview-students' | 'ai-control' | 'mega-ai-ops' | 'teachers-onboarding' | 'payout-negotiations';
+type TabType = 'overview' | 'users' | 'user-insights' | 'instructor-detail' | 'student-detail' | 'courses' | 'course-approvals' | 'bundles' | 'communities' | 'requests' | 'payments' | 'live-payments' | 'abandoned-payments' | 'payment-methods' | 'monthly-installments' | 'financial-dashboard' | 'accounting' | 'withdrawals' | 'coupons' | 'universities' | 'colleges' | 'majors' | 'students-by-major' | 'reports' | 'notifications' | 'logs' | 'general' | 'settings' | 'support' | 'instructor-settings' | 'instructor-payouts' | 'student-refunds' | 'terms' | 'nelc' | 'capture-attempts' | 'workflow' | 'video-analytics' | 'instructor-specialties' | 'preview-students' | 'ai-control' | 'mega-ai-ops' | 'teachers-onboarding' | 'payout-negotiations';
 
 
 // Fallback components for each section
@@ -125,6 +126,12 @@ const AdminDashboard = () => {
         return (
           <Suspense fallback={<LoadingFallback type="courses" />}>
             <BundlesManagement />
+          </Suspense>
+        );
+      case 'communities':
+        return (
+          <Suspense fallback={<LoadingFallback type="courses" />}>
+            <AdminCommunitiesManagement />
           </Suspense>
         );
       case 'requests':

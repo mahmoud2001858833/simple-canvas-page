@@ -51,6 +51,7 @@ export const ITEM_HELP: Record<string, Bilingual> = {
   'preview-students': { ar: 'سجل الطلاب الذين شاهدوا فيديوهات المعاينة ونسب تحويلهم للمشتركين مع بيانات التواصل.', en: 'Log of students who watched preview videos, contact info and conversion rates.' },
   'ai-control': { ar: 'مركز التحكم بالذكاء الاصطناعي، تعديل التعليمات، تدريب النماذج، والذكاء الاصطناعي الرئيسي.', en: 'AI Control Center, prompt management, knowledge training, and Master AI Orchestrator.' },
   'mega-ai-ops': { ar: 'الرادار العصبي وغرفة العمليات المركزية لمتابعة أداء الوكلاء وحالات الطوارئ.', en: 'Mega AI operations room, neural radar and emergency risk surveillance.' },
+  communities: { ar: 'إدارة ومراقبة مجتمعات وقروبات الدورات التفاعلية بصلاحيات عليا.', en: 'Manage and moderate interactive course community group chats with master access.' },
   requests: { ar: 'إدارة طلبات الدورات المخصصة وتعيينها.', en: 'Manage and assign custom course requests.' },
   support: { ar: 'الرد على محادثات الدعم والملاحظات الداخلية.', en: 'Reply to support chats and internal notes.' },
   'abandoned-payments': { ar: 'المدفوعات المعلّقة لأكثر من 24 ساعة مع إمكانية التذكير والتصدير.', en: 'Payments pending 24h+ with reminders and export.' },
@@ -96,7 +97,7 @@ export const INSTRUCTOR_GROUPS: SidebarGroupDef[] = [
 
 export const ADMIN_GROUPS: SidebarGroupDef[] = [
   GROUP('users', 'المستخدمون', 'Users', 'إدارة الحسابات والأدوار وملفات المعلمين والطلاب.', 'Manage accounts, roles and instructor/student profiles.', ['users', 'user-insights', 'instructor-detail', 'student-detail', 'teachers-onboarding']),
-  GROUP('content', 'المحتوى التعليمي والذكاء', 'Educational Content & AI', 'الدورات والموافقات وإحصائيات الفيديو وطلاب المعاينة والذكاء الاصطناعي.', 'Courses, approvals, video statistics, preview students and AI Control.', ['courses', 'course-approvals', 'video-analytics', 'preview-students', 'ai-control', 'mega-ai-ops']),
+  GROUP('content', 'المحتوى التعليمي والذكاء', 'Educational Content & AI', 'الدورات والموافقات وإحصائيات الفيديو وطلاب المعاينة والذكاء الاصطناعي.', 'Courses, approvals, video statistics, preview students and AI Control.', ['courses', 'course-approvals', 'bundles', 'communities', 'video-analytics', 'preview-students', 'ai-control', 'mega-ai-ops']),
   GROUP('academic', 'الهيكل الأكاديمي', 'Academic Structure', 'الجهات والكليات والتخصصات وتوزيع الطلاب.', 'Institutions, colleges, majors and student distribution.', ['universities', 'colleges', 'majors', 'students-by-major']),
   GROUP('finance', 'المالية', 'Finance', 'المدفوعات وطرق الدفع والمصاريف والسحوبات والكوبونات.', 'Payments, payment methods, expenses, payouts and coupons.', ['payments', 'abandoned-payments', 'payment-methods', 'financial-dashboard', 'accounting', 'payout-negotiations', 'withdrawals', 'coupons']),
   GROUP('support', 'الدعم والطلبات', 'Support & Requests', 'طلبات الدورات المخصصة ومحادثات الدعم وسير العمل.', 'Custom course requests, support chats and workflow.', ['requests', 'support', 'workflow']),

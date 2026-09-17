@@ -41,6 +41,7 @@ import {
   LogIn,
   UserPlus,
   MessageSquare,
+  MessagesSquare,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -55,6 +56,8 @@ import { LessonAIAssistant } from "@/components/video/LessonAIAssistant";
 import { VideoNotesPanel } from "@/components/video/VideoNotesPanel";
 import { CourseRatingDialog } from "@/components/course/CourseRatingDialog";
 import { CourseChat } from "@/components/course/CourseChat";
+import { CourseCommunityChat } from "@/components/community/CourseCommunityChat";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { trackXapi } from "@/lib/xapi";
 
 // Onboarding steps for Lesson Viewer page
@@ -124,6 +127,7 @@ const LessonViewer = () => {
   const [isAIOpen, setIsAIOpen] = useState(false);
   const [isNotesOpen, setIsNotesOpen] = useState(false);
   const [isInstructorChatOpen, setIsInstructorChatOpen] = useState(false);
+  const [isCommunityChatOpen, setIsCommunityChatOpen] = useState(false);
 
 
 
@@ -1154,6 +1158,17 @@ const LessonViewer = () => {
                 <Clock className="h-4 w-4" />
                 {currentLesson.duration_minutes} {isRTL ? "دقيقة" : "min"}
               </span>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsCommunityChatOpen(true)}
+                className="mr-auto flex items-center gap-1.5 text-xs bg-indigo-50 dark:bg-indigo-950/60 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900"
+              >
+                <MessagesSquare className="w-3.5 h-3.5" />
+                <span>{isRTL ? "قروب الدورة التفاعلي 💬" : "Course Group Chat"}</span>
+              </Button>
             </div>
 
             <h2 className="text-2xl font-bold mb-4">
@@ -1406,6 +1421,21 @@ const LessonViewer = () => {
         instructorId={course.instructor_id}
         courseName={isRTL ? (course.title_ar || course.title) : (course.title || course.title_ar)}
       />
+    )}
+
+    {/* Course Community Group Chat Dialog */}
+    {course?.id && (
+      <Dialog open={isCommunityChatOpen} onOpenChange={setIsCommunityChatOpen}>
+        <DialogContent className="max-w-4xl p-2 sm:p-4 bg-white dark:bg-slate-900 text-right" dir="rtl">
+          <CourseCommunityChat
+            courseId={resolvedCourseId || course.id}
+            courseTitle={isRTL ? (course.title_ar || course.title) : (course.title || course.title_ar)}
+            instructorId={course.instructor_id}
+            thumbnailUrl={course.thumbnail_url}
+            className="h-[620px]"
+          />
+        </DialogContent>
+      </Dialog>
     )}
     </>
   );

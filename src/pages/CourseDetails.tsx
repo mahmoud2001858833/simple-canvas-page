@@ -51,6 +51,7 @@ import { CourseReviews } from "@/components/course/CourseReviews";
 import { CourseDetailsCard } from "@/components/course/CourseDetailsCard";
 import { CourseChat } from "@/components/course/CourseChat";
 import { CourseDiscussions } from "@/components/course/CourseDiscussions";
+import { CourseCommunityChat } from "@/components/community/CourseCommunityChat";
 import { CourseQRCode } from "@/components/dashboard/CourseQRCode";
 import {
   DropdownMenu,
@@ -1000,13 +1001,33 @@ const CourseDetails = () => {
             {/* Reviews Section */}
             <CourseReviews courseId={id!} isRTL={isRTL} />
 
-            {/* Course Forum */}
+            {/* Course Community & Group Chat */}
             {(enrollment?.status === "active" || hasStaffFreeAccess) && (
-              <Card>
-                <CardContent className="pt-6">
-                  <CourseDiscussions courseId={id!} isInstructor={isAdminOrInstructor} />
-                </CardContent>
-              </Card>
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 flex items-center justify-center text-indigo-600">
+                    <MessageSquare className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                      {isRTL ? "مجتمع وقروب الدورة التفاعلي 💬" : "Course Community & Group Chat"}
+                    </h2>
+                    <p className="text-xs text-muted-foreground">
+                      {isRTL
+                        ? "شات مباشر، مشاركة الصور والمستندات، واستطلاعات الرأي مع معلم الدورة والزملاء"
+                        : "Live group chat, media sharing, and polls with instructor and classmates"}
+                    </p>
+                  </div>
+                </div>
+
+                <CourseCommunityChat
+                  courseId={courseUUID || id!}
+                  courseTitle={course?.title_ar || course?.title || ""}
+                  instructorId={course?.instructor_id}
+                  instructorName={instructor?.full_name_ar || instructor?.full_name}
+                  thumbnailUrl={course?.thumbnail_url}
+                />
+              </div>
             )}
           </div>
 
