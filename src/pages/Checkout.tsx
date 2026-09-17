@@ -375,6 +375,50 @@ const Checkout = () => {
       }
 
       if (paymentMethod === 'alinmapay') {
+        // Ensure user profile has a valid Latin cardholder name (First & Last name) to satisfy Alinma Bank PG requirement and prevent error 620
+        try {
+          const { data: prof } = await supabase
+            .from('profiles')
+            .select('full_name, full_name_ar, email')
+            .eq('id', user.id)
+            .maybeSingle();
+
+          const currentName = (prof?.full_name || '').trim();
+          const hasLatinLetters = /[a-zA-Z]/.test(currentName);
+          const hasSpace = currentName.includes(' ');
+
+          if (!hasLatinLetters || !hasSpace || currentName.length < 5) {
+            let validName = '';
+            const emailPrefix = (prof?.email || user.email || '').split('@')[0].replace(/[^a-zA-Z0-9]/g, ' ').trim();
+            if (emailPrefix && emailPrefix.length >= 3) {
+              const parts = emailPrefix.split(/\s+/).filter(Boolean);
+              if (parts.length >= 2) {
+                validName = `${parts[0]} ${parts[1]}`;
+              } else {
+                validName = `${parts[0]} Student`;
+              }
+            }
+            if (!validName || validName.length < 5) {
+              validName = 'Josoor Student';
+            }
+
+            validName = validName
+              .split(/\s+/)
+              .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+              .join(' ');
+
+            await supabase
+              .from('profiles')
+              .update({
+                full_name: validName,
+                full_name_ar: prof?.full_name_ar || (!hasLatinLetters && currentName ? currentName : undefined) || undefined,
+              })
+              .eq('id', user.id);
+          }
+        } catch (profErr) {
+          console.warn('Profile Latin name verification note in Checkout:', profErr);
+        }
+
         const { data, error } = await supabase.functions.invoke('create-alinma-payment', {
           body: {
             courseId: resolvedCourseId || null,

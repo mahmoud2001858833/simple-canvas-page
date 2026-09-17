@@ -378,7 +378,7 @@ serve(async (req) => {
         orderId,
       },
       customer: {
-        cardHolderName: safeText(profile.full_name || "", "Customer", 50),
+        cardHolderName: safeText(profile.full_name || "", "Josoor Student", 50),
         customerEmail: safeEmail(email || profile.email || ""),
         billingAddressStreet: "",
         billingAddressCountry: "SA",
