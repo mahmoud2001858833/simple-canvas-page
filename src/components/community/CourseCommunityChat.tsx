@@ -175,25 +175,49 @@ export const CourseCommunityChat: React.FC<CourseCommunityChatProps> = ({
     const text = inputMessage.trim();
     if (!text || !user || !canStudentSendMessages) return;
 
+    const tempId = `temp_${Date.now()}`;
+    const senderName = profile?.full_name_ar || profile?.full_name || (currentRole === 'admin' ? 'إدارة جسوركم' : currentRole === 'instructor' ? 'معلم الدورة' : 'طالب');
+    const optimisticMsg: CommunityMessage = {
+      id: tempId,
+      course_id: courseId,
+      sender_id: user.id,
+      sender_role: currentRole,
+      sender_name: senderName,
+      sender_avatar: profile?.avatar_url || null,
+      content: text,
+      message_type: 'text',
+      reply_to: replyingTo,
+      reactions: {},
+      is_pinned: false,
+      is_deleted: false,
+      created_at: new Date().toISOString(),
+    };
+
+    // Instant optimistic render
+    setMessages((prev) => [...prev, optimisticMsg]);
+    setInputMessage('');
+    const prevReply = replyingTo;
+    setReplyingTo(null);
+    scrollToBottom();
+
     setSending(true);
     try {
-      await sendCommunityMessage({
+      const confirmed = await sendCommunityMessage({
         courseId,
         senderId: user.id,
         senderRole: currentRole,
-        senderName: profile?.full_name_ar || profile?.full_name || (currentRole === 'admin' ? 'إدارة جسوركم' : 'طالب'),
+        senderName,
         senderAvatar: profile?.avatar_url || null,
         content: text,
         messageType: 'text',
-        replyTo: replyingTo,
+        replyTo: prevReply,
       });
 
-      setInputMessage('');
-      setReplyingTo(null);
-      await loadData();
-      scrollToBottom();
+      setMessages((prev) => prev.map((m) => (m.id === tempId ? confirmed : m)));
     } catch (err: any) {
       toast.error(err.message || 'فشل إرسال الرسالة');
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      setInputMessage(text);
     } finally {
       setSending(false);
     }

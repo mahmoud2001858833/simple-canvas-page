@@ -24,9 +24,9 @@ const AssignmentManager = lazy(() => import('@/components/dashboard/instructor/A
 const QuestionBankManager = lazy(() => import('@/components/dashboard/instructor/QuestionBankManager').then(m => ({ default: m.QuestionBankManager })));
 const InstructorAssignedRequests = lazy(() => import('@/components/dashboard/instructor/InstructorAssignedRequests').then(m => ({ default: m.InstructorAssignedRequests })));
 const StudentEngagementAnalytics = lazy(() => import('@/components/dashboard/instructor/StudentEngagementAnalytics').then(m => ({ default: m.StudentEngagementAnalytics })));
-const TeacherFinancialStatusCard = lazy(() => import('@/components/dashboard/instructor/TeacherFinancialStatusCard').then(m => ({ default: m.TeacherFinancialStatusCard || m.default })));
+const InstructorCommunitiesManagement = lazy(() => import('@/components/dashboard/instructor/InstructorCommunitiesManagement').then(m => ({ default: m.InstructorCommunitiesManagement })));
 
-type TabType = 'overview' | 'courses' | 'assignments' | 'question-bank' | 'assigned-requests' | 'students' | 'student-engagement' | 'earnings' | 'withdrawals' | 'payouts' | 'messages' | 'analytics' | 'ai-assistant';
+type TabType = 'overview' | 'courses' | 'communities' | 'assignments' | 'question-bank' | 'assigned-requests' | 'students' | 'student-engagement' | 'earnings' | 'withdrawals' | 'payouts' | 'messages' | 'analytics' | 'ai-assistant';
 
 // Loading skeleton for dashboard content
 const DashboardSkeleton = () => (
@@ -190,6 +190,8 @@ const InstructorDashboard = () => {
         );
       case 'courses':
         return <InstructorCourses />;
+      case 'communities':
+        return <InstructorCommunitiesManagement />;
       case 'assignments':
         return <AssignmentManager />;
       case 'question-bank':

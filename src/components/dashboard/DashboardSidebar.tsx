@@ -123,6 +123,7 @@ export const DashboardSidebar = ({ activeTab, onTabChange, isOpen, onToggle, use
   const instructorTabs = [
     { id: 'overview', label: { ar: 'نظرة عامة', en: 'Overview' }, icon: LayoutDashboard, onboardingId: null, showBadge: false, isAction: false },
     { id: 'courses', label: { ar: 'دوراتي', en: 'My Courses' }, icon: BookOpen, onboardingId: null, showBadge: false, isAction: false },
+    { id: 'communities', label: { ar: 'مجتمعات دوراتي 💬', en: 'My Communities' }, icon: MessagesSquare, onboardingId: null, showBadge: false, isAction: false },
     { id: 'assignments', label: { ar: 'الواجبات', en: 'Assignments' }, icon: ClipboardList, onboardingId: null, showBadge: false, isAction: false },
     { id: 'question-bank', label: { ar: 'بنك الأسئلة', en: 'Question Bank' }, icon: HelpCircle, onboardingId: null, showBadge: false, isAction: false },
     { id: 'assigned-requests', label: { ar: 'الطلبات المحالة إليّ', en: 'Assigned Requests' }, icon: Inbox, onboardingId: null, showBadge: false, isAction: false },

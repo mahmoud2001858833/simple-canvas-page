@@ -45,21 +45,34 @@ export const AdminCommunitiesManagement: React.FC = () => {
   const fetchCourses = async () => {
     setLoading(true);
     try {
-      // Fetch all courses
+      // 1. Fetch all courses
       const { data: coursesData, error: coursesError } = await supabase
         .from('courses')
-        .select(`
-          id,
-          title,
-          title_ar,
-          thumbnail_url,
-          instructor_id,
-          is_active,
-          profiles:instructor_id(full_name, full_name_ar)
-        `)
+        .select('id, title, title_ar, thumbnail_url, instructor_id, is_active')
         .order('created_at', { ascending: false });
 
       if (coursesError) throw coursesError;
+
+      // 2. Safely fetch instructor profiles without invalid schema joins
+      const instructorIds = Array.from(
+        new Set(
+          (coursesData || [])
+            .map((c: any) => c.instructor_id)
+            .filter(Boolean)
+        )
+      );
+
+      const profilesMap: Record<string, string> = {};
+      if (instructorIds.length > 0) {
+        const { data: profs } = await supabase
+          .from('profiles')
+          .select('id, full_name, full_name_ar')
+          .in('id', instructorIds);
+
+        (profs || []).forEach((p: any) => {
+          profilesMap[p.id] = p.full_name_ar || p.full_name || 'معلم';
+        });
+      }
 
       const mapped: CourseCommunityItem[] = (coursesData || []).map((c: any) => ({
         id: c.id,
@@ -67,7 +80,7 @@ export const AdminCommunitiesManagement: React.FC = () => {
         title_ar: c.title_ar,
         thumbnail_url: c.thumbnail_url,
         instructor_id: c.instructor_id,
-        instructor_name: c.profiles?.full_name_ar || c.profiles?.full_name || 'غير محدد',
+        instructor_name: (c.instructor_id && profilesMap[c.instructor_id]) || 'غير محدد',
         is_active: c.is_active,
       }));
 

@@ -54,7 +54,7 @@ export interface CommunitySettings {
   updated_by?: string | null;
 }
 
-const DEFAULT_SETTINGS: (courseId: string) => CommunitySettings = (courseId) => ({
+const DEFAULT_SETTINGS = (courseId: string): CommunitySettings => ({
   course_id: courseId,
   allow_student_messages: true,
   allow_student_media: true,
@@ -63,27 +63,33 @@ const DEFAULT_SETTINGS: (courseId: string) => CommunitySettings = (courseId) => 
   muted_user_ids: [],
 });
 
-let useFallbackStorage = false;
+let cachedThreadId: Record<string, string> = {};
 
 /**
- * Get or create community discussion thread if running in fallback mode
+ * Get or create community discussion thread using client-side authenticated user
  */
-async function getOrCreateFallbackDiscussion(courseId: string): Promise<string | null> {
+async function getOrCreateThread(courseId: string): Promise<string | null> {
+  if (cachedThreadId[courseId]) return cachedThreadId[courseId];
+
   try {
-    const { data: existing } = await supabase
+    // 1. Check if discussion already exists for this course
+    const { data: discussions, error: findErr } = await supabase
       .from('course_discussions')
-      .select('id')
+      .select('id, title, content')
       .eq('course_id', courseId)
-      .eq('title', '__COURSE_COMMUNITY_MAIN__')
-      .maybeSingle();
+      .order('created_at', { ascending: true })
+      .limit(1);
 
-    if (existing?.id) return existing.id;
+    if (!findErr && discussions && discussions.length > 0) {
+      cachedThreadId[courseId] = discussions[0].id;
+      return discussions[0].id;
+    }
 
-    // Get current user
+    // 2. If no discussion exists, create one with the logged-in user
     const { data: authData } = await supabase.auth.getUser();
     if (!authData?.user) return null;
 
-    const { data: created, error } = await supabase
+    const { data: created, error: insertErr } = await supabase
       .from('course_discussions')
       .insert({
         course_id: courseId,
@@ -92,16 +98,44 @@ async function getOrCreateFallbackDiscussion(courseId: string): Promise<string |
         content: JSON.stringify(DEFAULT_SETTINGS(courseId)),
       })
       .select('id')
-      .single();
+      .maybeSingle();
 
-    if (error) {
-      console.warn('Fallback discussion creation note:', error);
-      return null;
+    if (!insertErr && created?.id) {
+      cachedThreadId[courseId] = created.id;
+      return created.id;
     }
-    return created?.id || null;
+
+    // If duplicate or race condition, query again
+    const { data: retry } = await supabase
+      .from('course_discussions')
+      .select('id')
+      .eq('course_id', courseId)
+      .limit(1);
+
+    if (retry && retry.length > 0) {
+      cachedThreadId[courseId] = retry[0].id;
+      return retry[0].id;
+    }
   } catch (err) {
-    console.warn('Fallback discussion error:', err);
-    return null;
+    console.warn('getOrCreateThread note:', err);
+  }
+
+  return null;
+}
+
+/**
+ * Helper to get auth headers for API calls
+ */
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    const token = data?.session?.access_token;
+    return {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+  } catch {
+    return { 'Content-Type': 'application/json' };
   }
 }
 
@@ -109,113 +143,110 @@ async function getOrCreateFallbackDiscussion(courseId: string): Promise<string |
  * Fetch all messages for a course community group
  */
 export async function fetchCommunityMessages(courseId: string): Promise<CommunityMessage[]> {
-  if (!useFallbackStorage) {
-    try {
-      const { data, error } = await (supabase as any)
-        .from('course_community_messages')
+  // 1. Direct Supabase Query (Fast & Safe without invalid schema join)
+  try {
+    const threadId = await getOrCreateThread(courseId);
+    if (threadId) {
+      const { data: replies, error } = await supabase
+        .from('discussion_replies')
         .select('*')
-        .eq('course_id', courseId)
+        .eq('discussion_id', threadId)
         .order('created_at', { ascending: true });
 
-      if (!error && Array.isArray(data)) {
-        return data as CommunityMessage[];
+      if (!error && Array.isArray(replies)) {
+        return replies.map((row: any) => {
+          let parsed: any = {};
+          try {
+            parsed = JSON.parse(row.content || '{}');
+          } catch {
+            parsed = { text: row.content };
+          }
+
+          return {
+            id: row.id,
+            course_id: courseId,
+            sender_id: row.user_id,
+            sender_role: parsed.sender_role || 'student',
+            sender_name:
+              parsed.sender_name ||
+              (parsed.sender_role === 'admin'
+                ? 'إدارة المنصة'
+                : parsed.sender_role === 'instructor'
+                ? 'معلم الدورة'
+                : 'طالب'),
+            sender_avatar: parsed.sender_avatar || null,
+            content: parsed.text || (typeof parsed === 'string' ? parsed : ''),
+            message_type: parsed.message_type || 'text',
+            file_url: parsed.file_url || null,
+            file_name: parsed.file_name || null,
+            file_size: parsed.file_size || null,
+            poll_data: parsed.poll_data || null,
+            reply_to: parsed.reply_to || null,
+            reactions: parsed.reactions || {},
+            is_pinned: !!parsed.is_pinned,
+            is_deleted: !!parsed.is_deleted,
+            created_at: row.created_at,
+          };
+        });
       }
-      if (error && (error.code === '42P01' || error.message?.includes('schema cache') || error.message?.includes('does not exist'))) {
-        useFallbackStorage = true;
-      }
-    } catch {
-      useFallbackStorage = true;
     }
+  } catch (err) {
+    console.warn('Direct fetch messages error:', err);
   }
 
-  // Fallback mode using discussion_replies
+  // 2. Server API Fallback
   try {
-    const discId = await getOrCreateFallbackDiscussion(courseId);
-    if (!discId) return [];
-
-    const { data, error } = await supabase
-      .from('discussion_replies')
-      .select('*, profiles:user_id(full_name, full_name_ar, avatar_url)')
-      .eq('discussion_id', discId)
-      .order('created_at', { ascending: true });
-
-    if (error || !data) return [];
-
-    return data.map((row: any) => {
-      let parsed: any = {};
-      try {
-        parsed = JSON.parse(row.content || '{}');
-      } catch {
-        parsed = { text: row.content };
-      }
-
-      return {
-        id: row.id,
-        course_id: courseId,
-        sender_id: row.user_id,
-        sender_role: parsed.sender_role || 'student',
-        sender_name: parsed.sender_name || row.profiles?.full_name_ar || row.profiles?.full_name || 'طالب',
-        sender_avatar: row.profiles?.avatar_url || null,
-        content: parsed.text || (typeof parsed === 'string' ? parsed : ''),
-        message_type: parsed.message_type || 'text',
-        file_url: parsed.file_url || null,
-        file_name: parsed.file_name || null,
-        file_size: parsed.file_size || null,
-        poll_data: parsed.poll_data || null,
-        reply_to: parsed.reply_to || null,
-        reactions: parsed.reactions || {},
-        is_pinned: !!parsed.is_pinned,
-        is_deleted: !!parsed.is_deleted,
-        created_at: row.created_at,
-      };
+    const headers = await getAuthHeaders();
+    const res = await fetch(`/api/course-community?action=get_messages&courseId=${encodeURIComponent(courseId)}`, {
+      headers,
     });
-  } catch (fallbackErr) {
-    console.warn('Error fetching fallback messages:', fallbackErr);
-    return [];
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.success && Array.isArray(data.messages)) {
+        return data.messages;
+      }
+    }
+  } catch (apiErr) {
+    console.warn('API fetch fallback error:', apiErr);
   }
+
+  return [];
 }
 
 /**
  * Fetch community controls & settings for a course
  */
 export async function fetchCommunitySettings(courseId: string): Promise<CommunitySettings> {
-  if (!useFallbackStorage) {
-    try {
-      const { data, error } = await (supabase as any)
-        .from('course_community_settings')
-        .select('*')
-        .eq('course_id', courseId)
+  try {
+    const threadId = await getOrCreateThread(courseId);
+    if (threadId) {
+      const { data: disc } = await supabase
+        .from('course_discussions')
+        .select('content')
+        .eq('id', threadId)
         .maybeSingle();
 
-      if (!error && data) {
-        return {
-          course_id: courseId,
-          allow_student_messages: data.allow_student_messages ?? true,
-          allow_student_media: data.allow_student_media ?? true,
-          is_chat_muted: data.is_chat_muted ?? false,
-          pinned_message_id: data.pinned_message_id || null,
-          muted_user_ids: Array.isArray(data.muted_user_ids) ? data.muted_user_ids : [],
-          updated_at: data.updated_at,
-          updated_by: data.updated_by,
-        };
+      if (disc?.content) {
+        try {
+          const parsed = JSON.parse(disc.content);
+          return { ...DEFAULT_SETTINGS(courseId), ...parsed };
+        } catch {}
       }
-    } catch {
-      // Fallback
     }
+  } catch (err) {
+    console.warn('Direct settings error:', err);
   }
 
-  // Fallback: load settings from main discussion content
   try {
-    const { data: disc } = await supabase
-      .from('course_discussions')
-      .select('content')
-      .eq('course_id', courseId)
-      .eq('title', '__COURSE_COMMUNITY_MAIN__')
-      .maybeSingle();
-
-    if (disc?.content) {
-      const parsed = JSON.parse(disc.content);
-      return { ...DEFAULT_SETTINGS(courseId), ...parsed };
+    const headers = await getAuthHeaders();
+    const res = await fetch(`/api/course-community?action=get_settings&courseId=${encodeURIComponent(courseId)}`, {
+      headers,
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.success && data.settings) {
+        return data.settings;
+      }
     }
   } catch {}
 
@@ -238,30 +269,35 @@ export async function updateCommunitySettings(
     updated_by: userId,
   };
 
-  if (!useFallbackStorage) {
-    try {
-      const { error } = await (supabase as any)
-        .from('course_community_settings')
-        .upsert(updated, { onConflict: 'course_id' });
-
-      if (!error) return updated;
-    } catch {
-      useFallbackStorage = true;
-    }
-  }
-
-  // Fallback update
   try {
-    const discId = await getOrCreateFallbackDiscussion(courseId);
-    if (discId) {
+    const threadId = await getOrCreateThread(courseId);
+    if (threadId) {
       await supabase
         .from('course_discussions')
         .update({ content: JSON.stringify(updated) })
-        .eq('id', discId);
+        .eq('id', threadId);
+      return updated;
     }
   } catch (err) {
-    console.warn('Fallback settings update note:', err);
+    console.warn('Direct settings update error:', err);
   }
+
+  try {
+    const headers = await getAuthHeaders();
+    const res = await fetch('/api/course-community', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        action: 'update_settings',
+        courseId,
+        settings: updated,
+      }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.success && data.settings) return data.settings;
+    }
+  } catch {}
 
   return updated;
 }
@@ -284,58 +320,11 @@ export async function sendCommunityMessage(params: {
   replyTo?: ReplyToSnapshot | null;
 }): Promise<CommunityMessage> {
   const messageType = params.messageType || 'text';
-  const newMsg: Partial<CommunityMessage> = {
-    course_id: params.courseId,
-    sender_id: params.senderId,
-    sender_role: params.senderRole,
-    sender_name: params.senderName,
-    sender_avatar: params.senderAvatar || null,
-    content: params.content,
-    message_type: messageType,
-    file_url: params.fileUrl || null,
-    file_name: params.fileName || null,
-    file_size: params.fileSize || null,
-    poll_data: params.pollData || null,
-    reply_to: params.replyTo || null,
-    reactions: {},
-    is_pinned: false,
-    is_deleted: false,
-    created_at: new Date().toISOString(),
-  };
-
-  if (!useFallbackStorage) {
-    try {
-      const { data, error } = await (supabase as any)
-        .from('course_community_messages')
-        .insert(newMsg)
-        .select('*')
-        .single();
-
-      if (!error && data) {
-        return data as CommunityMessage;
-      }
-      if (error && (error.code === '42P01' || error.message?.includes('schema cache'))) {
-        useFallbackStorage = true;
-      } else if (error) {
-        throw error;
-      }
-    } catch (err: any) {
-      if (err?.code === '42P01' || err?.message?.includes('schema cache')) {
-        useFallbackStorage = true;
-      } else {
-        throw err;
-      }
-    }
-  }
-
-  // Fallback insert into discussion_replies
-  const discId = await getOrCreateFallbackDiscussion(params.courseId);
-  if (!discId) throw new Error('Could not access course community thread');
-
   const payload = {
     text: params.content,
     sender_role: params.senderRole,
     sender_name: params.senderName,
+    sender_avatar: params.senderAvatar,
     message_type: messageType,
     file_url: params.fileUrl,
     file_name: params.fileName,
@@ -346,23 +335,76 @@ export async function sendCommunityMessage(params: {
     is_deleted: false,
   };
 
-  const { data: replyRow, error: replyErr } = await supabase
-    .from('discussion_replies')
-    .insert({
-      discussion_id: discId,
-      user_id: params.senderId,
-      content: JSON.stringify(payload),
-    })
-    .select('*')
-    .single();
+  // 1. Direct Supabase insert (authenticated client)
+  try {
+    const threadId = await getOrCreateThread(params.courseId);
+    if (threadId) {
+      const { data: replyRow, error: replyErr } = await supabase
+        .from('discussion_replies')
+        .insert({
+          discussion_id: threadId,
+          user_id: params.senderId,
+          content: JSON.stringify(payload),
+        })
+        .select('*')
+        .single();
 
-  if (replyErr) throw replyErr;
+      if (!replyErr && replyRow) {
+        return {
+          id: replyRow.id,
+          course_id: params.courseId,
+          sender_id: params.senderId,
+          sender_role: params.senderRole,
+          sender_name: params.senderName,
+          sender_avatar: params.senderAvatar || null,
+          content: params.content,
+          message_type: messageType,
+          file_url: params.fileUrl || null,
+          file_name: params.fileName || null,
+          file_size: params.fileSize || null,
+          poll_data: params.pollData || null,
+          reply_to: params.replyTo || null,
+          reactions: {},
+          is_pinned: false,
+          is_deleted: false,
+          created_at: replyRow.created_at,
+        };
+      }
+    }
+  } catch (directErr) {
+    console.warn('Direct send message note:', directErr);
+  }
 
-  return {
-    ...(newMsg as CommunityMessage),
-    id: replyRow.id,
-    created_at: replyRow.created_at,
-  };
+  // 2. Server API fallback
+  const headers = await getAuthHeaders();
+  const res = await fetch('/api/course-community', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      action: 'send_message',
+      courseId: params.courseId,
+      senderId: params.senderId,
+      senderRole: params.senderRole,
+      senderName: params.senderName,
+      senderAvatar: params.senderAvatar || null,
+      content: params.content,
+      messageType,
+      fileUrl: params.fileUrl || null,
+      fileName: params.fileName || null,
+      fileSize: params.fileSize || null,
+      pollData: params.pollData || null,
+      replyTo: params.replyTo || null,
+    }),
+  });
+
+  if (res.ok) {
+    const data = await res.json();
+    if (data?.success && data.message) {
+      return data.message;
+    }
+  }
+
+  throw new Error('فشل إرسال الرسالة، يرجى المحاولة ثانية');
 }
 
 /**
@@ -399,7 +441,7 @@ export async function uploadCommunityAttachment(
 }
 
 /**
- * Vote or change vote on an interactive poll
+ * Vote on an interactive poll
  */
 export async function voteOnPoll(
   courseId: string,
@@ -407,82 +449,68 @@ export async function voteOnPoll(
   optionId: string,
   userId: string
 ): Promise<PollData> {
-  const messages = await fetchCommunityMessages(courseId);
-  const msg = messages.find((m) => m.id === messageId);
-  if (!msg || !msg.poll_data) throw new Error('Poll not found');
-  if (msg.poll_data.is_closed) throw new Error('Poll is closed');
+  const { data: existing } = await supabase
+    .from('discussion_replies')
+    .select('content')
+    .eq('id', messageId)
+    .single();
 
-  const poll = { ...msg.poll_data };
-  const isMultiple = !!poll.is_multiple;
+  if (existing?.content) {
+    const parsed = JSON.parse(existing.content);
+    const poll = parsed.poll_data;
+    if (poll && !poll.is_closed) {
+      const isMultiple = !!poll.is_multiple;
+      poll.options = poll.options.map((opt: any) => {
+        const voterSet = new Set(opt.voter_ids || []);
+        if (opt.id === optionId) {
+          if (voterSet.has(userId)) {
+            voterSet.delete(userId);
+          } else {
+            voterSet.add(userId);
+          }
+        } else if (!isMultiple) {
+          voterSet.delete(userId);
+        }
+        return { ...opt, voter_ids: Array.from(voterSet) };
+      });
 
-  poll.options = poll.options.map((opt) => {
-    const voterSet = new Set(opt.voter_ids || []);
-    if (opt.id === optionId) {
-      if (voterSet.has(userId)) {
-        voterSet.delete(userId); // toggle off
-      } else {
-        voterSet.add(userId);
-      }
-    } else if (!isMultiple) {
-      voterSet.delete(userId); // single-choice clears other options
-    }
-    return { ...opt, voter_ids: Array.from(voterSet) };
-  });
-
-  if (!useFallbackStorage) {
-    try {
-      const { error } = await (supabase as any)
-        .from('course_community_messages')
-        .update({ poll_data: poll })
-        .eq('id', messageId);
-
-      if (!error) return poll;
-    } catch {}
-  }
-
-  // Fallback update
-  try {
-    const { data: existing } = await supabase
-      .from('discussion_replies')
-      .select('content')
-      .eq('id', messageId)
-      .single();
-
-    if (existing?.content) {
-      const parsed = JSON.parse(existing.content);
       parsed.poll_data = poll;
+
       await supabase
         .from('discussion_replies')
         .update({ content: JSON.stringify(parsed) })
         .eq('id', messageId);
+
+      return poll;
     }
-  } catch (err) {
-    console.warn('Fallback poll vote update note:', err);
   }
 
-  return poll;
+  // API Fallback
+  const headers = await getAuthHeaders();
+  const res = await fetch('/api/course-community', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      action: 'vote_poll',
+      courseId,
+      messageId,
+      optionId,
+      userId,
+    }),
+  });
+
+  if (res.ok) {
+    const data = await res.json();
+    if (data?.success && data.poll) return data.poll;
+  }
+
+  throw new Error('فشل تسجيل التصويت');
 }
 
 /**
- * Close a poll (no more votes allowed)
+ * Close a poll
  */
 export async function closePoll(courseId: string, messageId: string): Promise<void> {
-  const messages = await fetchCommunityMessages(courseId);
-  const msg = messages.find((m) => m.id === messageId);
-  if (!msg || !msg.poll_data) return;
-
-  const updatedPoll: PollData = { ...msg.poll_data, is_closed: true };
-
-  if (!useFallbackStorage) {
-    try {
-      await (supabase as any)
-        .from('course_community_messages')
-        .update({ poll_data: updatedPoll })
-        .eq('id', messageId);
-      return;
-    } catch {}
-  }
-
   try {
     const { data: existing } = await supabase
       .from('discussion_replies')
@@ -492,13 +520,23 @@ export async function closePoll(courseId: string, messageId: string): Promise<vo
 
     if (existing?.content) {
       const parsed = JSON.parse(existing.content);
-      parsed.poll_data = updatedPoll;
-      await supabase
-        .from('discussion_replies')
-        .update({ content: JSON.stringify(parsed) })
-        .eq('id', messageId);
+      if (parsed.poll_data) {
+        parsed.poll_data.is_closed = true;
+        await supabase
+          .from('discussion_replies')
+          .update({ content: JSON.stringify(parsed) })
+          .eq('id', messageId);
+        return;
+      }
     }
   } catch {}
+
+  const headers = await getAuthHeaders();
+  await fetch('/api/course-community', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ action: 'close_poll', courseId, messageId }),
+  });
 }
 
 /**
@@ -510,23 +548,6 @@ export async function togglePinMessage(
   shouldPin: boolean,
   userId: string
 ): Promise<void> {
-  if (!useFallbackStorage) {
-    try {
-      await (supabase as any)
-        .from('course_community_messages')
-        .update({ is_pinned: shouldPin })
-        .eq('id', messageId);
-
-      await updateCommunitySettings(
-        courseId,
-        { pinned_message_id: shouldPin ? messageId : null },
-        userId
-      );
-      return;
-    } catch {}
-  }
-
-  // Fallback update
   try {
     const { data: existing } = await supabase
       .from('discussion_replies')
@@ -542,39 +563,31 @@ export async function togglePinMessage(
         .update({ content: JSON.stringify(parsed) })
         .eq('id', messageId);
     }
+
     await updateCommunitySettings(
       courseId,
       { pinned_message_id: shouldPin ? messageId : null },
       userId
     );
+    return;
   } catch {}
+
+  const headers = await getAuthHeaders();
+  await fetch('/api/course-community', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ action: 'pin_message', courseId, messageId, isPinned: shouldPin }),
+  });
 }
 
 /**
- * Delete a message (mark as deleted or remove)
+ * Delete a message
  */
 export async function deleteCommunityMessage(
   courseId: string,
   messageId: string,
   isPermanent = false
 ): Promise<void> {
-  if (!useFallbackStorage) {
-    try {
-      if (isPermanent) {
-        await (supabase as any)
-          .from('course_community_messages')
-          .delete()
-          .eq('id', messageId);
-      } else {
-        await (supabase as any)
-          .from('course_community_messages')
-          .update({ is_deleted: true, content: 'تم حذف هذه الرسالة من قِبل المشرف' })
-          .eq('id', messageId);
-      }
-      return;
-    } catch {}
-  }
-
   try {
     if (isPermanent) {
       await supabase.from('discussion_replies').delete().eq('id', messageId);
@@ -595,7 +608,15 @@ export async function deleteCommunityMessage(
           .eq('id', messageId);
       }
     }
+    return;
   } catch {}
+
+  const headers = await getAuthHeaders();
+  await fetch('/api/course-community', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ action: 'delete_message', courseId, messageId }),
+  });
 }
 
 /**
@@ -628,7 +649,7 @@ export function subscribeToCommunity(
   courseId: string,
   onUpdate: () => void
 ): () => void {
-  const channelName = `community-${courseId}-${Date.now()}`;
+  const channelName = `community-live-${courseId}-${Date.now()}`;
   const channel = supabase
     .channel(channelName)
     .on(
@@ -636,27 +657,16 @@ export function subscribeToCommunity(
       {
         event: '*',
         schema: 'public',
-        table: 'course_community_messages',
-        filter: `course_id=eq.${courseId}`,
-      },
-      () => onUpdate()
-    )
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'course_community_settings',
-        filter: `course_id=eq.${courseId}`,
-      },
-      () => onUpdate()
-    )
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
         table: 'discussion_replies',
+      },
+      () => onUpdate()
+    )
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'course_discussions',
       },
       () => onUpdate()
     )
