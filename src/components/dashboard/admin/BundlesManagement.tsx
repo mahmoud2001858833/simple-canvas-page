@@ -42,6 +42,7 @@ export const BundlesManagement = () => {
   const [isCoursePickerOpen, setIsCoursePickerOpen] = useState(false);
   const [editingBundle, setEditingBundle] = useState<CourseBundle | null>(null);
   const [deletingBundleId, setDeletingBundleId] = useState<string | null>(null);
+  const [selectedBundleForBuyers, setSelectedBundleForBuyers] = useState<CourseBundle | null>(null);
 
   // Form State for Create / Edit
   const [formTitle, setFormTitle] = useState("");
@@ -162,26 +163,86 @@ export const BundlesManagement = () => {
     }
   }, [loadedSettings]);
 
-  // 4. Fetch Bundle Purchases for analytics
+  // 4. Fetch Bundle Purchases for analytics (Robust multi-table resolution)
   const { data: purchases = [], isLoading: isLoadingPurchases } = useQuery({
     queryKey: ["admin-bundle-purchases"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("bundle_purchases")
-        .select(`
-          id,
-          bundle_id,
-          user_id,
-          amount_paid,
-          status,
-          purchased_at,
-          profiles:user_id (id, full_name, full_name_ar, email),
-          course_bundles:bundle_id (title, title_ar)
-        `)
-        .order("purchased_at", { ascending: false });
+      try {
+        const { data: rawPurchases, error: bpError } = await supabase
+          .from("bundle_purchases")
+          .select("id, bundle_id, user_id, payment_id, amount_paid, status, purchased_at")
+          .order("purchased_at", { ascending: false });
 
-      if (error) throw error;
-      return (data as any[]) || [];
+        if (bpError) {
+          console.warn("bundle_purchases query notice:", bpError);
+        }
+
+        const validPurchases = rawPurchases || [];
+
+        // Also check if any bundle payments exist in payments table directly
+        const { data: rawPayments } = await supabase
+          .from("payments")
+          .select("id, user_id, amount, status, course_id, created_at, paid_at, installment_plan")
+          .order("created_at", { ascending: false });
+
+        const bundlePayments = (rawPayments || []).filter((p: any) => {
+          const isBundleInPlan = p.installment_plan && (p.installment_plan.is_bundle === true || p.installment_plan.is_bundle === "true");
+          const isLinkedToKnownBundle = bundles.some(b => b.id === p.course_id);
+          return isBundleInPlan || isLinkedToKnownBundle;
+        });
+
+        // Merge payments that aren't already represented in bundle_purchases
+        const existingPaymentIds = new Set(validPurchases.map(p => p.payment_id).filter(Boolean));
+        const additionalPurchases = bundlePayments
+          .filter((p: any) => !existingPaymentIds.has(p.id))
+          .map((p: any) => ({
+            id: p.id,
+            bundle_id: p.course_id,
+            user_id: p.user_id,
+            payment_id: p.id,
+            amount_paid: p.amount || 0,
+            status: p.status === "paid" ? "completed" : p.status || "pending",
+            purchased_at: p.paid_at || p.created_at || new Date().toISOString(),
+          }));
+
+        const allRaw = [...validPurchases, ...additionalPurchases];
+        if (allRaw.length === 0) return [];
+
+        // Fetch student profiles
+        const userIds = Array.from(new Set(allRaw.map(p => p.user_id).filter(Boolean)));
+        let profilesMap: Record<string, any> = {};
+        if (userIds.length > 0) {
+          const { data: profilesData } = await supabase
+            .from("profiles")
+            .select("id, full_name, full_name_ar, email, phone, avatar_url")
+            .in("id", userIds);
+          if (profilesData) {
+            profilesMap = Object.fromEntries(profilesData.map(pr => [pr.id, pr]));
+          }
+        }
+
+        // Fetch bundle details
+        const bundleIds = Array.from(new Set(allRaw.map(p => p.bundle_id).filter(Boolean)));
+        let bundlesMap: Record<string, any> = {};
+        if (bundleIds.length > 0) {
+          const { data: bundlesData } = await supabase
+            .from("course_bundles")
+            .select("id, title, title_ar, price, thumbnail_url")
+            .in("id", bundleIds);
+          if (bundlesData) {
+            bundlesMap = Object.fromEntries(bundlesData.map(b => [b.id, b]));
+          }
+        }
+
+        return allRaw.map(p => ({
+          ...p,
+          profiles: profilesMap[p.user_id] || null,
+          course_bundles: bundlesMap[p.bundle_id] || bundles.find(b => b.id === p.bundle_id) || null,
+        }));
+      } catch (err) {
+        console.error("Error loading bundle purchases:", err);
+        return [];
+      }
     },
   });
 
@@ -624,7 +685,7 @@ export const BundlesManagement = () => {
                           </span>
                           <span className="flex items-center gap-1 font-medium">
                             <ShoppingBag className="w-3.5 h-3.5 text-emerald-400" />
-                            {bundle.purchases_count || 0} {isRTL ? "مشترك" : "sales"}
+                            {purchases.filter((p: any) => p.bundle_id === bundle.id).length} {isRTL ? "مشترك" : "sales"}
                           </span>
                         </div>
                       </div>
@@ -696,26 +757,41 @@ export const BundlesManagement = () => {
                     </div>
 
                     {/* Actions Footer */}
-                    <div className="p-4 pt-0 border-t bg-muted/10 flex items-center justify-end gap-2">
+                    <div className="p-4 pt-0 border-t bg-muted/10 flex items-center justify-between gap-2">
                       <Button
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
-                        onClick={() => openEditDialog(bundle)}
-                        className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                        onClick={() => setSelectedBundleForBuyers(bundle)}
+                        className="gap-1.5 text-xs text-primary border-primary/30 hover:bg-primary/5 hover:border-primary/50 font-medium"
                       >
-                        <Edit3 className="w-3.5 h-3.5" />
-                        {isRTL ? "تعديل" : "Edit"}
+                        <Users className="w-3.5 h-3.5 text-primary" />
+                        <span>{isRTL ? "المشتركون" : "Buyers"}</span>
+                        <Badge variant="secondary" className="px-1.5 py-0 h-4 text-[10px] bg-primary/10 text-primary font-bold">
+                          {purchases.filter((p: any) => p.bundle_id === bundle.id).length}
+                        </Badge>
                       </Button>
 
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setDeletingBundleId(bundle.id)}
-                        className="gap-1.5 text-xs text-destructive hover:bg-destructive/10"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        {isRTL ? "حذف" : "Delete"}
-                      </Button>
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openEditDialog(bundle)}
+                          className="gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          {isRTL ? "تعديل" : "Edit"}
+                        </Button>
+
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setDeletingBundleId(bundle.id)}
+                          className="gap-1.5 text-xs text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          {isRTL ? "حذف" : "Delete"}
+                        </Button>
+                      </div>
                     </div>
                   </Card>
                 );
@@ -1488,6 +1564,125 @@ export const BundlesManagement = () => {
               onClick={() => deletingBundleId && deleteMutation.mutate(deletingBundleId)}
             >
               {deleteMutation.isPending ? (isRTL ? "جاري الحذف..." : "Deleting...") : (isRTL ? "نعم، احذف الباقة" : "Delete")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Buyers Dialog for specific bundle */}
+      <Dialog open={!!selectedBundleForBuyers} onOpenChange={(open) => !open && setSelectedBundleForBuyers(null)}>
+        <DialogContent dir={dir} className="max-w-2xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold flex items-center gap-2">
+              <Users className="w-5 h-5 text-primary" />
+              <span>
+                {isRTL ? "المشتركون في الباقة:" : "Subscribers to Bundle:"}{" "}
+                <span className="text-amber-600">
+                  {selectedBundleForBuyers && (isRTL ? selectedBundleForBuyers.title_ar || selectedBundleForBuyers.title : selectedBundleForBuyers.title)}
+                </span>
+              </span>
+            </DialogTitle>
+            <DialogDescription>
+              {isRTL
+                ? "قائمة بالطلاب المسجلين الذين قاموا بشراء وتفعيل هذه الباقة الدراسية"
+                : "List of students who purchased and activated this bundle"}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto py-2">
+            {(() => {
+              const bundleBuyers = purchases.filter((p: any) => p.bundle_id === selectedBundleForBuyers?.id);
+              if (bundleBuyers.length === 0) {
+                return (
+                  <div className="py-12 text-center text-muted-foreground space-y-3">
+                    <div className="w-14 h-14 rounded-full bg-muted/60 flex items-center justify-center mx-auto text-muted-foreground">
+                      <ShoppingBag className="w-7 h-7" />
+                    </div>
+                    <p className="font-medium text-sm">
+                      {isRTL ? "لا يوجد مشتركون في هذه الباقة حتى الآن" : "No subscribers for this bundle yet"}
+                    </p>
+                    <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                      {isRTL
+                        ? "عندما يقوم الطلاب بشراء هذه الباقة والدفع، ستظهر تفاصيلهم الكاملة وتاريخ الشراء هنا مباشرة."
+                        : "When students purchase this bundle, their details and transaction date will appear here."}
+                    </p>
+                  </div>
+                );
+              }
+
+              const totalCollected = bundleBuyers.reduce((sum: number, b: any) => sum + (Number(b.amount_paid) || 0), 0);
+
+              return (
+                <div className="space-y-4">
+                  {/* Summary Bar */}
+                  <div className="grid grid-cols-2 gap-3 bg-muted/30 p-3 rounded-xl border">
+                    <div className="text-center sm:text-start sm:ps-2">
+                      <span className="text-xs text-muted-foreground block">{isRTL ? "إجمالي المشتركين" : "Total Buyers"}</span>
+                      <span className="text-xl font-black text-foreground">{bundleBuyers.length} {isRTL ? "طالب" : "students"}</span>
+                    </div>
+                    <div className="text-center sm:text-end sm:pe-2">
+                      <span className="text-xs text-muted-foreground block">{isRTL ? "إجمالي الإيرادات" : "Total Revenue"}</span>
+                      <span className="text-xl font-black text-emerald-600">{totalCollected} ر.س</span>
+                    </div>
+                  </div>
+
+                  {/* Buyers Table */}
+                  <div className="rounded-xl border overflow-hidden">
+                    <Table>
+                      <TableHeader className="bg-muted/40">
+                        <TableRow>
+                          <TableHead className="text-xs">{isRTL ? "الطالب" : "Student"}</TableHead>
+                          <TableHead className="text-xs">{isRTL ? "بيانات التواصل" : "Contact"}</TableHead>
+                          <TableHead className="text-center text-xs">{isRTL ? "المبلغ" : "Paid"}</TableHead>
+                          <TableHead className="text-center text-xs">{isRTL ? "تاريخ الاشتراك" : "Date"}</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {bundleBuyers.map((b: any) => {
+                          const name = b.profiles?.full_name_ar || b.profiles?.full_name || b.profiles?.email || "-";
+                          const email = b.profiles?.email || "-";
+                          const phone = b.profiles?.phone || "-";
+                          const date = b.purchased_at ? new Date(b.purchased_at).toLocaleDateString(isRTL ? "ar-SA" : "en-US") : "-";
+
+                          return (
+                            <TableRow key={b.id} className="hover:bg-muted/30">
+                              <TableCell className="font-semibold text-sm">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-8 h-8 rounded-full bg-primary/10 text-primary font-bold flex items-center justify-center text-xs shrink-0">
+                                    {name.charAt(0).toUpperCase()}
+                                  </div>
+                                  <div>
+                                    <div className="text-foreground">{name}</div>
+                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-emerald-50 text-emerald-700 border-emerald-200 mt-0.5">
+                                      {b.status === "completed" || b.status === "active" ? (isRTL ? "نشط" : "Active") : b.status}
+                                    </Badge>
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-xs text-muted-foreground space-y-0.5">
+                                <div>{email}</div>
+                                {phone !== "-" && <div className="text-foreground font-mono">{phone}</div>}
+                              </TableCell>
+                              <TableCell className="text-center font-bold text-emerald-600 text-sm">
+                                {b.amount_paid} ر.س
+                              </TableCell>
+                              <TableCell className="text-center text-xs text-muted-foreground whitespace-nowrap">
+                                {date}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+
+          <DialogFooter className="border-t pt-3">
+            <Button variant="outline" onClick={() => setSelectedBundleForBuyers(null)}>
+              {isRTL ? "إغلاق" : "Close"}
             </Button>
           </DialogFooter>
         </DialogContent>

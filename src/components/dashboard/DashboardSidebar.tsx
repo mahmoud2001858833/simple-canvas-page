@@ -139,6 +139,7 @@ export const DashboardSidebar = ({ activeTab, onTabChange, isOpen, onToggle, use
 
   const adminTabs = [
     { id: 'overview', label: { ar: 'نظرة عامة', en: 'Overview' }, icon: LayoutDashboard, onboardingId: null, showBadge: false, isAction: false },
+    { id: 'comprehensive-users', label: { ar: 'دليل المستخدمين الشامل 👥', en: 'Comprehensive Users Hub' }, icon: Users, onboardingId: null, showBadge: false, isAction: false },
     { id: 'users', label: { ar: 'المستخدمين', en: 'Users' }, icon: Users, onboardingId: null, showBadge: false, isAction: false },
     { id: 'user-insights', label: { ar: 'معلومات المستخدمين', en: 'User Insights' }, icon: UserCheck, onboardingId: null, showBadge: false, isAction: false },
     { id: 'instructor-detail', label: { ar: 'المعلم بالتفصيل', en: 'Instructor Detail' }, icon: UserCog, onboardingId: null, showBadge: false, isAction: false },
@@ -198,11 +199,12 @@ export const DashboardSidebar = ({ activeTab, onTabChange, isOpen, onToggle, use
 
   const groupDefs = getGroups(userRole);
   const overviewTab = tabs.find((t) => t.id === 'overview');
+  const comprehensiveTab = tabs.find((t) => t.id === 'comprehensive-users');
   const visibleGroups = groupDefs
     .map((g) => ({ ...g, tabs: g.items.map((id) => tabs.find((t) => t.id === id)).filter(Boolean) as any[] }))
     .filter((g) => g.tabs.length > 0);
   const groupedIds = new Set(visibleGroups.flatMap((g) => g.tabs.map((t: any) => t.id)));
-  const ungroupedTabs = tabs.filter((t) => t.id !== 'overview' && !groupedIds.has(t.id));
+  const ungroupedTabs = tabs.filter((t) => t.id !== 'overview' && t.id !== 'comprehensive-users' && !groupedIds.has(t.id));
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
@@ -351,6 +353,7 @@ export const DashboardSidebar = ({ activeTab, onTabChange, isOpen, onToggle, use
           {isOpen ? (
             <>
               {overviewTab && renderTab(overviewTab)}
+              {comprehensiveTab && renderTab(comprehensiveTab)}
               {visibleGroups.map((group) => {
                 const expanded = !!openGroups[group.id];
                 const hasActive = group.tabs.some((t: any) => t.id === activeTab);

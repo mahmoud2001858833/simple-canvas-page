@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { GraduationCap, Mail, Lock, User, Loader2, Sparkles, BookOpen, Users, Building2, Phone, CheckCircle2, RefreshCw } from 'lucide-react';
+import { GraduationCap, Mail, Lock, User, Loader2, Sparkles, BookOpen, Users, Building2, Phone, CheckCircle2, RefreshCw, Award, UploadCloud, FileText, Trash2, Plus, Paperclip } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
@@ -15,7 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { z } from 'zod';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { useProfileFieldsRequired } from '@/hooks/useProfileFieldsRequired';
-import { sendLifecycleEmail, upsertTeacherLifecycleProfile } from '@/lib/teacherLifecycleService';
+import { sendLifecycleEmail, upsertTeacherLifecycleProfile, syncTeacherDataToCloud } from '@/lib/teacherLifecycleService';
 
 
 // Validation schema
@@ -91,6 +91,14 @@ const Signup = () => {
   const [academicDegree, setAcademicDegree] = useState<string>('');
   const [academicYear, setAcademicYear] = useState<string>('');
   const [specialty, setSpecialty] = useState('');
+  const [certificates, setCertificates] = useState<Array<{
+    id: string;
+    title: string;
+    fileName?: string;
+    fileData?: string;
+    fileSize?: number;
+  }>>([]);
+  const [certTitleInput, setCertTitleInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
@@ -380,6 +388,19 @@ const Signup = () => {
                   email: email.trim(),
                   onboarding_status: 'registered',
                 }).catch(() => {});
+
+                // Save optional certificates if provided
+                if (certificates.length > 0) {
+                  const formattedCerts = certificates.map(c => ({
+                    id: c.id,
+                    title: c.title,
+                    file_url: c.fileData || '',
+                    file_name: c.fileName || '',
+                    file_size: c.fileSize || 0,
+                    uploaded_at: new Date().toISOString(),
+                  }));
+                  await syncTeacherDataToCloud(newUser.id, { certificates: formattedCerts }).catch(() => {});
+                }
 
                 await sendLifecycleEmail({
                   type: 'teacher_welcome',
@@ -919,6 +940,103 @@ const Signup = () => {
                       <SelectItem value="specialist">{language === 'ar' ? 'مختص/خبرة مهنية' : 'Specialist / Professional'}</SelectItem>
                     </SelectContent>
                   </Select>
+                </motion.div>
+              )}
+
+              {/* Optional Teacher Certificates Section */}
+              {selectedRole === 'instructor' && (
+                <motion.div
+                  initial={{ x: -20, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: 0.468 }}
+                  className="space-y-3 p-4 rounded-xl border border-teal/20 bg-teal/5"
+                >
+                  <div className="flex items-center justify-between">
+                    <Label className="text-foreground/90 font-medium flex items-center gap-2 text-xs sm:text-sm">
+                      <Award className="w-4 h-4 text-teal" />
+                      {language === 'ar' ? 'الشهادات والمؤهلات الأكاديمية' : 'Certificates & Qualifications'}
+                    </Label>
+                    <span className="text-[11px] font-medium text-muted-foreground bg-background/80 px-2 py-0.5 rounded-full border border-border/40">
+                      {language === 'ar' ? 'اختياري' : 'Optional'}
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    {language === 'ar'
+                      ? 'يمكنك رفع شهاداتك الأكاديمية، شهادات الخبرة، أو التقديرات (PDF أو صور). الشهادات اختيارية وتساعد على سرعة اعتماد وتوثيق حسابك.'
+                      : 'You can upload your degrees, certificates or credentials (PDF/images). Optional.'}
+                  </p>
+
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Input
+                      value={certTitleInput}
+                      onChange={(e) => setCertTitleInput(e.target.value)}
+                      placeholder={language === 'ar' ? 'عنوان أو اسم الشهادة (اختياري)...' : 'Certificate title (optional)...'}
+                      className="bg-background/80 text-xs rounded-lg"
+                      disabled={loading || redirecting}
+                    />
+                    <label className="cursor-pointer inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-teal hover:bg-teal/90 text-white text-xs font-semibold shrink-0 transition-colors">
+                      <UploadCloud className="w-4 h-4" />
+                      <span>{language === 'ar' ? 'رفع ملف' : 'Upload'}</span>
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        className="hidden"
+                        disabled={loading || redirecting}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          if (file.size > 10 * 1024 * 1024) {
+                            toast.error(language === 'ar' ? 'حجم الملف يجب أن يكون أقل من 10 ميغابايت' : 'File must be under 10MB');
+                            return;
+                          }
+                          const reader = new FileReader();
+                          reader.onload = () => {
+                            const newCert = {
+                              id: `cert_${Date.now()}`,
+                              title: certTitleInput.trim() || file.name.replace(/\.[^/.]+$/, ''),
+                              fileName: file.name,
+                              fileData: reader.result as string,
+                              fileSize: file.size,
+                            };
+                            setCertificates(prev => [...prev, newCert]);
+                            setCertTitleInput('');
+                            toast.success(language === 'ar' ? 'تم إرفاق الشهادة بنجاح' : 'Certificate attached');
+                          };
+                          reader.readAsDataURL(file);
+                          e.target.value = '';
+                        }}
+                      />
+                    </label>
+                  </div>
+
+                  {certificates.length > 0 && (
+                    <div className="space-y-1.5 mt-2">
+                      {certificates.map((cert) => (
+                        <div
+                          key={cert.id}
+                          className="flex items-center justify-between p-2 rounded-lg bg-background border border-border/50 text-xs"
+                        >
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            <FileText className="w-4 h-4 text-teal shrink-0" />
+                            <div className="truncate">
+                              <span className="font-semibold block text-foreground truncate">{cert.title}</span>
+                              <span className="text-[10px] text-muted-foreground block truncate">{cert.fileName}</span>
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setCertificates(prev => prev.filter(c => c.id !== cert.id))}
+                            className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10 shrink-0"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </motion.div>
               )}
 

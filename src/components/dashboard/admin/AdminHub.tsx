@@ -130,6 +130,14 @@ export const AdminHub = ({ onNavigate }: AdminHubProps) => {
   const hubItems: HubItem[] = [
     // 1. Faculty & Teachers
     {
+      id: 'comprehensive-users',
+      title: isRTL ? 'دليل المستخدمين الشامل 👥' : 'Comprehensive Users Hub',
+      description: isRTL ? 'عرض شامل لكافة المعلمين والطلاب مع الشهادات، المقررات، تعيين المهام والمحادثات المباشرة.' : '360° user directory for teachers and students with certificates, task assignment, and live direct chat.',
+      category: 'teachers',
+      icon: Users,
+      highlight: true,
+    },
+    {
       id: 'teachers-onboarding',
       title: isRTL ? 'انضمام المعلمين والمصادر' : 'Teachers Onboarding',
       description: isRTL ? 'متابعة مراحل تسجيل المعلمين، توثيق الحسابات البنكية، ومعاينة العقود ونماذج العمل.' : 'Track onboarding pipeline, verify bank accounts, inspect contracts.',

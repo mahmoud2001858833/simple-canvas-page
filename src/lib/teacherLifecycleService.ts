@@ -288,11 +288,23 @@ function setLocalStore<T>(key: string, val: T): void {
 // Cross-Device Cloud Sync Helpers (Profiles & Platform Settings)
 // ====================================================================
 
+export interface TeacherCertificate {
+  id: string;
+  title: string;
+  issuer?: string;
+  issue_date?: string;
+  file_url?: string;
+  file_name?: string;
+  file_size?: number;
+  uploaded_at: string;
+}
+
 export interface TeacherCloudStore {
   onboarding_status?: OnboardingStatus;
   bank?: TeacherBankDetails;
   payout?: TeacherPayoutSettings;
   contract?: TeacherContract;
+  certificates?: TeacherCertificate[];
   updated_at?: string;
 }
 
@@ -431,6 +443,33 @@ export async function getTeacherDataFromCloud(teacherId: string): Promise<Teache
   } catch {}
 
   return getLocalStore<TeacherCloudStore | null>(`cloud_${teacherId}`, null);
+}
+
+export async function getTeacherCertificates(teacherId: string): Promise<TeacherCertificate[]> {
+  const store = await getTeacherDataFromCloud(teacherId);
+  return store?.certificates || [];
+}
+
+export async function addTeacherCertificate(
+  teacherId: string,
+  cert: Omit<TeacherCertificate, 'id' | 'uploaded_at'>
+): Promise<TeacherCertificate> {
+  const existing = await getTeacherCertificates(teacherId);
+  const newCert: TeacherCertificate = {
+    id: `cert_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+    ...cert,
+    uploaded_at: new Date().toISOString(),
+  };
+  const updated = [...existing, newCert];
+  await syncTeacherDataToCloud(teacherId, { certificates: updated });
+  return newCert;
+}
+
+export async function deleteTeacherCertificate(teacherId: string, certId: string): Promise<boolean> {
+  const existing = await getTeacherCertificates(teacherId);
+  const updated = existing.filter(c => c.id !== certId);
+  await syncTeacherDataToCloud(teacherId, { certificates: updated });
+  return true;
 }
 
 // ====================================================================

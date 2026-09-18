@@ -43,6 +43,7 @@ import {
   CreditCard,
   ClipboardList,
   Download,
+  Maximize2,
 } from "lucide-react";
 import { getLessonFileUrl } from "@/lib/lessonFiles";
 import { toast } from "sonner";
@@ -1018,6 +1019,15 @@ const CourseDetails = () => {
                         : "Live group chat, media sharing, and polls with instructor and classmates"}
                     </p>
                   </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate(`/courses/${courseUUID || id}/community`)}
+                    className="ms-auto gap-1.5 text-xs text-primary border-primary/20 hover:bg-primary/5 shrink-0"
+                  >
+                    <Maximize2 className="w-3.5 h-3.5" />
+                    <span>{isRTL ? "عرض في صفحة كاملة" : "Full Page"}</span>
+                  </Button>
                 </div>
 
                 <CourseCommunityChat

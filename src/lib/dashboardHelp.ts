@@ -37,6 +37,7 @@ export const ITEM_HELP: Record<string, Bilingual> = {
   'ai-assistant': { ar: 'مساعد ذكي يساعدك في إعداد المحتوى والأسئلة.', en: 'AI assistant to help you build content and questions.' },
 
   // admin
+  'comprehensive-users': { ar: 'دليل شامل ومفصل للمعلمين والطلاب مع الشهادات، المقررات، تعيين المهام والمحادثات المباشرة.', en: 'Comprehensive 360° directory for instructors and students with task assignment and direct chat.' },
   users: { ar: 'إدارة جميع الحسابات: الأدوار، الحظر، والحذف.', en: 'Manage all accounts: roles, bans and deletion.' },
   'user-insights': { ar: 'بيانات تفصيلية عن المستخدمين وسلوكهم.', en: 'Detailed data about users and their behaviour.' },
   'instructor-detail': { ar: 'ملف كامل لكل معلم: دوراته وأرباحه وطلابه.', en: 'Full profile per instructor: courses, earnings, students.' },

@@ -18,7 +18,9 @@ import {
   deleteCommunityMessage,
   toggleMuteStudent,
   subscribeToCommunity,
+  clearAllCommunityMessages,
 } from '@/services/courseCommunityService';
+import { useNavigate } from 'react-router-dom';
 import { CourseCommunitySettingsDialog } from './CourseCommunitySettingsDialog';
 import { CreatePollDialog } from './CreatePollDialog';
 import { Button } from '@/components/ui/button';
@@ -33,7 +35,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
 import {
   Send,
   Paperclip,
@@ -43,6 +52,8 @@ import {
   Settings,
   Pin,
   Trash2,
+  Maximize2,
+  ExternalLink,
   Reply,
   Copy,
   MoreVertical,
@@ -105,7 +116,10 @@ export const CourseCommunityChat: React.FC<CourseCommunityChatProps> = ({
   const [pollDialogOpen, setPollDialogOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<ReplyToSnapshot | null>(null);
+  const [clearAllDialogOpen, setClearAllDialogOpen] = useState(false);
+  const [clearingAll, setClearingAll] = useState(false);
 
+  const navigate = useNavigate();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
@@ -223,6 +237,10 @@ export const CourseCommunityChat: React.FC<CourseCommunityChatProps> = ({
               : m
           )
         );
+      },
+      onAllMessagesCleared: () => {
+        setMessages([]);
+        toast.info('تم تفريغ جميع رسائل المنتدى بواسطة الإدارة');
       },
       onGenericUpdate: () => {
         loadData(true);
@@ -407,6 +425,19 @@ export const CourseCommunityChat: React.FC<CourseCommunityChatProps> = ({
       return;
     }
 
+    // Teachers / Admins cannot vote on polls
+    if (isInstructor || isSuperAdmin) {
+      toast.info('بصفتك المعلم/المشرف، يتاح لك متابعة نتائج الاستطلاع وإدارته دون التصويت');
+      return;
+    }
+
+    // Check if user is creator of this poll
+    const targetPollMsg = messages.find((m) => m.id === messageId);
+    if (targetPollMsg?.sender_id === user.id) {
+      toast.info('لا يمكنك التصويت على استطلاع قمت بإنشائه');
+      return;
+    }
+
     // Instant optimistic update
     setMessages((prev) =>
       prev.map((m) => {
@@ -504,6 +535,22 @@ export const CourseCommunityChat: React.FC<CourseCommunityChatProps> = ({
     }
   };
 
+  // Master action: Clear all messages (Super Admin only)
+  const handleClearAll = async () => {
+    if (!isSuperAdmin) return;
+    setClearingAll(true);
+    try {
+      await clearAllCommunityMessages(courseId);
+      setMessages([]);
+      setClearAllDialogOpen(false);
+      toast.success('تم مسح جميع رسائل مجتمع الدورة بنجاح');
+    } catch (err: any) {
+      toast.error(err.message || 'فشل مسح الرسائل');
+    } finally {
+      setClearingAll(false);
+    }
+  };
+
   // Mute student
   const handleMute = async (studentId: string) => {
     if (!user || !hasManagerAccess) return;
@@ -595,6 +642,32 @@ export const CourseCommunityChat: React.FC<CourseCommunityChatProps> = ({
           >
             <Search className="w-4 h-4" />
           </Button>
+
+          {/* Full-screen / Standalone Page Link */}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate(`/courses/${courseId}/community`)}
+            className="w-8 h-8 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+            title="فتح الشات في صفحة مستقلة كاملة"
+          >
+            <Maximize2 className="w-4 h-4" />
+          </Button>
+
+          {/* Super Admin: Clear All Messages */}
+          {isSuperAdmin && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => setClearAllDialogOpen(true)}
+              className="w-8 h-8 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+              title="مسح جميع رسائل القروب (صلاحية الإدارة)"
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          )}
 
           {hasManagerAccess && (
             <Button
@@ -742,11 +815,15 @@ export const CourseCommunityChat: React.FC<CourseCommunityChatProps> = ({
                     <div
                       className={`relative group min-w-[125px] px-3.5 py-2 shadow-xs transition-all ${
                         isMe
-                          ? `bg-indigo-600 text-white ${isRTL ? 'rounded-2xl rounded-bl-xs' : 'rounded-2xl rounded-br-xs'}`
+                          ? isInstructor
+                            ? `bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 text-white shadow-md border border-emerald-400/40 ${isRTL ? 'rounded-2xl rounded-bl-xs' : 'rounded-2xl rounded-br-xs'}`
+                            : isSuperAdmin
+                            ? `bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-md border border-indigo-400/40 ${isRTL ? 'rounded-2xl rounded-bl-xs' : 'rounded-2xl rounded-br-xs'}`
+                            : `bg-indigo-600 text-white ${isRTL ? 'rounded-2xl rounded-bl-xs' : 'rounded-2xl rounded-br-xs'}`
                           : isMsgAdmin
-                          ? `bg-gradient-to-br from-rose-50 to-purple-50 dark:from-rose-950/30 dark:to-purple-950/30 border border-rose-200 dark:border-rose-900/50 text-slate-800 dark:text-slate-100 ${isRTL ? 'rounded-2xl rounded-br-xs' : 'rounded-2xl rounded-bl-xs'}`
+                          ? `bg-gradient-to-br from-rose-50 via-purple-50/50 to-rose-100/40 dark:from-rose-950/40 dark:to-purple-950/40 border-2 border-rose-300/90 dark:border-rose-800/60 shadow-xs text-slate-800 dark:text-slate-100 ${isRTL ? 'rounded-2xl rounded-br-xs' : 'rounded-2xl rounded-bl-xs'}`
                           : isMsgInstructor
-                          ? `bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border border-amber-200 dark:border-amber-900/50 text-slate-800 dark:text-slate-100 ${isRTL ? 'rounded-2xl rounded-br-xs' : 'rounded-2xl rounded-bl-xs'}`
+                          ? `bg-gradient-to-br from-amber-50 via-amber-100/40 to-orange-50/50 dark:from-amber-950/40 dark:via-slate-900 dark:to-orange-950/30 border-2 border-amber-400/90 dark:border-amber-600/60 shadow-md text-slate-800 dark:text-slate-100 ${isRTL ? 'rounded-2xl rounded-br-xs' : 'rounded-2xl rounded-bl-xs'}`
                           : `bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-slate-800 dark:text-slate-100 ${isRTL ? 'rounded-2xl rounded-br-xs' : 'rounded-2xl rounded-bl-xs'}`
                       }`}
                     >
@@ -832,15 +909,35 @@ export const CourseCommunityChat: React.FC<CourseCommunityChatProps> = ({
                         </DropdownMenu>
                       </div>
 
+                      {/* Bubble Header for own message when instructor or admin */}
+                      {isMe && isInstructor && (
+                        <div className="flex items-center gap-1.5 mb-1.5 pb-1 border-b border-white/20 text-[10px] font-bold text-emerald-100">
+                          <Sparkles className="w-3 h-3 text-amber-300 fill-amber-300" />
+                          <span>👨‍🏫 أنت (معلم الدورة)</span>
+                        </div>
+                      )}
+                      {isMe && isSuperAdmin && !isInstructor && (
+                        <div className="flex items-center gap-1.5 mb-1.5 pb-1 border-b border-white/20 text-[10px] font-bold text-rose-200">
+                          <ShieldCheck className="w-3 h-3 text-rose-300" />
+                          <span>🛡️ أنت (إدارة المنصة)</span>
+                        </div>
+                      )}
+
                       {/* Bubble Header: Sender Name & Role Badge for others */}
                       {!isMe && (
-                        <div className="flex items-center gap-1.5 mb-1.5 pl-6">
+                        <div className={`flex items-center gap-1.5 mb-1.5 pl-6 ${
+                          isMsgInstructor
+                            ? 'pb-1 border-b border-amber-300/60 dark:border-amber-700/50'
+                            : isMsgAdmin
+                            ? 'pb-1 border-b border-rose-300/60 dark:border-rose-700/50'
+                            : ''
+                        }`}>
                           <span
                             className={`text-xs font-bold truncate max-w-[150px] ${
                               isMsgAdmin
-                                ? 'text-rose-700 dark:text-rose-300'
+                                ? 'text-rose-700 dark:text-rose-300 font-extrabold'
                                 : isMsgInstructor
-                                ? 'text-amber-800 dark:text-amber-300'
+                                ? 'text-amber-900 dark:text-amber-300 font-black tracking-wide'
                                 : 'text-indigo-600 dark:text-indigo-400'
                             }`}
                           >
@@ -848,14 +945,14 @@ export const CourseCommunityChat: React.FC<CourseCommunityChatProps> = ({
                           </span>
 
                           {isMsgAdmin && (
-                            <Badge className="bg-rose-600 text-white text-[9px] px-1 py-0 h-3.5 flex items-center gap-0.5">
+                            <Badge className="bg-gradient-to-r from-rose-600 to-red-600 text-white text-[9px] px-1.5 py-0 h-4 flex items-center gap-0.5 font-bold shadow-xs">
                               <ShieldCheck className="w-2.5 h-2.5" />
                               إدارة المنصة
                             </Badge>
                           )}
                           {isMsgInstructor && (
-                            <Badge className="bg-amber-600 text-white text-[9px] px-1 py-0 h-3.5">
-                              👨‍🏫 المعلم
+                            <Badge className="bg-gradient-to-r from-amber-500 via-amber-600 to-orange-600 text-white text-[9px] px-1.5 py-0 h-4 flex items-center gap-1 font-bold shadow-xs">
+                              👨‍🏫 معلم الدورة
                             </Badge>
                           )}
                           {msg.is_pinned && (
@@ -925,86 +1022,167 @@ export const CourseCommunityChat: React.FC<CourseCommunityChatProps> = ({
                         </div>
                       ) : msg.message_type === 'poll' && msg.poll_data ? (
                         /* Interactive Poll Card */
-                        <div className="w-64 sm:w-72 space-y-2.5 py-1">
-                          <div className="flex items-center justify-between gap-1">
-                            <span className="text-xs font-bold flex items-center gap-1">
-                              <BarChart2 className="w-3.5 h-3.5 text-indigo-500" />
-                              {msg.poll_data.question}
-                            </span>
-                            {msg.poll_data.is_closed && (
-                              <Badge variant="outline" className="text-[9px] px-1 py-0 border-slate-400">
-                                منتهي
+                        <div className="w-72 sm:w-80 space-y-3 py-1">
+                          {/* Poll Header */}
+                          <div className="flex items-start justify-between gap-2 pb-2 border-b border-black/10 dark:border-white/10">
+                            <div className="flex items-center gap-2">
+                              <div className="w-7 h-7 rounded-lg bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                                <BarChart2 className="w-4 h-4" />
+                              </div>
+                              <span className="text-xs sm:text-sm font-bold text-foreground leading-snug">
+                                {msg.poll_data.question}
+                              </span>
+                            </div>
+                            {msg.poll_data.is_closed ? (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 bg-rose-500/10 text-rose-600 border-rose-200 shrink-0 font-bold">
+                                منتهي 🔒
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 bg-emerald-500/10 text-emerald-600 border-emerald-200 shrink-0 font-bold">
+                                نشط 🟢
                               </Badge>
                             )}
                           </div>
 
                           {/* Poll Options List */}
-                          <div className="space-y-1.5">
+                          <div className="space-y-2">
                             {(() => {
                               const totalVotes = msg.poll_data.options.reduce(
                                 (acc, opt) => acc + (opt.voter_ids?.length || 0),
                                 0
                               );
-                              return msg.poll_data.options.map((opt) => {
+                              // Manager / Creator cannot vote: only views elegant results
+                              const isPollManager = isInstructor || isSuperAdmin || (user?.id && msg.sender_id === user.id);
+                              const userHasVotedAny = user?.id && msg.poll_data.options.some(opt => opt.voter_ids?.includes(user.id));
+                              const showResults = isPollManager || userHasVotedAny || msg.poll_data.is_closed;
+
+                              return msg.poll_data.options.map((opt, idx) => {
                                 const count = opt.voter_ids?.length || 0;
                                 const pct = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
-                                const hasVoted = user?.id && opt.voter_ids?.includes(user.id);
+                                const hasVotedThis = user?.id && opt.voter_ids?.includes(user.id);
+                                const isHighest = totalVotes > 0 && count === Math.max(...msg.poll_data.options.map(o => o.voter_ids?.length || 0)) && count > 0;
 
+                                if (isPollManager || showResults) {
+                                  // Results Display Mode (Teacher or Voted Student)
+                                  return (
+                                    <div
+                                      key={opt.id}
+                                      className={`p-2.5 rounded-xl border text-xs transition-all relative overflow-hidden ${
+                                        hasVotedThis
+                                          ? 'border-indigo-500/70 bg-indigo-50/70 dark:bg-indigo-950/40 shadow-xs'
+                                          : 'border-slate-200/80 dark:border-slate-700/80 bg-white/60 dark:bg-slate-800/60'
+                                      }`}
+                                    >
+                                      {/* Background Progress Bar Fill */}
+                                      <div
+                                        className={`absolute inset-y-0 right-0 transition-all duration-700 pointer-events-none opacity-20 ${
+                                          isHighest
+                                            ? 'bg-emerald-500'
+                                            : hasVotedThis
+                                            ? 'bg-indigo-600'
+                                            : 'bg-slate-400 dark:bg-slate-500'
+                                        }`}
+                                        style={{ width: `${pct}%` }}
+                                      />
+
+                                      <div className="relative z-10 flex items-center justify-between gap-2 mb-1">
+                                        <div className="flex items-center gap-1.5 min-w-0">
+                                          <span className="w-4 h-4 rounded-full bg-slate-200 dark:bg-slate-700 text-[10px] font-bold flex items-center justify-center shrink-0">
+                                            {idx + 1}
+                                          </span>
+                                          <span className="font-semibold text-foreground truncate">
+                                            {opt.text}
+                                          </span>
+                                        </div>
+
+                                        <div className="flex items-center gap-1.5 shrink-0 text-[11px] font-bold">
+                                          {hasVotedThis && (
+                                            <span className="text-[10px] px-1 py-0.5 rounded bg-indigo-600 text-white font-normal flex items-center gap-0.5">
+                                              <Check className="w-2.5 h-2.5" /> صوتك
+                                            </span>
+                                          )}
+                                          <span className={isHighest ? 'text-emerald-600 dark:text-emerald-400 font-black' : 'text-foreground'}>
+                                            %{pct}
+                                          </span>
+                                          <span className="text-[10px] text-muted-foreground font-normal">
+                                            ({count})
+                                          </span>
+                                        </div>
+                                      </div>
+
+                                      {/* Sleek Mini Bar Indicator */}
+                                      <div className="relative z-10 w-full bg-slate-200/70 dark:bg-slate-700/50 h-1.5 rounded-full overflow-hidden">
+                                        <div
+                                          className={`h-full rounded-full transition-all duration-700 ${
+                                            isHighest
+                                              ? 'bg-gradient-to-r from-emerald-500 to-teal-500'
+                                              : hasVotedThis
+                                              ? 'bg-gradient-to-r from-indigo-500 to-violet-500'
+                                              : 'bg-slate-400 dark:bg-slate-500'
+                                          }`}
+                                          style={{ width: `${pct}%` }}
+                                        />
+                                      </div>
+                                    </div>
+                                  );
+                                }
+
+                                // Interactive Voting Button (For Students who haven't voted yet)
                                 return (
                                   <button
                                     key={opt.id}
                                     type="button"
-                                    disabled={msg.poll_data?.is_closed}
                                     onClick={() => handleVote(msg.id, opt.id)}
-                                    className={`relative w-full overflow-hidden text-right p-2 rounded-lg border text-xs flex items-center justify-between transition-all ${
-                                      hasVoted
-                                        ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/40 font-semibold'
-                                        : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-800/70 hover:bg-slate-50'
-                                    }`}
+                                    className="w-full text-right p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 hover:border-indigo-500 hover:bg-indigo-50/40 dark:hover:bg-indigo-950/30 transition-all text-xs flex items-center justify-between gap-2 group cursor-pointer shadow-xs"
                                   >
-                                    {/* Percentage Fill Bar */}
-                                    <div
-                                      className={`absolute inset-y-0 right-0 opacity-20 pointer-events-none transition-all duration-300 ${
-                                        hasVoted ? 'bg-indigo-600' : 'bg-slate-400'
-                                      }`}
-                                      style={{ width: `${pct}%` }}
-                                    />
-
-                                    <span className="relative z-10 truncate pr-1">
-                                      {opt.text}
-                                    </span>
-
-                                    <div className="relative z-10 flex items-center gap-1 text-[11px] opacity-80 flex-shrink-0">
-                                      <span>%{pct}</span>
-                                      <span className="text-[10px]">({count})</span>
-                                      {hasVoted && (
-                                        <Check className="w-3 h-3 text-indigo-600" />
-                                      )}
+                                    <div className="flex items-center gap-2">
+                                      <span className="w-4 h-4 rounded-full border border-slate-300 dark:border-slate-600 group-hover:border-indigo-500 group-hover:bg-indigo-500/10 text-[10px] font-bold flex items-center justify-center shrink-0 transition-colors">
+                                        {idx + 1}
+                                      </span>
+                                      <span className="font-semibold text-foreground group-hover:text-indigo-600 transition-colors">
+                                        {opt.text}
+                                      </span>
                                     </div>
+                                    <span className="text-[11px] text-muted-foreground group-hover:text-indigo-600 font-medium transition-colors">
+                                      تصويت ←
+                                    </span>
                                   </button>
                                 );
                               });
                             })()}
                           </div>
 
-                          {/* Poll Footer */}
-                          <div className="flex items-center justify-between text-[10px] opacity-70 pt-1">
-                            <span>
-                              إجمالي الأصوات:{' '}
-                              {msg.poll_data.options.reduce(
-                                (acc, opt) => acc + (opt.voter_ids?.length || 0),
-                                0
-                              )}
-                            </span>
-                            {hasManagerAccess && !msg.poll_data.is_closed && (
-                              <button
-                                type="button"
-                                onClick={() => handleClosePoll(msg.id)}
-                                className="text-red-500 hover:underline"
-                              >
-                                إغلاق التصويت
-                              </button>
+                          {/* Poll Footer & Instructor Analytics Note */}
+                          <div className="space-y-1.5 pt-1 border-t border-black/5 dark:border-white/5">
+                            {(isInstructor || isSuperAdmin) && (
+                              <div className="flex items-center gap-1.5 text-[10px] text-amber-800 dark:text-amber-300 bg-amber-500/10 p-1.5 rounded-lg font-medium">
+                                <Sparkles className="w-3 h-3 shrink-0 text-amber-600" />
+                                <span>نتائج فورية: لا يتاح للمعلم أو الإدارة التصويت حفظاً للحيادية.</span>
+                              </div>
                             )}
+
+                            <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-0.5">
+                              <span className="font-medium">
+                                إجمالي الأصوات:{' '}
+                                <strong className="text-foreground">
+                                  {msg.poll_data.options.reduce(
+                                    (acc, opt) => acc + (opt.voter_ids?.length || 0),
+                                    0
+                                  )}
+                                </strong>
+                              </span>
+
+                              {hasManagerAccess && !msg.poll_data.is_closed && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleClosePoll(msg.id)}
+                                  className="text-red-500 hover:text-red-600 font-bold hover:underline transition-colors flex items-center gap-1"
+                                >
+                                  <Lock className="w-3 h-3" />
+                                  إغلاق الاستطلاع
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       ) : (
@@ -1204,6 +1382,52 @@ export const CourseCommunityChat: React.FC<CourseCommunityChatProps> = ({
         onOpenChange={setPollDialogOpen}
         onSubmit={handleCreatePoll}
       />
+
+      {/* Clear All Messages Confirmation Dialog (Super Admin) */}
+      <Dialog open={clearAllDialogOpen} onOpenChange={setClearAllDialogOpen}>
+        <DialogContent dir={dir} className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-destructive flex items-center gap-2">
+              <AlertCircle className="w-5 h-5" />
+              {isRTL ? "مسح جميع رسائل مجتمع الدورة" : "Clear All Community Messages"}
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground leading-relaxed pt-1">
+              {isRTL
+                ? "تحذير: هل أنت متأكد من رغبتك في مسح وتفريغ جميع رسائل ومرفقات هذا القروب؟ سيتم مسح الرسائل فوراً لجميع الطلاب والمعلم في هذه الدورة."
+                : "Warning: Are you sure you want to clear all messages and attachments in this course community? All chat history will be emptied for all participants."}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0 mt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setClearAllDialogOpen(false)}
+              disabled={clearingAll}
+            >
+              {isRTL ? "إلغاء" : "Cancel"}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleClearAll}
+              disabled={clearingAll}
+              className="gap-1.5 font-bold"
+            >
+              {clearingAll ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>{isRTL ? "جاري المسح..." : "Clearing..."}</span>
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4" />
+                  <span>{isRTL ? "تأكيد مسح كافة الرسائل" : "Yes, Clear All"}</span>
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

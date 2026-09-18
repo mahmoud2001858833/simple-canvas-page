@@ -40,6 +40,7 @@ function lazyRetry<T extends React.ComponentType<any>>(
 // Lazy loaded pages for better initial load
 const Courses = lazyRetry(() => import("./pages/Courses"));
 const CourseDetails = lazyRetry(() => import("./pages/CourseDetails"));
+const CourseCommunityPage = lazyRetry(() => import("./pages/CourseCommunityPage"));
 const LessonViewer = lazyRetry(() => import("./pages/LessonViewer"));
 const Checkout = lazyRetry(() => import("./pages/Checkout"));
 const PaymentSuccess = lazyRetry(() => import("./pages/PaymentSuccess"));
@@ -180,6 +181,7 @@ const App = () => (
                           <Route path="/about" element={<About />} />
                           <Route path="/courses" element={<Courses />} />
                           <Route path="/courses/:id" element={<CourseDetails />} />
+                          <Route path="/courses/:id/community" element={<CourseCommunityPage />} />
                           <Route path="/courses/:courseId/lessons/:lessonId" element={<LessonViewer />} />
                           <Route path="/checkout/:courseId" element={<Checkout />} />
                           <Route path="/checkout" element={<Checkout />} />

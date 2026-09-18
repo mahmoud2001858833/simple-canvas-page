@@ -51,8 +51,9 @@ const PayoutNegotiationsManagement = lazy(() => import('@/components/dashboard/a
 const MegaAIOperationsHub = lazy(() => import('@/components/dashboard/admin/MegaAIOperationsHub').then(m => ({ default: m.MegaAIOperationsHub })));
 const BundlesManagement = lazy(() => import('@/components/dashboard/admin/BundlesManagement').then(m => ({ default: m.BundlesManagement })));
 const AdminCommunitiesManagement = lazy(() => import('@/components/dashboard/admin/AdminCommunitiesManagement').then(m => ({ default: m.AdminCommunitiesManagement })));
+const ComprehensiveUsersHub = lazy(() => import('@/components/dashboard/admin/ComprehensiveUsersHub').then(m => ({ default: m.ComprehensiveUsersHub })));
 
-type TabType = 'overview' | 'users' | 'user-insights' | 'instructor-detail' | 'student-detail' | 'courses' | 'course-approvals' | 'bundles' | 'communities' | 'requests' | 'payments' | 'live-payments' | 'abandoned-payments' | 'payment-methods' | 'monthly-installments' | 'financial-dashboard' | 'accounting' | 'withdrawals' | 'coupons' | 'universities' | 'colleges' | 'majors' | 'students-by-major' | 'reports' | 'notifications' | 'logs' | 'general' | 'settings' | 'support' | 'instructor-settings' | 'instructor-payouts' | 'student-refunds' | 'terms' | 'nelc' | 'capture-attempts' | 'workflow' | 'video-analytics' | 'instructor-specialties' | 'preview-students' | 'ai-control' | 'mega-ai-ops' | 'teachers-onboarding' | 'payout-negotiations';
+type TabType = 'overview' | 'comprehensive-users' | 'users' | 'user-insights' | 'instructor-detail' | 'student-detail' | 'courses' | 'course-approvals' | 'bundles' | 'communities' | 'requests' | 'payments' | 'live-payments' | 'abandoned-payments' | 'payment-methods' | 'monthly-installments' | 'financial-dashboard' | 'accounting' | 'withdrawals' | 'coupons' | 'universities' | 'colleges' | 'majors' | 'students-by-major' | 'reports' | 'notifications' | 'logs' | 'general' | 'settings' | 'support' | 'instructor-settings' | 'instructor-payouts' | 'student-refunds' | 'terms' | 'nelc' | 'capture-attempts' | 'workflow' | 'video-analytics' | 'instructor-specialties' | 'preview-students' | 'ai-control' | 'mega-ai-ops' | 'teachers-onboarding' | 'payout-negotiations';
 
 
 // Fallback components for each section
@@ -84,6 +85,12 @@ const AdminDashboard = () => {
         return (
           <Suspense fallback={<LoadingFallback type="overview" />}>
             <AdminHub onNavigate={(t) => setActiveTab(t as TabType)} />
+          </Suspense>
+        );
+      case 'comprehensive-users':
+        return (
+          <Suspense fallback={<LoadingFallback type="users" />}>
+            <ComprehensiveUsersHub />
           </Suspense>
         );
       case 'users':

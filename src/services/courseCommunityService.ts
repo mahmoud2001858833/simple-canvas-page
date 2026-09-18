@@ -71,6 +71,7 @@ export interface CommunityBroadcastCallbacks {
   onPollClosed?: (payload: { messageId: string }) => void;
   onMessagePinned?: (payload: { messageId: string; isPinned: boolean }) => void;
   onMessageDeleted?: (payload: { messageId: string }) => void;
+  onAllMessagesCleared?: () => void;
   onGenericUpdate?: () => void;
 }
 
@@ -203,13 +204,27 @@ export async function fetchCommunityMessages(courseId: string): Promise<Communit
       .from('chat-images')
       .list(`community-state/${courseId}/actions`, { limit: 100 });
 
+    let latestClearedTimestamp = 0;
     const deletedMessageIds = new Set<string>();
     (actionFiles || []).forEach((f) => {
       if (f.name.startsWith('del_')) {
         const parts = f.name.replace('.json', '').split('_');
         if (parts[1]) deletedMessageIds.add(parts[1]);
+      } else if (f.name.startsWith('clear_all_')) {
+        const ts = parseInt(f.name.replace('clear_all_', '').replace('.json', ''), 10);
+        if (!isNaN(ts) && ts > latestClearedTimestamp) {
+          latestClearedTimestamp = ts;
+        }
       }
     });
+
+    if (latestClearedTimestamp > 0) {
+      for (const [id, m] of courseMap.entries()) {
+        if (new Date(m.created_at).getTime() <= latestClearedTimestamp) {
+          courseMap.delete(id);
+        }
+      }
+    }
 
     // 3. Fetch poll votes
     const { data: voteFiles } = await supabase.storage
@@ -285,16 +300,18 @@ export async function fetchCommunityMessages(courseId: string): Promise<Communit
       }
 
       // Aggregate and sort messages
-      const validMessages = Array.from(courseMap.values()).map((m) => {
-        if (deletedMessageIds.has(m.id)) {
-          return {
-            ...m,
-            is_deleted: true,
-            content: 'تم حذف هذه الرسالة من قِبل المشرف',
-          };
-        }
-        return m;
-      });
+      const validMessages = Array.from(courseMap.values())
+        .filter((m) => !(latestClearedTimestamp > 0 && new Date(m.created_at).getTime() <= latestClearedTimestamp))
+        .map((m) => {
+          if (deletedMessageIds.has(m.id)) {
+            return {
+              ...m,
+              is_deleted: true,
+              content: 'تم حذف هذه الرسالة من قِبل المشرف',
+            };
+          }
+          return m;
+        });
 
       validMessages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
@@ -660,6 +677,37 @@ export async function deleteCommunityMessage(
 }
 
 /**
+ * Clear/Delete ALL messages in the course community (Admin only master action)
+ */
+export async function clearAllCommunityMessages(courseId: string): Promise<void> {
+  const timestamp = Date.now();
+  try {
+    const actionPath = `community-state/${courseId}/actions/clear_all_${timestamp}.json`;
+    await supabase.storage
+      .from('chat-images')
+      .upload(actionPath, JSON.stringify({ clearedAt: timestamp, isAll: true }), {
+        contentType: 'application/json',
+        upsert: false,
+      });
+  } catch (err) {
+    console.warn('Clear all messages storage note:', err);
+  }
+
+  // Clear local storage cache
+  const cacheKey = `comm_msgs_${courseId}`;
+  try {
+    localStorage.removeItem(cacheKey);
+  } catch {}
+
+  // Clear in-memory cache
+  if (messageMemoryCache.has(courseId)) {
+    messageMemoryCache.get(courseId)!.clear();
+  }
+
+  await sendBroadcastEvent(courseId, 'all_messages_cleared', { clearedAt: timestamp });
+}
+
+/**
  * Mute or unmute a student in the course community
  */
 export async function toggleMuteStudent(
@@ -727,6 +775,16 @@ export function subscribeToCommunity(
         break;
       case 'message_deleted':
         handler.onMessageDeleted?.(payload);
+        handler.onGenericUpdate?.();
+        break;
+      case 'all_messages_cleared':
+        if (messageMemoryCache.has(courseId)) {
+          messageMemoryCache.get(courseId)!.clear();
+        }
+        try {
+          localStorage.removeItem(`comm_msgs_${courseId}`);
+        } catch {}
+        handler.onAllMessagesCleared?.();
         handler.onGenericUpdate?.();
         break;
       case 'student_muted':
