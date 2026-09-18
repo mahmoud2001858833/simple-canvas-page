@@ -160,11 +160,21 @@ export default async function handler(req: any, res: any) {
           .upload(
             `community-state/${courseId}/messages/${messageId}.json`,
             JSON.stringify(newMsg),
-            { contentType: 'application/json', upsert: true }
+            { contentType: 'application/json', upsert: false }
           );
       } catch (e) {
         console.warn('Storage save in API note:', e);
       }
+
+      // Broadcast immediately to live channel
+      try {
+        const liveChannel = supabaseAdmin.channel(`course-community-live-${courseId}`);
+        await liveChannel.send({
+          type: 'broadcast',
+          event: 'new_message',
+          payload: newMsg,
+        });
+      } catch {}
 
       return res.status(200).json({ success: true, message: newMsg });
     }
@@ -182,7 +192,7 @@ export default async function handler(req: any, res: any) {
           .upload(
             `community-state/${courseId}/settings/${fileName}`,
             JSON.stringify(updated),
-            { contentType: 'application/json', upsert: true }
+            { contentType: 'application/json', upsert: false }
           );
       } catch {}
 
@@ -199,7 +209,7 @@ export default async function handler(req: any, res: any) {
           .upload(
             `community-state/${courseId}/votes/${voteFile}`,
             JSON.stringify({ messageId, optionId, userId, votedAt: Date.now() }),
-            { contentType: 'application/json', upsert: true }
+            { contentType: 'application/json', upsert: false }
           );
       } catch {}
 
@@ -215,7 +225,7 @@ export default async function handler(req: any, res: any) {
           .upload(
             `community-state/${courseId}/actions/close_poll_${messageId}_${Date.now()}.json`,
             JSON.stringify({ messageId, closed: true }),
-            { contentType: 'application/json', upsert: true }
+            { contentType: 'application/json', upsert: false }
           );
       } catch {}
 
@@ -234,7 +244,7 @@ export default async function handler(req: any, res: any) {
           .upload(
             `community-state/${courseId}/settings/${fileName}`,
             JSON.stringify(updated),
-            { contentType: 'application/json', upsert: true }
+            { contentType: 'application/json', upsert: false }
           );
       } catch {}
 
@@ -250,7 +260,7 @@ export default async function handler(req: any, res: any) {
           .upload(
             `community-state/${courseId}/actions/del_${messageId}_${Date.now()}.json`,
             JSON.stringify({ messageId, deleted: true }),
-            { contentType: 'application/json', upsert: true }
+            { contentType: 'application/json', upsert: false }
           );
       } catch {}
 

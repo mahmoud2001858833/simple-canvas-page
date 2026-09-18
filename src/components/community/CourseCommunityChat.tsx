@@ -713,303 +713,316 @@ export const CourseCommunityChat: React.FC<CourseCommunityChatProps> = ({
                 )}
 
                 <div
-                  className={`flex gap-2 max-w-[85%] sm:max-w-[75%] ${
-                    isMe ? 'mr-auto flex-row' : 'ml-auto flex-row'
-                  }`}
+                  className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'} my-1.5`}
                 >
-                  {/* Sender Avatar */}
-                  {!isMe && (
-                    <Avatar className="w-8 h-8 mt-1 flex-shrink-0 border border-slate-200 dark:border-slate-700 shadow-xs">
-                      <AvatarImage src={msg.sender_avatar || undefined} />
-                      <AvatarFallback
-                        className={`text-[11px] font-bold text-white ${
-                          isMsgAdmin
-                            ? 'bg-rose-600'
-                            : isMsgInstructor
-                            ? 'bg-amber-600'
-                            : 'bg-slate-600'
-                        }`}
-                      >
-                        {msg.sender_name.slice(0, 1)}
-                      </AvatarFallback>
-                    </Avatar>
-                  )}
-
-                  {/* Message Bubble */}
                   <div
-                    className={`relative rounded-2xl px-3.5 py-2 text-right shadow-xs transition-all ${
-                      isMe
-                        ? 'bg-indigo-600 text-white rounded-tr-xs'
-                        : isMsgAdmin
-                        ? 'bg-gradient-to-br from-rose-50 to-purple-50 dark:from-rose-950/30 dark:to-purple-950/30 border border-rose-200 dark:border-rose-900/50 text-slate-800 dark:text-slate-100 rounded-tl-xs'
-                        : isMsgInstructor
-                        ? 'bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border border-amber-200 dark:border-amber-900/50 text-slate-800 dark:text-slate-100 rounded-tl-xs'
-                        : 'bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-slate-800 dark:text-slate-100 rounded-tl-xs'
+                    className={`flex items-end gap-2 max-w-[86%] sm:max-w-[75%] ${
+                      isMe ? 'flex-row' : 'flex-row'
                     }`}
                   >
-                    {/* Bubble Header: Sender Name & Role Badge */}
+                    {/* Sender Avatar for incoming messages */}
                     {!isMe && (
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <span
-                          className={`text-xs font-bold truncate max-w-[150px] ${
+                      <Avatar className="w-8 h-8 mb-1 flex-shrink-0 border border-slate-200 dark:border-slate-700 shadow-xs">
+                        <AvatarImage src={msg.sender_avatar || undefined} />
+                        <AvatarFallback
+                          className={`text-[11px] font-bold text-white ${
                             isMsgAdmin
-                              ? 'text-rose-700 dark:text-rose-300'
+                              ? 'bg-rose-600'
                               : isMsgInstructor
-                              ? 'text-amber-800 dark:text-amber-300'
-                              : 'text-indigo-600 dark:text-indigo-400'
+                              ? 'bg-amber-600'
+                              : 'bg-slate-600'
                           }`}
                         >
-                          {msg.sender_name}
-                        </span>
-
-                        {isMsgAdmin && (
-                          <Badge className="bg-rose-600 text-white text-[9px] px-1 py-0 h-3.5 flex items-center gap-0.5">
-                            <ShieldCheck className="w-2.5 h-2.5" />
-                            إدارة المنصة
-                          </Badge>
-                        )}
-                        {isMsgInstructor && (
-                          <Badge className="bg-amber-600 text-white text-[9px] px-1 py-0 h-3.5">
-                            👨‍🏫 المعلم
-                          </Badge>
-                        )}
-                        {msg.is_pinned && (
-                          <Pin className="w-3 h-3 text-amber-500 fill-amber-500 mr-auto" />
-                        )}
-                      </div>
+                          {msg.sender_name.slice(0, 1)}
+                        </AvatarFallback>
+                      </Avatar>
                     )}
 
-                    {/* Quoted Reply if present */}
-                    {msg.reply_to && (
-                      <div
-                        className={`mb-2 p-1.5 rounded text-xs border-r-2 ${
-                          isMe
-                            ? 'bg-indigo-700/50 border-white text-indigo-100'
-                            : 'bg-slate-100 dark:bg-slate-900/60 border-indigo-500 text-slate-600 dark:text-slate-300'
-                        }`}
-                      >
-                        <p className="font-bold text-[10px] opacity-90">
-                          {msg.reply_to.sender_name}
-                        </p>
-                        <p className="truncate text-[11px]">{msg.reply_to.content}</p>
-                      </div>
-                    )}
-
-                    {/* Message Body based on type */}
-                    {msg.is_deleted ? (
-                      <p className="italic text-xs opacity-60 flex items-center gap-1">
-                        <Trash2 className="w-3 h-3" /> {msg.content}
-                      </p>
-                    ) : msg.message_type === 'image' && msg.file_url ? (
-                      <div className="space-y-1.5">
-                        <img
-                          src={msg.file_url}
-                          alt={msg.file_name || 'مرفق'}
-                          onClick={() => setSelectedImage(msg.file_url!)}
-                          className="max-h-60 max-w-full rounded-lg object-cover cursor-pointer hover:opacity-95 transition-opacity"
-                        />
-                        {msg.content && msg.content !== '📷 صورة' && (
-                          <p className="text-xs break-words">{msg.content}</p>
-                        )}
-                      </div>
-                    ) : msg.message_type === 'file' && msg.file_url ? (
-                      <div className="space-y-1">
-                        <a
-                          href={msg.file_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={`flex items-center gap-2.5 p-2 rounded-lg border ${
-                            isMe
-                              ? 'bg-indigo-700/40 border-indigo-500 text-white'
-                              : 'bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200'
-                          }`}
-                        >
-                          <FileText className="w-6 h-6 text-indigo-400 flex-shrink-0" />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-xs font-semibold truncate">
-                              {msg.file_name || 'مستند مرفق'}
-                            </p>
-                            {msg.file_size ? (
-                              <p className="text-[10px] opacity-70">
-                                {(msg.file_size / 1024).toFixed(1)} KB
-                              </p>
-                            ) : null}
-                          </div>
-                          <Download className="w-4 h-4 opacity-80" />
-                        </a>
-                      </div>
-                    ) : msg.message_type === 'poll' && msg.poll_data ? (
-                      /* Interactive Poll Card */
-                      <div className="w-64 sm:w-72 space-y-2.5 py-1">
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="text-xs font-bold flex items-center gap-1">
-                            <BarChart2 className="w-3.5 h-3.5 text-indigo-500" />
-                            {msg.poll_data.question}
-                          </span>
-                          {msg.poll_data.is_closed && (
-                            <Badge variant="outline" className="text-[9px] px-1 py-0 border-slate-400">
-                              مغلق
-                            </Badge>
-                          )}
-                        </div>
-
-                        {/* Poll Options */}
-                        <div className="space-y-1.5">
-                          {(() => {
-                            const totalVotes = msg.poll_data.options.reduce(
-                              (acc, opt) => acc + (opt.voter_ids?.length || 0),
-                              0
-                            );
-
-                            return msg.poll_data.options.map((opt) => {
-                              const count = opt.voter_ids?.length || 0;
-                              const pct = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
-                              const hasVoted = user?.id && opt.voter_ids?.includes(user.id);
-
-                              return (
-                                <button
-                                  key={opt.id}
-                                  type="button"
-                                  disabled={!!msg.poll_data?.is_closed}
-                                  onClick={() => handleVote(msg.id, opt.id)}
-                                  className={`w-full relative overflow-hidden rounded-lg p-2 text-right transition-all border text-xs flex items-center justify-between ${
-                                    hasVoted
-                                      ? 'border-indigo-500 bg-indigo-50/90 dark:bg-indigo-950/60 font-bold'
-                                      : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40 hover:bg-slate-100'
-                                  }`}
-                                >
-                                  {/* Percentage Fill Bar */}
-                                  <div
-                                    className={`absolute inset-y-0 right-0 opacity-20 pointer-events-none transition-all duration-300 ${
-                                      hasVoted ? 'bg-indigo-600' : 'bg-slate-400'
-                                    }`}
-                                    style={{ width: `${pct}%` }}
-                                  />
-
-                                  <span className="relative z-10 truncate pr-1">
-                                    {opt.text}
-                                  </span>
-
-                                  <div className="relative z-10 flex items-center gap-1 text-[11px] opacity-80 flex-shrink-0">
-                                    <span>%{pct}</span>
-                                    <span className="text-[10px]">({count})</span>
-                                    {hasVoted && (
-                                      <Check className="w-3 h-3 text-indigo-600" />
-                                    )}
-                                  </div>
-                                </button>
-                              );
-                            });
-                          })()}
-                        </div>
-
-                        {/* Poll Footer */}
-                        <div className="flex items-center justify-between text-[10px] opacity-70 pt-1">
-                          <span>
-                            إجمالي الأصوات:{' '}
-                            {msg.poll_data.options.reduce(
-                              (acc, opt) => acc + (opt.voter_ids?.length || 0),
-                              0
-                            )}
-                          </span>
-                          {hasManagerAccess && !msg.poll_data.is_closed && (
-                            <button
-                              type="button"
-                              onClick={() => handleClosePoll(msg.id)}
-                              className="text-red-500 hover:underline"
-                            >
-                              إغلاق التصويت
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ) : (
-                      /* Standard Text */
-                      <p className="text-xs sm:text-sm whitespace-pre-wrap break-words leading-relaxed">
-                        {msg.content}
-                      </p>
-                    )}
-
-                    {/* Timestamp & status ticks */}
+                    {/* Message Bubble Container */}
                     <div
-                      className={`flex items-center justify-end gap-1 mt-1 text-[10px] ${
-                        isMe ? 'text-indigo-200' : 'text-slate-400'
+                      className={`relative group min-w-[125px] px-3.5 py-2 shadow-xs transition-all ${
+                        isMe
+                          ? `bg-indigo-600 text-white ${isRTL ? 'rounded-2xl rounded-bl-xs' : 'rounded-2xl rounded-br-xs'}`
+                          : isMsgAdmin
+                          ? `bg-gradient-to-br from-rose-50 to-purple-50 dark:from-rose-950/30 dark:to-purple-950/30 border border-rose-200 dark:border-rose-900/50 text-slate-800 dark:text-slate-100 ${isRTL ? 'rounded-2xl rounded-br-xs' : 'rounded-2xl rounded-bl-xs'}`
+                          : isMsgInstructor
+                          ? `bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 border border-amber-200 dark:border-amber-900/50 text-slate-800 dark:text-slate-100 ${isRTL ? 'rounded-2xl rounded-br-xs' : 'rounded-2xl rounded-bl-xs'}`
+                          : `bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-slate-800 dark:text-slate-100 ${isRTL ? 'rounded-2xl rounded-br-xs' : 'rounded-2xl rounded-bl-xs'}`
                       }`}
                     >
-                      <span>{format(new Date(msg.created_at), 'h:mm a', { locale: ar })}</span>
-                      {isMe && <CheckCheck className="w-3 h-3 text-indigo-200" />}
+                      {/* Action Menu (3 dots) - Modern hover/focus overlay in corner */}
+                      <div
+                        className={`absolute top-1.5 ${
+                          isRTL ? 'left-1.5' : 'right-1.5'
+                        } opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity z-10`}
+                      >
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              className={`p-1 rounded-full backdrop-blur-xs transition-colors ${
+                                isMe
+                                  ? 'bg-indigo-700/80 hover:bg-indigo-700 text-white'
+                                  : 'bg-white/90 dark:bg-slate-700/90 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-600 dark:text-slate-200 border border-slate-200 dark:border-slate-600'
+                              }`}
+                            >
+                              <MoreVertical className="w-3 h-3" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align={isRTL ? 'start' : 'end'} className="text-xs text-right">
+                            <DropdownMenuItem
+                              onClick={() =>
+                                setReplyingTo({
+                                  id: msg.id,
+                                  sender_name: msg.sender_name,
+                                  content: msg.content,
+                                  message_type: msg.message_type,
+                                })
+                              }
+                              className="flex items-center gap-2 cursor-pointer"
+                            >
+                              <Reply className="w-3.5 h-3.5" />
+                              رد مقتبس
+                            </DropdownMenuItem>
 
-                      {/* Dropdown Menu actions */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            type="button"
-                            className="p-0.5 rounded hover:bg-black/10 focus:outline-hidden mr-1"
-                          >
-                            <MoreVertical className="w-3 h-3" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="text-xs text-right">
-                          <DropdownMenuItem
-                            onClick={() =>
-                              setReplyingTo({
-                                id: msg.id,
-                                sender_name: msg.sender_name,
-                                content: msg.content,
-                                message_type: msg.message_type,
-                              })
-                            }
-                            className="flex items-center gap-2 cursor-pointer"
-                          >
-                            <Reply className="w-3.5 h-3.5" />
-                            رد مقتبس
-                          </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleCopy(msg.content)}
+                              className="flex items-center gap-2 cursor-pointer"
+                            >
+                              <Copy className="w-3.5 h-3.5" />
+                              نسخ النص
+                            </DropdownMenuItem>
 
-                          <DropdownMenuItem
-                            onClick={() => handleCopy(msg.content)}
-                            className="flex items-center gap-2 cursor-pointer"
-                          >
-                            <Copy className="w-3.5 h-3.5" />
-                            نسخ النص
-                          </DropdownMenuItem>
-
-                          {hasManagerAccess && (
-                            <>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => handlePin(msg.id, !!msg.is_pinned)}
-                                className="flex items-center gap-2 cursor-pointer"
-                              >
-                                <Pin className="w-3.5 h-3.5" />
-                                {msg.is_pinned ? 'إلغاء التثبيت' : 'تثبيت كإعلان للقروب'}
-                              </DropdownMenuItem>
-
-                              {!isMe && msg.sender_role === 'student' && (
+                            {hasManagerAccess && (
+                              <>
+                                <DropdownMenuSeparator />
                                 <DropdownMenuItem
-                                  onClick={() => handleMute(msg.sender_id)}
-                                  className="flex items-center gap-2 text-amber-600 cursor-pointer"
+                                  onClick={() => handlePin(msg.id, !!msg.is_pinned)}
+                                  className="flex items-center gap-2 cursor-pointer"
                                 >
-                                  <VolumeX className="w-3.5 h-3.5" />
-                                  كتم الطالب في القروب
+                                  <Pin className="w-3.5 h-3.5" />
+                                  {msg.is_pinned ? 'إلغاء التثبيت' : 'تثبيت كإعلان للقروب'}
                                 </DropdownMenuItem>
-                              )}
-                            </>
-                          )}
 
-                          {(hasManagerAccess || isMe) && !msg.is_deleted && (
-                            <>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => handleDelete(msg.id)}
-                                className="flex items-center gap-2 text-red-600 cursor-pointer"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                                حذف الرسالة
-                              </DropdownMenuItem>
-                            </>
+                                {!isMe && msg.sender_role === 'student' && (
+                                  <DropdownMenuItem
+                                    onClick={() => handleMute(msg.sender_id)}
+                                    className="flex items-center gap-2 text-amber-600 cursor-pointer"
+                                  >
+                                    <VolumeX className="w-3.5 h-3.5" />
+                                    كتم الطالب في القروب
+                                  </DropdownMenuItem>
+                                )}
+                              </>
+                            )}
+
+                            {(hasManagerAccess || isMe) && !msg.is_deleted && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => handleDelete(msg.id)}
+                                  className="flex items-center gap-2 text-red-600 cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  حذف الرسالة
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+
+                      {/* Bubble Header: Sender Name & Role Badge for others */}
+                      {!isMe && (
+                        <div className="flex items-center gap-1.5 mb-1.5 pl-6">
+                          <span
+                            className={`text-xs font-bold truncate max-w-[150px] ${
+                              isMsgAdmin
+                                ? 'text-rose-700 dark:text-rose-300'
+                                : isMsgInstructor
+                                ? 'text-amber-800 dark:text-amber-300'
+                                : 'text-indigo-600 dark:text-indigo-400'
+                            }`}
+                          >
+                            {msg.sender_name}
+                          </span>
+
+                          {isMsgAdmin && (
+                            <Badge className="bg-rose-600 text-white text-[9px] px-1 py-0 h-3.5 flex items-center gap-0.5">
+                              <ShieldCheck className="w-2.5 h-2.5" />
+                              إدارة المنصة
+                            </Badge>
                           )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                          {isMsgInstructor && (
+                            <Badge className="bg-amber-600 text-white text-[9px] px-1 py-0 h-3.5">
+                              👨‍🏫 المعلم
+                            </Badge>
+                          )}
+                          {msg.is_pinned && (
+                            <Pin className="w-3 h-3 text-amber-500 fill-amber-500 mr-auto" />
+                          )}
+                        </div>
+                      )}
+
+                      {/* Quoted Reply if present */}
+                      {msg.reply_to && (
+                        <div
+                          className={`mb-2 p-1.5 rounded text-xs border-r-2 ${
+                            isMe
+                              ? 'bg-indigo-700/50 border-white text-indigo-100'
+                              : 'bg-slate-100 dark:bg-slate-900/60 border-indigo-500 text-slate-600 dark:text-slate-300'
+                          }`}
+                        >
+                          <p className="font-bold text-[10px] opacity-90">
+                            {msg.reply_to.sender_name}
+                          </p>
+                          <p className="truncate text-[11px]">{msg.reply_to.content}</p>
+                        </div>
+                      )}
+
+                      {/* Message Body based on type */}
+                      {msg.is_deleted ? (
+                        <p className="italic text-xs opacity-60 flex items-center gap-1">
+                          <Trash2 className="w-3 h-3" /> {msg.content}
+                        </p>
+                      ) : msg.message_type === 'image' && msg.file_url ? (
+                        <div className="space-y-1.5">
+                          <img
+                            src={msg.file_url}
+                            alt={msg.file_name || 'مرفق'}
+                            onClick={() => setSelectedImage(msg.file_url!)}
+                            className="max-h-60 max-w-full rounded-lg object-cover cursor-pointer hover:opacity-95 transition-opacity"
+                          />
+                          {msg.content && msg.content !== '📷 صورة' && (
+                            <p className="text-xs break-words">{msg.content}</p>
+                          )}
+                        </div>
+                      ) : msg.message_type === 'file' && msg.file_url ? (
+                        <div className="space-y-1">
+                          <a
+                            href={msg.file_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`flex items-center gap-2.5 p-2 rounded-lg border ${
+                              isMe
+                                ? 'bg-indigo-700/40 border-indigo-500 text-white'
+                                : 'bg-slate-50 dark:bg-slate-900/60 border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200'
+                            }`}
+                          >
+                            <FileText className="w-6 h-6 text-indigo-400 flex-shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-semibold truncate">
+                                {msg.file_name || 'مستند مرفق'}
+                              </p>
+                              {msg.file_size ? (
+                                <p className="text-[10px] opacity-70">
+                                  {(msg.file_size / 1024).toFixed(1)} KB
+                                </p>
+                              ) : null}
+                            </div>
+                            <Download className="w-4 h-4 opacity-80" />
+                          </a>
+                        </div>
+                      ) : msg.message_type === 'poll' && msg.poll_data ? (
+                        /* Interactive Poll Card */
+                        <div className="w-64 sm:w-72 space-y-2.5 py-1">
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="text-xs font-bold flex items-center gap-1">
+                              <BarChart2 className="w-3.5 h-3.5 text-indigo-500" />
+                              {msg.poll_data.question}
+                            </span>
+                            {msg.poll_data.is_closed && (
+                              <Badge variant="outline" className="text-[9px] px-1 py-0 border-slate-400">
+                                منتهي
+                              </Badge>
+                            )}
+                          </div>
+
+                          {/* Poll Options List */}
+                          <div className="space-y-1.5">
+                            {(() => {
+                              const totalVotes = msg.poll_data.options.reduce(
+                                (acc, opt) => acc + (opt.voter_ids?.length || 0),
+                                0
+                              );
+                              return msg.poll_data.options.map((opt) => {
+                                const count = opt.voter_ids?.length || 0;
+                                const pct = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
+                                const hasVoted = user?.id && opt.voter_ids?.includes(user.id);
+
+                                return (
+                                  <button
+                                    key={opt.id}
+                                    type="button"
+                                    disabled={msg.poll_data?.is_closed}
+                                    onClick={() => handleVote(msg.id, opt.id)}
+                                    className={`relative w-full overflow-hidden text-right p-2 rounded-lg border text-xs flex items-center justify-between transition-all ${
+                                      hasVoted
+                                        ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/40 font-semibold'
+                                        : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-800/70 hover:bg-slate-50'
+                                    }`}
+                                  >
+                                    {/* Percentage Fill Bar */}
+                                    <div
+                                      className={`absolute inset-y-0 right-0 opacity-20 pointer-events-none transition-all duration-300 ${
+                                        hasVoted ? 'bg-indigo-600' : 'bg-slate-400'
+                                      }`}
+                                      style={{ width: `${pct}%` }}
+                                    />
+
+                                    <span className="relative z-10 truncate pr-1">
+                                      {opt.text}
+                                    </span>
+
+                                    <div className="relative z-10 flex items-center gap-1 text-[11px] opacity-80 flex-shrink-0">
+                                      <span>%{pct}</span>
+                                      <span className="text-[10px]">({count})</span>
+                                      {hasVoted && (
+                                        <Check className="w-3 h-3 text-indigo-600" />
+                                      )}
+                                    </div>
+                                  </button>
+                                );
+                              });
+                            })()}
+                          </div>
+
+                          {/* Poll Footer */}
+                          <div className="flex items-center justify-between text-[10px] opacity-70 pt-1">
+                            <span>
+                              إجمالي الأصوات:{' '}
+                              {msg.poll_data.options.reduce(
+                                (acc, opt) => acc + (opt.voter_ids?.length || 0),
+                                0
+                              )}
+                            </span>
+                            {hasManagerAccess && !msg.poll_data.is_closed && (
+                              <button
+                                type="button"
+                                onClick={() => handleClosePoll(msg.id)}
+                                className="text-red-500 hover:underline"
+                              >
+                                إغلاق التصويت
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        /* Standard Text */
+                        <div className={`text-xs sm:text-sm whitespace-pre-wrap break-words leading-relaxed text-right font-normal ${isMe ? 'pl-2' : ''}`}>
+                          {msg.content}
+                        </div>
+                      )}
+
+                      {/* Timestamp & status ticks */}
+                      <div
+                        className={`flex items-center justify-end gap-1.5 mt-1 text-[10px] select-none ${
+                          isMe ? 'text-indigo-200' : 'text-slate-400 dark:text-slate-500'
+                        }`}
+                      >
+                        <span>{format(new Date(msg.created_at), 'h:mm a', { locale: ar })}</span>
+                        {isMe && <CheckCheck className="w-3.5 h-3.5 text-white/90 shrink-0" />}
+                      </div>
                     </div>
                   </div>
                 </div>

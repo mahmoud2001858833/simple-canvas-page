@@ -76,6 +76,10 @@ export interface CommunityBroadcastCallbacks {
 
 // Active Supabase broadcast channel references per course
 const activeChannels: Record<string, any> = {};
+const channelListeners: Record<string, Set<(event: string, payload: any) => void>> = {};
+
+// In-memory cache of messages per course: courseId -> Map of messageId -> CommunityMessage
+const messageMemoryCache = new Map<string, Map<string, CommunityMessage>>();
 
 /**
  * Get or initialize the shared Realtime channel for a course
@@ -83,12 +87,44 @@ const activeChannels: Record<string, any> = {};
 export function getCommunityChannel(courseId: string) {
   const channelName = `course-community-live-${courseId}`;
   if (!activeChannels[courseId]) {
-    activeChannels[courseId] = supabase.channel(channelName, {
+    if (!channelListeners[courseId]) {
+      channelListeners[courseId] = new Set();
+    }
+
+    const ch = supabase.channel(channelName, {
       config: {
         broadcast: { self: false },
       },
     });
-    activeChannels[courseId].subscribe();
+
+    // Register all broadcast events BEFORE subscribing!
+    ch.on('broadcast', { event: 'new_message' }, ({ payload }: any) => {
+      channelListeners[courseId]?.forEach((fn) => fn('new_message', payload));
+    });
+    ch.on('broadcast', { event: 'settings_updated' }, ({ payload }: any) => {
+      channelListeners[courseId]?.forEach((fn) => fn('settings_updated', payload));
+    });
+    ch.on('broadcast', { event: 'poll_voted' }, ({ payload }: any) => {
+      channelListeners[courseId]?.forEach((fn) => fn('poll_voted', payload));
+    });
+    ch.on('broadcast', { event: 'poll_closed' }, ({ payload }: any) => {
+      channelListeners[courseId]?.forEach((fn) => fn('poll_closed', payload));
+    });
+    ch.on('broadcast', { event: 'message_pinned' }, ({ payload }: any) => {
+      channelListeners[courseId]?.forEach((fn) => fn('message_pinned', payload));
+    });
+    ch.on('broadcast', { event: 'message_deleted' }, ({ payload }: any) => {
+      channelListeners[courseId]?.forEach((fn) => fn('message_deleted', payload));
+    });
+    ch.on('broadcast', { event: 'student_muted' }, ({ payload }: any) => {
+      channelListeners[courseId]?.forEach((fn) => fn('student_muted', payload));
+    });
+
+    ch.subscribe((status) => {
+      console.log(`[Community Realtime] ${channelName} status:`, status);
+    });
+
+    activeChannels[courseId] = ch;
   }
   return activeChannels[courseId];
 }
@@ -99,6 +135,25 @@ export function getCommunityChannel(courseId: string) {
 async function sendBroadcastEvent(courseId: string, event: string, payload: any): Promise<void> {
   try {
     const channel = getCommunityChannel(courseId);
+
+    // If channel is still connecting, give it up to 1.5s to establish connection
+    if (channel.state !== 'joined') {
+      await new Promise<void>((resolve) => {
+        let done = false;
+        const timer = setTimeout(() => {
+          if (!done) { done = true; resolve(); }
+        }, 1500);
+
+        channel.subscribe((status: string) => {
+          if (!done && (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT')) {
+            done = true;
+            clearTimeout(timer);
+            resolve();
+          }
+        });
+      });
+    }
+
     await channel.send({
       type: 'broadcast',
       event,
@@ -119,17 +174,23 @@ async function sendBroadcastEvent(courseId: string, event: string, payload: any)
 export async function fetchCommunityMessages(courseId: string): Promise<CommunityMessage[]> {
   const cacheKey = `comm_msgs_${courseId}`;
 
-  // 1. Try local cache first for zero-latency loading
-  let cached: CommunityMessage[] = [];
-  try {
-    const raw = localStorage.getItem(cacheKey);
-    if (raw) {
-      cached = JSON.parse(raw);
-    }
-  } catch {}
+  // Ensure course memory map exists
+  if (!messageMemoryCache.has(courseId)) {
+    messageMemoryCache.set(courseId, new Map());
+    try {
+      const raw = localStorage.getItem(cacheKey);
+      if (raw) {
+        const list: CommunityMessage[] = JSON.parse(raw);
+        const map = messageMemoryCache.get(courseId)!;
+        list.forEach((m) => map.set(m.id, m));
+      }
+    } catch {}
+  }
+
+  const courseMap = messageMemoryCache.get(courseId)!;
 
   try {
-    // 2. Fetch message files from Supabase Storage
+    // 1. Fetch message files from Supabase Storage
     const { data: fileList, error: listErr } = await supabase.storage
       .from('chat-images')
       .list(`community-state/${courseId}/messages`, {
@@ -137,7 +198,7 @@ export async function fetchCommunityMessages(courseId: string): Promise<Communit
         sortBy: { column: 'name', order: 'asc' },
       });
 
-    // 3. Fetch deleted messages / actions
+    // 2. Fetch deleted messages / actions
     const { data: actionFiles } = await supabase.storage
       .from('chat-images')
       .list(`community-state/${courseId}/actions`, { limit: 100 });
@@ -150,56 +211,48 @@ export async function fetchCommunityMessages(courseId: string): Promise<Communit
       }
     });
 
-    // 4. Fetch poll votes
+    // 3. Fetch poll votes
     const { data: voteFiles } = await supabase.storage
       .from('chat-images')
       .list(`community-state/${courseId}/votes`, { limit: 300 });
 
-    // Map pollId -> Map of userId -> optionId (taking latest)
-    const pollVotesMap: Record<string, Record<string, string>> = {};
-    (voteFiles || []).forEach((vf) => {
-      // v_{messageId}_{userId}_{timestamp}.json
-      const parts = vf.name.replace('.json', '').split('_');
-      if (parts.length >= 4) {
-        const pollId = parts[1];
-        const voterId = parts[2];
-        const timestamp = parseInt(parts[3], 10) || 0;
-        if (!pollVotesMap[pollId]) pollVotesMap[pollId] = {};
-        (pollVotesMap[pollId] as any)[`${voterId}__ts`] = timestamp;
-      }
-    });
-
     if (!listErr && Array.isArray(fileList) && fileList.length > 0) {
-      // Download recent message files in parallel (up to 80 latest)
-      const targetFiles = fileList
-        .filter((f) => f.name.endsWith('.json'))
-        .slice(-80);
+      const jsonFiles = fileList.filter((f) => f.name.endsWith('.json'));
 
-      const downloadPromises = targetFiles.map(async (f) => {
-        try {
-          const { data: blob } = await supabase.storage
-            .from('chat-images')
-            .download(`community-state/${courseId}/messages/${f.name}`);
-          if (!blob) return null;
-          const text = await blob.text();
-          return JSON.parse(text) as CommunityMessage;
-        } catch {
-          return null;
-        }
+      // Download ONLY files we do not already have in memory!
+      const missingFiles = jsonFiles.filter((f) => {
+        const msgId = f.name.replace('.json', '');
+        return !courseMap.has(msgId);
       });
 
-      const parsedMessages = (await Promise.all(downloadPromises)).filter(Boolean) as CommunityMessage[];
-
-      // Download vote contents for accurate poll counts
-      if (voteFiles && voteFiles.length > 0) {
-        const voteDownloadPromises = voteFiles.slice(-150).map(async (vf) => {
+      if (missingFiles.length > 0) {
+        const downloadPromises = missingFiles.slice(-40).map(async (f) => {
           try {
-            const { data: blob } = await supabase.storage
+            const { data } = supabase.storage
               .from('chat-images')
-              .download(`community-state/${courseId}/votes/${vf.name}`);
-            if (!blob) return null;
-            const text = await blob.text();
-            return JSON.parse(text) as { messageId: string; optionId: string; userId: string };
+              .getPublicUrl(`community-state/${courseId}/messages/${f.name}`);
+            const res = await fetch(data.publicUrl);
+            if (!res.ok) return null;
+            return (await res.json()) as CommunityMessage;
+          } catch {
+            return null;
+          }
+        });
+
+        const newMessages = (await Promise.all(downloadPromises)).filter(Boolean) as CommunityMessage[];
+        newMessages.forEach((m) => courseMap.set(m.id, m));
+      }
+
+      // Download vote contents for accurate poll counts if votes exist
+      if (voteFiles && voteFiles.length > 0) {
+        const voteDownloadPromises = voteFiles.slice(-100).map(async (vf) => {
+          try {
+            const { data } = supabase.storage
+              .from('chat-images')
+              .getPublicUrl(`community-state/${courseId}/votes/${vf.name}`);
+            const res = await fetch(data.publicUrl);
+            if (!res.ok) return null;
+            return (await res.json()) as { messageId: string; optionId: string; userId: string };
           } catch {
             return null;
           }
@@ -207,7 +260,7 @@ export async function fetchCommunityMessages(courseId: string): Promise<Communit
         const votes = (await Promise.all(voteDownloadPromises)).filter(Boolean) as any[];
 
         // Apply votes to poll messages
-        parsedMessages.forEach((msg) => {
+        courseMap.forEach((msg) => {
           if (msg.message_type === 'poll' && msg.poll_data?.options) {
             const pollVotes = votes.filter((v) => v.messageId === msg.id);
             if (pollVotes.length > 0) {
@@ -231,8 +284,8 @@ export async function fetchCommunityMessages(courseId: string): Promise<Communit
         });
       }
 
-      // Filter out deleted messages or mark them
-      const validMessages = parsedMessages.map((m) => {
+      // Aggregate and sort messages
+      const validMessages = Array.from(courseMap.values()).map((m) => {
         if (deletedMessageIds.has(m.id)) {
           return {
             ...m,
@@ -243,7 +296,6 @@ export async function fetchCommunityMessages(courseId: string): Promise<Communit
         return m;
       });
 
-      // Sort messages chronologically
       validMessages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
       // Update local cache
@@ -257,10 +309,22 @@ export async function fetchCommunityMessages(courseId: string): Promise<Communit
     console.warn('Storage fetch messages note:', storageErr);
   }
 
-  // Fallback to cache if storage had an issue
-  if (cached.length > 0) return cached;
+  // Fallback to API if storage failed or empty
+  try {
+    const apiRes = await fetch(`/api/course-community?action=get_messages&courseId=${courseId}`);
+    if (apiRes.ok) {
+      const data = await apiRes.json();
+      if (Array.isArray(data.messages) && data.messages.length > 0) {
+        data.messages.forEach((m: CommunityMessage) => courseMap.set(m.id, m));
+        return data.messages;
+      }
+    }
+  } catch {}
 
-  return [];
+  // Fallback to memory / local cache
+  return Array.from(courseMap.values()).sort(
+    (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+  );
 }
 
 /**
@@ -340,7 +404,7 @@ export async function updateCommunitySettings(
       .from('chat-images')
       .upload(filePath, JSON.stringify(updated), {
         contentType: 'application/json',
-        upsert: true,
+        upsert: false,
       });
   } catch (upErr) {
     console.warn('Settings upload note:', upErr);
@@ -394,27 +458,45 @@ export async function sendCommunityMessage(params: {
     created_at: new Date().toISOString(),
   };
 
-  // 1. Save to Supabase Storage
+  // 1. Immediate memory cache storage
+  if (!messageMemoryCache.has(params.courseId)) {
+    messageMemoryCache.set(params.courseId, new Map());
+  }
+  messageMemoryCache.get(params.courseId)!.set(messageId, message);
+
+  // 2. Broadcast immediately to all other participants in real-time
+  sendBroadcastEvent(params.courseId, 'new_message', message);
+
+  // 3. Save to Supabase Storage with upsert: false (avoids 403 RLS UPDATE permission failure)
   try {
     const filePath = `community-state/${params.courseId}/messages/${messageId}.json`;
     const { error: upErr } = await supabase.storage
       .from('chat-images')
       .upload(filePath, JSON.stringify(message), {
         contentType: 'application/json',
-        upsert: true,
+        upsert: false,
       });
 
     if (upErr) {
-      console.warn('Message storage upload note:', upErr);
+      console.warn('Storage upload error, attempting API fallback:', upErr);
+      try {
+        await fetch('/api/course-community', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'send_message',
+            ...params,
+          }),
+        });
+      } catch (apiErr) {
+        console.warn('API fallback error:', apiErr);
+      }
     }
   } catch (err) {
     console.warn('Storage send message note:', err);
   }
 
-  // 2. Broadcast immediately to all connected clients in real-time
-  await sendBroadcastEvent(params.courseId, 'new_message', message);
-
-  // 3. Update local cache
+  // 4. Update local cache
   try {
     const cacheKey = `comm_msgs_${params.courseId}`;
     const raw = localStorage.getItem(cacheKey);
@@ -476,7 +558,7 @@ export async function voteOnPoll(
       .upload(
         votePath,
         JSON.stringify({ messageId, optionId, userId, votedAt: Date.now() }),
-        { contentType: 'application/json', upsert: true }
+        { contentType: 'application/json', upsert: false }
       );
   } catch (err) {
     console.warn('Vote storage note:', err);
@@ -500,7 +582,7 @@ export async function closePoll(courseId: string, messageId: string): Promise<vo
       .from('chat-images')
       .upload(actionPath, JSON.stringify({ messageId, closed: true }), {
         contentType: 'application/json',
-        upsert: true,
+        upsert: false,
       });
   } catch (err) {
     console.warn('Close poll storage note:', err);
@@ -544,7 +626,7 @@ export async function deleteCommunityMessage(
       .from('chat-images')
       .upload(actionPath, JSON.stringify({ messageId, deleted: true, isPermanent }), {
         contentType: 'application/json',
-        upsert: true,
+        upsert: false,
       });
   } catch (err) {
     console.warn('Delete message storage note:', err);
@@ -564,6 +646,15 @@ export async function deleteCommunityMessage(
       localStorage.setItem(cacheKey, JSON.stringify(filtered));
     }
   } catch {}
+
+  // Update memory cache
+  if (messageMemoryCache.has(courseId)) {
+    const existing = messageMemoryCache.get(courseId)!.get(messageId);
+    if (existing) {
+      existing.is_deleted = true;
+      existing.content = 'تم حذف هذه الرسالة من قِبل المشرف';
+    }
+  }
 
   await sendBroadcastEvent(courseId, 'message_deleted', { messageId });
 }
@@ -607,73 +698,51 @@ export function subscribeToCommunity(
   courseId: string,
   callbacks: CommunityBroadcastCallbacks | (() => void)
 ): () => void {
-  const channel = getCommunityChannel(courseId);
+  // Ensure channel is initialized
+  getCommunityChannel(courseId);
 
   const handler = typeof callbacks === 'function' ? { onGenericUpdate: callbacks } : callbacks;
 
-  const msgSub = channel.on(
-    'broadcast',
-    { event: 'new_message' },
-    ({ payload }: { payload: CommunityMessage }) => {
-      if (handler.onNewMessage) handler.onNewMessage(payload);
-      if (handler.onGenericUpdate) handler.onGenericUpdate();
+  const listener = (event: string, payload: any) => {
+    switch (event) {
+      case 'new_message':
+        handler.onNewMessage?.(payload);
+        handler.onGenericUpdate?.();
+        break;
+      case 'settings_updated':
+        handler.onSettingsUpdated?.(payload);
+        handler.onGenericUpdate?.();
+        break;
+      case 'poll_voted':
+        handler.onPollVoted?.(payload);
+        handler.onGenericUpdate?.();
+        break;
+      case 'poll_closed':
+        handler.onPollClosed?.(payload);
+        handler.onGenericUpdate?.();
+        break;
+      case 'message_pinned':
+        handler.onMessagePinned?.(payload);
+        handler.onGenericUpdate?.();
+        break;
+      case 'message_deleted':
+        handler.onMessageDeleted?.(payload);
+        handler.onGenericUpdate?.();
+        break;
+      case 'student_muted':
+        handler.onGenericUpdate?.();
+        break;
+      default:
+        handler.onGenericUpdate?.();
     }
-  );
+  };
 
-  const stgSub = channel.on(
-    'broadcast',
-    { event: 'settings_updated' },
-    ({ payload }: { payload: CommunitySettings }) => {
-      if (handler.onSettingsUpdated) handler.onSettingsUpdated(payload);
-      if (handler.onGenericUpdate) handler.onGenericUpdate();
-    }
-  );
-
-  const voteSub = channel.on(
-    'broadcast',
-    { event: 'poll_voted' },
-    ({ payload }: { payload: any }) => {
-      if (handler.onPollVoted) handler.onPollVoted(payload);
-      if (handler.onGenericUpdate) handler.onGenericUpdate();
-    }
-  );
-
-  const closePollSub = channel.on(
-    'broadcast',
-    { event: 'poll_closed' },
-    ({ payload }: { payload: any }) => {
-      if (handler.onPollClosed) handler.onPollClosed(payload);
-      if (handler.onGenericUpdate) handler.onGenericUpdate();
-    }
-  );
-
-  const pinSub = channel.on(
-    'broadcast',
-    { event: 'message_pinned' },
-    ({ payload }: { payload: any }) => {
-      if (handler.onMessagePinned) handler.onMessagePinned(payload);
-      if (handler.onGenericUpdate) handler.onGenericUpdate();
-    }
-  );
-
-  const delSub = channel.on(
-    'broadcast',
-    { event: 'message_deleted' },
-    ({ payload }: { payload: any }) => {
-      if (handler.onMessageDeleted) handler.onMessageDeleted(payload);
-      if (handler.onGenericUpdate) handler.onGenericUpdate();
-    }
-  );
-
-  const muteSub = channel.on(
-    'broadcast',
-    { event: 'student_muted' },
-    () => {
-      if (handler.onGenericUpdate) handler.onGenericUpdate();
-    }
-  );
+  if (!channelListeners[courseId]) {
+    channelListeners[courseId] = new Set();
+  }
+  channelListeners[courseId].add(listener);
 
   return () => {
-    // Keep channel open or unregister handlers
+    channelListeners[courseId]?.delete(listener);
   };
 }
