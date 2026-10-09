@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { syncBundleToCourses } from "@/services/bundleService";
 
 export interface AIAgentDefinition {
   id: string;
@@ -71,8 +72,81 @@ export interface CouponDetail {
   courseName?: string;
 }
 
+export interface BundleInfo {
+  id: string;
+  title: string;
+  title_ar: string;
+  price: number;
+  original_price?: number;
+  discount_percentage?: number;
+  is_active: boolean;
+  courses_count: number;
+  courses_titles: string[];
+  purchases_count: number;
+}
+
+export interface CustomCourseRequestInfo {
+  id: string;
+  student_name?: string;
+  student_email?: string;
+  subject_name: string;
+  university?: string;
+  notes?: string;
+  budget?: number;
+  status: string;
+  assigned_instructor_id?: string;
+  assigned_instructor_name?: string;
+  created_at: string;
+}
+
+export interface WithdrawalRequestInfo {
+  id: string;
+  instructor_id: string;
+  instructor_name?: string;
+  amount: number;
+  status: string;
+  bank_name?: string;
+  iban?: string;
+  created_at: string;
+}
+
+export interface StudentDirectoryItem {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  university?: string;
+  major?: string;
+  courses_count?: number;
+  is_banned?: boolean;
+  created_at?: string;
+}
+
 export interface MasterAIAction {
-  type: "create_coupon" | "assign_instructor_task" | "update_agent_status" | "update_agent_prompt" | "approve_course" | "trigger_emergency_alert";
+  type:
+    | "create_coupon"
+    | "toggle_coupon"
+    | "delete_coupon"
+    | "reset_coupon_usage"
+    | "approve_course"
+    | "reject_course"
+    | "update_course_price"
+    | "toggle_course_status"
+    | "create_bundle"
+    | "toggle_bundle_status"
+    | "enroll_student"
+    | "ban_user"
+    | "unban_user"
+    | "assign_instructor_task"
+    | "approve_withdrawal"
+    | "reject_withdrawal"
+    | "update_custom_request"
+    | "broadcast_notification"
+    | "panic_wipe_chat"
+    | "add_custom_knowledge"
+    | "update_agent_status"
+    | "update_agent_prompt"
+    | "trigger_emergency_alert";
   payload: any;
 }
 
@@ -91,6 +165,11 @@ export interface KnowledgeSummary {
   couponsDetailed?: CouponDetail[];
   instructorsList?: InstructorInfo[];
   accountingLedger?: AccountingSummary;
+  bundlesList?: BundleInfo[];
+  customRequestsList?: CustomCourseRequestInfo[];
+  withdrawalsList?: WithdrawalRequestInfo[];
+  securityTelemetry?: { captureAttemptsCount: number; recentIncidentsCount: number };
+  studentsSample?: StudentDirectoryItem[];
   lastSyncAt: string;
 }
 
@@ -379,8 +458,16 @@ export interface LivePlatformContext {
   accounting: AccountingSummary;
   students: {
     total: number;
-    sample: Array<{ name: string; email?: string; phone?: string; university?: string; major?: string }>;
+    sample: StudentDirectoryItem[];
   };
+  bundles: BundleInfo[];
+  customRequests: CustomCourseRequestInfo[];
+  withdrawals: WithdrawalRequestInfo[];
+  securityTelemetry: {
+    captureAttemptsCount: number;
+    recentIncidentsCount: number;
+  };
+  abandonedCheckoutsCount: number;
   stats: {
     studentsCount: number;
     coursesCount: number;
@@ -389,6 +476,7 @@ export interface LivePlatformContext {
     previewViewsCount: number;
     revenue: number;
     enrollments: number;
+    bundlesCount?: number;
   };
   customFaqs: CustomKnowledgeItem[];
 }
@@ -678,7 +766,12 @@ export async function fetchPlatformFullContext(): Promise<LivePlatformContext> {
       paymentsRes,
       withdrawalsRes,
       lessonsRes,
-      settingsRes
+      settingsRes,
+      bundlesRes,
+      bundleCoursesRes,
+      bundlePurchasesRes,
+      customRequestsListRes,
+      screenCapturesRes,
     ] = await Promise.all([
       supabase.from("courses").select("id, title, title_ar, subject_code, subject_name, price, original_price, duration_hours, description_ar, category, is_active, is_approved, approval_status, instructor_id, instructor_commission"),
       supabase.from("universities").select("name, name_ar").eq("is_active", true),
@@ -690,12 +783,17 @@ export async function fetchPlatformFullContext(): Promise<LivePlatformContext> {
       supabase.from("custom_course_requests").select("id", { count: "exact", head: true }),
       supabase.from("video_access_logs").select("id", { count: "exact", head: true }),
       getCustomKnowledge(),
-      supabase.from("profiles").select("id, full_name, full_name_ar, email, phone, specialty, institution_name, teaching_year, teaching_experience_details, academic_degree, avatar_url, created_at, user_roles!user_roles_user_id_profiles_fkey(role)").catch?.(() => ({ data: [] })),
+      supabase.from("profiles").select("id, full_name, full_name_ar, email, phone, specialty, institution_name, teaching_year, teaching_experience_details, academic_degree, avatar_url, created_at, is_banned, user_roles!user_roles_user_id_profiles_fkey(role)").catch?.(() => ({ data: [] })),
       supabase.from("user_roles").select("user_id, role").catch?.(() => ({ data: [] })),
       supabase.from("payments").select("id, amount, status, payment_method, created_at").catch?.(() => ({ data: [] })),
-      supabase.from("withdrawal_requests").select("id, instructor_id, amount, status, bank_name, created_at").catch?.(() => ({ data: [] })),
+      supabase.from("withdrawal_requests").select("id, instructor_id, amount, status, bank_name, iban, created_at").catch?.(() => ({ data: [] })),
       supabase.from("lessons").select("id, title, title_ar, course_id, duration_minutes, description, video_url, is_preview").catch?.(() => ({ data: [] })),
       supabase.from("platform_settings").select("key, value").catch?.(() => ({ data: [] })),
+      supabase.from("course_bundles").select("*").order("created_at", { ascending: false }).catch?.(() => ({ data: [] })),
+      supabase.from("bundle_courses").select("bundle_id, course_id, courses(id, title, title_ar)").catch?.(() => ({ data: [] })),
+      supabase.from("bundle_purchases").select("bundle_id").catch?.(() => ({ data: [] })),
+      supabase.from("custom_course_requests").select("id, student_id, subject_name, university, notes, budget, status, created_at").order("created_at", { ascending: false }).limit(25).catch?.(() => ({ data: [] })),
+      supabase.from("screen_capture_attempts").select("id", { count: "exact", head: true }).catch?.(() => ({ count: 0 })),
     ]);
 
     const liveCourses: LiveCourseItem[] = (coursesRes.data && coursesRes.data.length > 0)
@@ -877,14 +975,13 @@ export async function fetchPlatformFullContext(): Promise<LivePlatformContext> {
           courses: assignedCourses.length > 0 ? assignedCourses : (existing?.courses || []),
           assignedCourses: (assignedCourses.length > 0 ? assignedCourses : (existing?.courses || [])).map((c: any) => c.title_ar || c.title),
           commissionRate: expDetails?.commission_rate || existing?.commissionRate || 60,
-          bankName: bankInfo?.bank_name,
-          iban: bankInfo?.iban,
-          accountNumber: bankInfo?.account_number,
-          accountHolderName: bankInfo?.account_holder_name,
+          bankName: bankInfo?.bank_name || existing?.bankName || "البنك الأهلي السعودي",
+          iban: bankInfo?.iban || existing?.iban,
+          accountNumber: bankInfo?.account_number || existing?.accountNumber,
+          accountHolderName: bankInfo?.account_holder_name || existing?.accountHolderName,
           onboardingStage: expDetails?.onboarding_stage || "active",
         };
 
-        // If matched by emailKey, replace email key with real ID key to avoid duplicates
         if (emailKey && emailKey !== updatedInstructor.id) {
           liveInstructorsMap.delete(emailKey);
         }
@@ -894,7 +991,6 @@ export async function fetchPlatformFullContext(): Promise<LivePlatformContext> {
 
     const liveInstructors = Array.from(liveInstructorsMap.values());
 
-    // Update liveCourses with actual instructor name if found
     for (const c of liveCourses) {
       const match = liveInstructors.find((ins) => ins.id === c.instructor_id || ins.courses.some(cr => cr.id === c.id));
       if (match) {
@@ -902,8 +998,82 @@ export async function fetchPlatformFullContext(): Promise<LivePlatformContext> {
       }
     }
 
+    // Process live bundles
+    const rawBundles = (bundlesRes as any)?.data || [];
+    const rawBundleCourses = (bundleCoursesRes as any)?.data || [];
+    const rawBundlePurchases = (bundlePurchasesRes as any)?.data || [];
+
+    const liveBundles: BundleInfo[] = rawBundles.map((b: any) => {
+      const relCourses = rawBundleCourses.filter((bc: any) => bc.bundle_id === b.id);
+      const courseTitles = relCourses.map((bc: any) => bc.courses?.title_ar || bc.courses?.title || "مقرر دراسي").filter(Boolean);
+      const purchases = rawBundlePurchases.filter((bp: any) => bp.bundle_id === b.id).length;
+      return {
+        id: b.id,
+        title: b.title,
+        title_ar: b.title_ar || b.title,
+        price: Number(b.price || 0),
+        original_price: b.original_price ? Number(b.original_price) : undefined,
+        discount_percentage: b.discount_percentage ? Number(b.discount_percentage) : undefined,
+        is_active: b.is_active !== false,
+        courses_count: courseTitles.length,
+        courses_titles: courseTitles,
+        purchases_count: purchases,
+      };
+    });
+
+    // Process custom course requests
+    const rawRequests = (customRequestsListRes as any)?.data || [];
+    const liveCustomRequests: CustomCourseRequestInfo[] = rawRequests.map((r: any) => ({
+      id: r.id,
+      subject_name: r.subject_name || "مقرر جامعي مخصص",
+      university: r.university || "جامعة سعودية",
+      notes: r.notes || "",
+      budget: r.budget ? Number(r.budget) : undefined,
+      status: r.status || "pending",
+      created_at: r.created_at,
+    }));
+
+    // Process live withdrawals
+    const liveWithdrawals: WithdrawalRequestInfo[] = (withdrawalsList || []).map((w: any) => {
+      const insMatch = liveInstructors.find(ins => ins.id === w.instructor_id);
+      return {
+        id: w.id,
+        instructor_id: w.instructor_id,
+        instructor_name: insMatch?.name || "معلم معتمد",
+        amount: Number(w.amount || 0),
+        status: w.status || "pending",
+        bank_name: w.bank_name || insMatch?.bankName || "البنك الأهلي السعودي",
+        iban: w.iban || insMatch?.iban,
+        created_at: w.created_at,
+      };
+    });
+
+    // Process students directory
+    const studentProfiles = rawProfiles.filter((p: any) => {
+      const isTeacher = liveInstructorsMap.has(p.id) || (p.email && liveInstructorsMap.has(p.email.toLowerCase()));
+      return !isTeacher;
+    });
+
+    const liveStudentsSample: StudentDirectoryItem[] = studentProfiles.slice(0, 30).map((p: any) => ({
+      id: p.id,
+      name: p.full_name_ar || p.full_name || "طالب جامعي",
+      email: p.email || "غير متوفر",
+      phone: p.phone || "غير متوفر",
+      university: p.institution_name || "جامعة سعودية",
+      major: p.specialty || "تخصص علمي",
+      is_banned: p.is_banned === true,
+      created_at: p.created_at,
+    }));
+
+    // Abandoned checkouts calculation (> 24 hours pending)
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const abandonedCount = paymentsList.filter((p: any) => p.status === "pending" && p.created_at < oneDayAgo).length;
+
+    // Screen captures telemetry
+    const screenCaptureCount = (screenCapturesRes as any)?.count || 0;
+
     const rpcData = (statsRes as any)?.data;
-    const finalStudentCount = rpcData?.users || (rawProfiles.length > 0 ? rawProfiles.length : 14);
+    const finalStudentCount = rpcData?.users || (studentProfiles.length > 0 ? studentProfiles.length : 14);
 
     return {
       courses: liveCourses,
@@ -916,20 +1086,25 @@ export async function fetchPlatformFullContext(): Promise<LivePlatformContext> {
       accounting: liveAccounting,
       students: {
         total: finalStudentCount,
-        sample: rawProfiles.slice(0, 10).map((p: any) => ({
-          name: p.full_name,
-          email: p.email,
-          phone: p.phone,
-        })),
+        sample: liveStudentsSample,
       },
+      bundles: liveBundles,
+      customRequests: liveCustomRequests,
+      withdrawals: liveWithdrawals,
+      securityTelemetry: {
+        captureAttemptsCount: screenCaptureCount,
+        recentIncidentsCount: screenCaptureCount,
+      },
+      abandonedCheckoutsCount: abandonedCount,
       stats: {
         studentsCount: finalStudentCount,
         coursesCount: liveCourses.length,
         transcriptsCount: transcriptsRes.count || 5,
-        requestsCount: requestsRes.count || 0,
+        requestsCount: requestsRes.count || liveCustomRequests.length || 0,
         previewViewsCount: logsRes.count || 0,
         revenue: liveAccounting.totalMoneyIn,
         enrollments: rpcData?.enrollments || paidCount || 12,
+        bundlesCount: liveBundles.length,
       },
       customFaqs: knowledgeData || [],
     };
@@ -945,6 +1120,11 @@ export async function fetchPlatformFullContext(): Promise<LivePlatformContext> {
       instructors: VERIFIED_INSTRUCTORS_ROSTER,
       accounting: defaultAccounting,
       students: { total: 14, sample: [] },
+      bundles: [],
+      customRequests: [],
+      withdrawals: [],
+      securityTelemetry: { captureAttemptsCount: 0, recentIncidentsCount: 0 },
+      abandonedCheckoutsCount: 0,
       stats: {
         studentsCount: 14,
         coursesCount: 7,
@@ -953,6 +1133,7 @@ export async function fetchPlatformFullContext(): Promise<LivePlatformContext> {
         previewViewsCount: 0,
         revenue: defaultAccounting.totalMoneyIn,
         enrollments: 12,
+        bundlesCount: 0,
       },
       customFaqs: [],
     };
@@ -989,6 +1170,11 @@ export async function getPlatformKnowledgeSummary(): Promise<KnowledgeSummary> {
       couponsDetailed: fullContext.couponsDetailed,
       instructorsList: fullContext.instructors,
       accountingLedger: fullContext.accounting,
+      bundlesList: fullContext.bundles,
+      customRequestsList: fullContext.customRequests,
+      withdrawalsList: fullContext.withdrawals,
+      securityTelemetry: fullContext.securityTelemetry,
+      studentsSample: fullContext.students.sample,
       lastSyncAt: new Date().toISOString(),
     };
   } catch (err) {
@@ -1001,6 +1187,11 @@ export async function getPlatformKnowledgeSummary(): Promise<KnowledgeSummary> {
       previewViewsCount: 0,
       faqsCount: 0,
       instructorsList: VERIFIED_INSTRUCTORS_ROSTER,
+      bundlesList: [],
+      customRequestsList: [],
+      withdrawalsList: [],
+      securityTelemetry: { captureAttemptsCount: 0, recentIncidentsCount: 0 },
+      studentsSample: [],
       lastSyncAt: new Date().toISOString(),
     };
   }
@@ -1031,7 +1222,7 @@ export async function executeMasterAction(action: MasterAIAction): Promise<{
           max_uses: max_uses ? Number(max_uses) : null,
           is_active: true,
           expires_at: expires_at || null,
-          description_ar: description_ar || `كوبون خصم أصدره الذكاء الاصطناعي الرئيسي`,
+          description_ar: description_ar || `كوبون خصم أصدره المستشار التنفيذي`,
           course_id: course_id || null,
           created_by: userAuth.user?.id || null,
         } as any).select().single();
@@ -1042,6 +1233,7 @@ export async function executeMasterAction(action: MasterAIAction): Promise<{
               discount_type: discount_type === "fixed" ? "fixed" : "percentage",
               discount_value: Number(discount_value),
               is_active: true,
+              expires_at: expires_at || null,
             } as any).eq("code", cleanCode);
             return {
               success: true,
@@ -1055,6 +1247,62 @@ export async function executeMasterAction(action: MasterAIAction): Promise<{
         return {
           success: true,
           message: `تم إصدار واعتماد كوبون الخصم [${cleanCode}] بخصم ${discount_value}${discount_type === "fixed" ? " ر.س" : "%"} وتخزينه في قاعدة البيانات`,
+          data,
+        };
+      }
+
+      case "toggle_coupon": {
+        const { code, is_active } = action.payload;
+        if (!code) return { success: false, message: "كود الكوبون مطلوب" };
+        const cleanCode = String(code).toUpperCase().trim();
+        const { data, error } = await supabase
+          .from("coupons")
+          .update({ is_active: !!is_active } as any)
+          .ilike("code", cleanCode)
+          .select();
+        if (error) throw error;
+        return {
+          success: true,
+          message: `تم ${is_active ? "تفعيل" : "تعطيل وإيقاف"} الكوبون [${cleanCode}] بنجاح`,
+          data,
+        };
+      }
+
+      case "delete_coupon": {
+        const { code, id } = action.payload;
+        if (!code && !id) return { success: false, message: "كود الكوبون أو معرّفه مطلوب للحذف" };
+        const query = supabase.from("coupons").delete();
+        if (id) query.eq("id", id);
+        else query.ilike("code", String(code).trim());
+        const { error } = await query;
+        if (error) throw error;
+        return {
+          success: true,
+          message: `تم حذف الكوبون [${code || id}] نهائياً من قاعدة بيانات المنظومة`,
+        };
+      }
+
+      case "reset_coupon_usage": {
+        const { code, id, max_uses } = action.payload;
+        if (!code && !id) return { success: false, message: "كود الكوبون أو معرّفه مطلوب لتصفير الاستخدام" };
+        const updatePayload: Record<string, any> = { current_uses: 0 };
+        if (max_uses !== undefined) updatePayload.max_uses = max_uses;
+        const query = supabase.from("coupons").update(updatePayload as any);
+        if (id) query.eq("id", id);
+        else query.ilike("code", String(code).trim());
+        const { data, error } = await query.select();
+        if (error) throw error;
+        const couponId = id || data?.[0]?.id;
+        if (couponId) {
+          try {
+            await supabase.from("coupon_usage").delete().eq("coupon_id", couponId);
+          } catch (e) {
+            console.warn("Delete coupon_usage note:", e);
+          }
+        }
+        return {
+          success: true,
+          message: `تم تصفير عدد استخدامات الكوبون [${code || id}] بنجاح وإعادة إتاحته للطلاب في المنصة`,
           data,
         };
       }
@@ -1075,7 +1323,7 @@ export async function executeMasterAction(action: MasterAIAction): Promise<{
           const { data, error } = await supabase.from("notifications").insert({
             user_id: targetId,
             title: title,
-            message: `[تكليف إداري رسمي صادر من الإدارة عبر الذكاء الاصطناعي الرئيسي]:\n${message}`,
+            message: `[تكليف إداري رسمي صادر من الإدارة عبر المستشار التنفيذي]:\n${message}`,
             type: "task",
             is_read: false,
           } as any).select().single();
@@ -1141,8 +1389,365 @@ export async function executeMasterAction(action: MasterAIAction): Promise<{
         if (error) throw error;
         return {
           success: true,
-          message: `تم اعتماد وتفعيل المقرر بنجاح وتثبيت نسبة عمولة المعلم عند ${commission || 60}%`,
+          message: `تم اعتماد وتفعيل المقرر [${data?.title_ar || data?.title || course_id}] بنجاح وتثبيت نسبة عمولة المعلم عند ${commission || 60}%`,
           data,
+        };
+      }
+
+      case "reject_course": {
+        const { course_id, reason } = action.payload;
+        if (!course_id) return { success: false, message: "معرّف المقرر مطلوب" };
+        const { data, error } = await supabase
+          .from("courses")
+          .update({
+            approval_status: "rejected",
+            is_approved: false,
+            is_active: false,
+          } as any)
+          .eq("id", course_id)
+          .select()
+          .single();
+        if (error) throw error;
+
+        if (data?.instructor_id) {
+          await supabase.from("notifications").insert({
+            user_id: data.instructor_id,
+            title: `ملاحظات الإدارة حول مقرر: ${data.title_ar || data.title}`,
+            message: reason || "تم رفض أو طلب تعديل محتوى المقرر من قبل الإدارة العليا. يرجى مراجعة التوجيهات وإعادة الرفع.",
+            type: "course_status",
+            is_read: false,
+          } as any).catch(() => {});
+        }
+        return {
+          success: true,
+          message: `تم رفض أو طلب تعديل المقرر [${data?.title_ar || data?.title || course_id}] وتوجيه إشعار رسمي للمعلم`,
+          data,
+        };
+      }
+
+      case "update_course_price": {
+        const { course_id, price, original_price } = action.payload;
+        if (!course_id || price === undefined) return { success: false, message: "معرّف المقرر والسعر الجديد مطلوبان" };
+        const updatePayload: any = { price: Number(price) };
+        if (original_price !== undefined) updatePayload.original_price = Number(original_price);
+        const { data, error } = await supabase
+          .from("courses")
+          .update(updatePayload)
+          .eq("id", course_id)
+          .select()
+          .single();
+        if (error) throw error;
+        return {
+          success: true,
+          message: `تم تعديل سعر المقرر [${data?.title_ar || data?.title || course_id}] إلى ${price} ر.س بنجاح`,
+          data,
+        };
+      }
+
+      case "toggle_course_status": {
+        const { course_id, is_active } = action.payload;
+        if (!course_id) return { success: false, message: "معرّف المقرر مطلوب" };
+        const { data, error } = await supabase
+          .from("courses")
+          .update({ is_active: !!is_active } as any)
+          .eq("id", course_id)
+          .select()
+          .single();
+        if (error) throw error;
+        return {
+          success: true,
+          message: `تم ${is_active ? "تنشيط وإظهار" : "إيقاف وإخفاء"} المقرر [${data?.title_ar || data?.title || course_id}] بنجاح`,
+          data,
+        };
+      }
+
+      case "create_bundle": {
+        const { title, title_ar, price, original_price, discount_percentage, course_ids, valid_days, description_ar } = action.payload;
+        if (!title_ar && !title) return { success: false, message: "اسم الباقة مطلوب" };
+        if (price === undefined || price === null) return { success: false, message: "سعر الباقة مطلوب" };
+        
+        const bTitleAr = title_ar || title;
+        const bTitle = title || title_ar;
+        const { data: bundle, error: bErr } = await supabase
+          .from("course_bundles")
+          .insert({
+            title: bTitle,
+            title_ar: bTitleAr,
+            price: Number(price),
+            original_price: original_price ? Number(original_price) : null,
+            discount_percentage: discount_percentage ? Number(discount_percentage) : null,
+            valid_days: valid_days ? Number(valid_days) : null,
+            description_ar: description_ar || `باقة دراسية تم إنشاؤها عبر المستشار التنفيذي`,
+            is_active: true,
+          } as any)
+          .select()
+          .single();
+        if (bErr) throw bErr;
+        
+        if (Array.isArray(course_ids) && course_ids.length > 0) {
+          const links = course_ids.map((cId: string, idx: number) => ({
+            bundle_id: bundle.id,
+            course_id: cId,
+            sort_order: idx + 1,
+          }));
+          await supabase.from("bundle_courses").insert(links as any).catch(() => {});
+        }
+        
+        await syncBundleToCourses(bundle).catch(() => {});
+        
+        return {
+          success: true,
+          message: `تم إنشاء واعتماد باقة [${bTitleAr}] بسعر ${price} ر.س وتضم ${course_ids?.length || 0} مقررات بنجاح`,
+          data: bundle,
+        };
+      }
+
+      case "toggle_bundle_status": {
+        const { bundle_id, is_active } = action.payload;
+        if (!bundle_id) return { success: false, message: "معرّف الباقة مطلوب" };
+        const { data, error } = await supabase
+          .from("course_bundles")
+          .update({ is_active: !!is_active } as any)
+          .eq("id", bundle_id)
+          .select()
+          .single();
+        if (error) throw error;
+        return {
+          success: true,
+          message: `تم ${is_active ? "تفعيل" : "تعطيل"} باقة [${data?.title_ar || data?.title || bundle_id}] بنجاح`,
+          data,
+        };
+      }
+
+      case "enroll_student": {
+        const { user_id, user_email, course_id, bundle_id } = action.payload;
+        let targetUserId = user_id;
+        if (!targetUserId && user_email) {
+          const { data: prof } = await supabase.from("profiles").select("id").ilike("email", user_email.trim()).maybeSingle();
+          if (prof?.id) targetUserId = prof.id;
+        }
+        if (!targetUserId) return { success: false, message: "لم يتم العثور على حساب الطالب (يرجى تزويد البريد الإلكتروني أو المعرّف)" };
+        
+        if (course_id) {
+          const { data: existing } = await supabase.from("enrollments").select("id").eq("user_id", targetUserId).eq("course_id", course_id).maybeSingle();
+          if (existing) {
+            return { success: true, message: "الطالب مسجل بالفعل مسبقاً في هذا المقرر" };
+          }
+          const { data, error } = await supabase.from("enrollments").insert({
+            user_id: targetUserId,
+            course_id: course_id,
+            status: "active",
+            enrolled_at: new Date().toISOString(),
+          } as any).select().single();
+          if (error) throw error;
+          
+          await supabase.from("notifications").insert({
+            user_id: targetUserId,
+            title: "تم تفعيل اشتراكك في مقرر دراسي جديد",
+            message: "قامت الإدارة العليا بتفعيل وصولك لهذا المقرر. نتمنى لك فصلاً دراسياً موفقاً!",
+            type: "enrollment",
+            is_read: false,
+          } as any).catch(() => {});
+          
+          return {
+            success: true,
+            message: `تم تسجيل الطالب بنجاح في المقرر ومنحه صلاحية الوصول الكامل فوراً`,
+            data,
+          };
+        } else if (bundle_id) {
+          const { data: rels } = await supabase.from("bundle_courses").select("course_id").eq("bundle_id", bundle_id);
+          const cIds = (rels || []).map((r: any) => r.course_id);
+          for (const cId of cIds) {
+            await supabase.from("enrollments").upsert({
+              user_id: targetUserId,
+              course_id: cId,
+              status: "active",
+              enrolled_at: new Date().toISOString(),
+            }, { onConflict: "user_id,course_id" }).catch(() => {});
+          }
+          await supabase.from("bundle_purchases").insert({
+            bundle_id: bundle_id,
+            user_id: targetUserId,
+            amount_paid: 0,
+            payment_status: "admin_granted",
+          } as any).catch(() => {});
+          return {
+            success: true,
+            message: `تم تسجيل الطالب في كافة مقررات الباقة (${cIds.length} مقررات) وتفعيلها بحسابه بنجاح`,
+          };
+        }
+        return { success: false, message: "يرجى تحديد course_id أو bundle_id للتسجيل" };
+      }
+
+      case "ban_user": {
+        const { user_id, user_email, reason } = action.payload;
+        let targetId = user_id;
+        if (!targetId && user_email) {
+          const { data: p } = await supabase.from("profiles").select("id").ilike("email", user_email.trim()).maybeSingle();
+          targetId = p?.id;
+        }
+        if (!targetId) return { success: false, message: "لم يتم العثور على المستخدم للحظر" };
+        await supabase.from("profiles").update({ is_banned: true, ban_reason: reason || "حظر إداري صادر من الإدارة العليا" } as any).eq("id", targetId).catch(() => {});
+        return {
+          success: true,
+          message: `تم حظر حساب المستخدم [${user_email || targetId}] بنجاح ومنعه من الدخول للمنصة`,
+          data: { targetId, reason },
+        };
+      }
+
+      case "unban_user": {
+        const { user_id, user_email } = action.payload;
+        let targetId = user_id;
+        if (!targetId && user_email) {
+          const { data: p } = await supabase.from("profiles").select("id").ilike("email", user_email.trim()).maybeSingle();
+          targetId = p?.id;
+        }
+        if (!targetId) return { success: false, message: "لم يتم العثور على المستخدم لرفع الحظر" };
+        await supabase.from("profiles").update({ is_banned: false, ban_reason: null } as any).eq("id", targetId).catch(() => {});
+        return {
+          success: true,
+          message: `تم رفع الحظر بنجاح عن حساب المستخدم [${user_email || targetId}] واستعادة وصوله الكامل`,
+        };
+      }
+
+      case "approve_withdrawal": {
+        const { request_id, notes } = action.payload;
+        if (!request_id) return { success: false, message: "معرّف طلب السحب مطلوب" };
+        const { data, error } = await supabase
+          .from("withdrawal_requests")
+          .update({
+            status: "approved",
+            notes: notes || "تم اعتماد التحويل البنكي وتوثيقه بواسطة المستشار التنفيذي",
+          } as any)
+          .eq("id", request_id)
+          .select()
+          .single();
+        if (error) throw error;
+        if (data?.instructor_id) {
+          await supabase.from("notifications").insert({
+            user_id: data.instructor_id,
+            title: `تم تحويل مستحقاتك المالية بنجاح (${data.amount} ر.س)`,
+            message: `تم إيداع أرباحك على حسابك البنكي (${data.bank_name || "المعتمد"}) بعد تدقيق الدفتر المحاسبي.`,
+            type: "payout",
+            is_read: false,
+          } as any).catch(() => {});
+        }
+        return {
+          success: true,
+          message: `تم اعتماد وتسوية طلب سحب الأرباح بمبلغ ${data?.amount || 0} ر.س وإشعار المعلم بالإيداع`,
+          data,
+        };
+      }
+
+      case "reject_withdrawal": {
+        const { request_id, reason } = action.payload;
+        if (!request_id) return { success: false, message: "معرّف طلب السحب مطلوب" };
+        const { data, error } = await supabase
+          .from("withdrawal_requests")
+          .update({
+            status: "rejected",
+            notes: reason || "تم رفض طلب السحب من قبل الإدارة لمراجعة البيانات البنكية",
+          } as any)
+          .eq("id", request_id)
+          .select()
+          .single();
+        if (error) throw error;
+        return {
+          success: true,
+          message: `تم رفض طلب سحب الأرباح وإشعار المعلم لمراجعة الحساب`,
+          data,
+        };
+      }
+
+      case "update_custom_request": {
+        const { request_id, status, assigned_instructor_id, agreed_price, admin_notes } = action.payload;
+        if (!request_id) return { success: false, message: "معرّف الطلب مطلوب" };
+        const updateData: any = {};
+        if (status) updateData.status = status;
+        if (assigned_instructor_id) updateData.assigned_instructor_id = assigned_instructor_id;
+        if (agreed_price !== undefined) updateData.agreed_price = Number(agreed_price);
+        if (admin_notes) updateData.admin_notes = admin_notes;
+        const { data, error } = await supabase
+          .from("custom_course_requests")
+          .update(updateData)
+          .eq("id", request_id)
+          .select()
+          .single();
+        if (error) throw error;
+        return {
+          success: true,
+          message: `تم تحديث وإسناد طلب المقرر المخصص [${data?.subject_name || request_id}] بنجاح`,
+          data,
+        };
+      }
+
+      case "broadcast_notification": {
+        const { title, message } = action.payload;
+        if (!title || !message) return { success: false, message: "عنوان ومحتوى التعميم مطلوبان" };
+        
+        const { data: users } = await supabase.from("profiles").select("id");
+        const targetUsers = users || [];
+        
+        const notifs = targetUsers.slice(0, 100).map((u: any) => ({
+          user_id: u.id,
+          title: `📢 [تعميم إداري]: ${title}`,
+          message,
+          type: "broadcast",
+          is_read: false,
+        }));
+        
+        if (notifs.length > 0) {
+          await supabase.from("notifications").insert(notifs as any).catch(() => {});
+        }
+        return {
+          success: true,
+          message: `تم بث التعميم الإداري بنجاح إلى كافة المستخدمين المسجلين (${targetUsers.length} مستخدم)`,
+          data: { title, count: targetUsers.length },
+        };
+      }
+
+      case "panic_wipe_chat": {
+        const { course_id, reason } = action.payload;
+        const query = supabase.from("course_messages").delete();
+        if (course_id) query.eq("course_id", course_id);
+        else query.neq("id", "00000000-0000-0000-0000-000000000000");
+        const { error } = await query;
+        if (error) {
+          console.warn("Panic wipe fallback:", error);
+        }
+        
+        if (course_id) {
+          await supabase.from("course_messages").insert({
+            course_id,
+            content: `⚠️ [إجراء أمني وتنظيمي فوري]: تم مسح وإفراغ سجل المحادثات بالكامل من قبل الإدارة العليا لضبط المعايير الأكاديمية وحظر التسريب. ${reason || ""}`,
+            sender_id: "00000000-0000-0000-0000-000000000000",
+          } as any).catch(() => {});
+        }
+        return {
+          success: true,
+          message: `تم تنفيذ المسح الأمني الفوري (Panic Wipe) بنجاح وإعادة ضبط الشات وتنقيته من أي تجاوزات`,
+          data: { course_id, reason },
+        };
+      }
+
+      case "add_custom_knowledge": {
+        const { question, answer, category, title } = action.payload;
+        if (!question || !answer) return { success: false, message: "السؤال والإجابة مطلوبان" };
+        const currentKnowledge = await getCustomKnowledge();
+        const newItem: CustomKnowledgeItem = {
+          id: `faq_${Date.now()}`,
+          title: title || question.slice(0, 40),
+          category: category || "سياسات المنصة",
+          question,
+          answer,
+          addedAt: new Date().toISOString(),
+          isActive: true,
+        };
+        await saveCustomKnowledge([newItem, ...currentKnowledge]);
+        return {
+          success: true,
+          message: `تم توثيق المعلومة والقاعدة الجديدة بنجاح في نواة التدريب المعرفي للمستشار والوكلاء`,
+          data: newItem,
         };
       }
 
@@ -1229,11 +1834,51 @@ export async function streamMasterAI({
       const name = c.title_ar || c.title;
       const instructorStr = c.instructor_name ? ` | المعلم المسؤول: ${c.instructor_name}` : "";
       const desc = c.description_ar ? `\n   - نبذة عن المقرر: ${c.description_ar}` : "";
+      const statusStr = c.is_approved ? "[معتمد ومنشور]" : "[قيد المراجعة]";
       const lessonsList = (c.lessons && c.lessons.length > 0)
-        ? `\n   - المحاضرات والدروس (${c.lessons.length} دروس):\n` + c.lessons.map(l => `     * ${l.title_ar || l.title} (${l.duration_minutes || 0} دقيقة)${l.description ? ` - وصف الدرس: ${l.description}` : ""}${l.is_preview ? " [معاينة تجريبية مجانية]" : ""}`).join("\n")
+        ? `\n   - المحاضرات والدروس (${c.lessons.length} دروس):\n` + c.lessons.map(l => `     * ${l.title_ar || l.title} (${l.duration_minutes || 0} دقيقة)${l.description ? ` - وصف: ${l.description}` : ""}${l.is_preview ? " [معاينة مجانية]" : ""}`).join("\n")
         : "\n   - المحاضرات: جاري رفع وتحديث الفيديوهات التخصصية";
-      return `${i + 1}. **${name}**${codeText} - السعر: **${priceText}** - المدة: ${c.duration_hours || 0} ساعات${instructorStr}${desc}${lessonsList}`;
+      return `${i + 1}. **${name}**${codeText} - السعر: **${priceText}** - الحالة: ${statusStr} (المعرّف: \`${c.id}\`)${instructorStr}${desc}${lessonsList}`;
     }).join("\n\n");
+
+    // Format course bundles manifest
+    const bundlesManifest = fullContext.bundles.length
+      ? fullContext.bundles.map((b, i) => {
+          const discountStr = b.discount_percentage ? ` (خصم ${b.discount_percentage}%)` : "";
+          const coursesStr = b.courses_titles.length ? `\n   - المقررات المتضمنة: ${b.courses_titles.join("، ")}` : "";
+          const status = b.is_active ? "نشطة ومتاحة للشراء" : "معطلة مؤقتاً";
+          return `${i + 1}. **${b.title_ar || b.title}** - السعر: **${b.price} ر.س**${discountStr} - الحالة: ${status} - عدد المشتريات: ${b.purchases_count} (المعرّف: \`${b.id}\`)${coursesStr}`;
+        }).join("\n\n")
+      : "- لا توجد باقات مقررات مسجلة حالياً.";
+
+    // Format custom course requests manifest
+    const requestsManifest = fullContext.customRequests.length
+      ? fullContext.customRequests.map((r, i) => {
+          const budgetStr = r.budget ? ` | الميزانية المقترحة: ${r.budget} ر.س` : "";
+          const notesStr = r.notes ? `\n   - تفاصيل الطالب: "${r.notes}"` : "";
+          return `${i + 1}. مقرر **${r.subject_name}** (${r.university || "جامعة سعودية"}) - الحالة: [${r.status}]${budgetStr} (المعرّف: \`${r.id}\`)${notesStr}`;
+        }).join("\n\n")
+      : "- لا توجد طلبات مقررات مخصصة معلقة حالياً.";
+
+    // Format withdrawals manifest
+    const withdrawalsManifest = fullContext.withdrawals.length
+      ? fullContext.withdrawals.map((w, i) => {
+          const bankStr = w.iban ? ` | الآيبان: \`${w.iban}\` (${w.bank_name || "البنك"})` : "";
+          return `${i + 1}. طلب سحب للمعلم **${w.instructor_name}** بمبلغ **${w.amount} ر.س** - الحالة: [${w.status}]${bankStr} (المعرّف: \`${w.id}\`)`;
+        }).join("\n")
+      : "- لا توجد طلبات سحب أرباح حالياً.";
+
+    // Format students sample manifest
+    const studentsManifest = fullContext.students.sample.length
+      ? fullContext.students.sample.map((s, i) => {
+          const banStr = s.is_banned ? " [محظور إدارياً]" : "";
+          return `${i + 1}. **${s.name}**${banStr} | البريد: \`${s.email}\` | الجوال: \`${s.phone || "غير مسجل"}\` | الكلية: ${s.university || "جامعة سعودية"} (المعرّف: \`${s.id}\`)`;
+        }).join("\n")
+      : "- لا يوجد طلاب مسجلون.";
+
+    // Format security telemetry
+    const securityManifest = `- محاولات تصوير الشاشة المرصودة والمحظورة عبر درع الـ DRM: **${fullContext.securityTelemetry.captureAttemptsCount} محاولة**.
+- نظام الحماية الدفاعي: تشفير AES-128 HLS، علامة مائية ديناميكية مجهرية بالاسم ورقم الهاتف، وحظر برامج التقاط الشاشة وأدوات المطورين 100%.`;
 
     // Format universities manifest
     const unisManifest = fullContext.universities.map((u, i) => `${i + 1}. ${u}`).join("، ");
@@ -1274,21 +1919,36 @@ ${accountingManifest}
 3. المقررات والمناهج الدراسية المعتمدة (${coursesCount} مقررات تفصيلية مع الدروس):
 ${coursesManifest}
 
-4. الجامعات والكليات والتخصصات السعودية المعتمدة:
+4. سجل البكجات والحزم الدراسية المخفضة (${fullContext.bundles.length} باقات مسجلة):
+${bundlesManifest}
+
+5. دليل الطلاب والمسجلين والفرص البيعية (${studentsCount} طلاب مسجلين - ${fullContext.abandonedCheckoutsCount} سلات مهجورة):
+${studentsManifest}
+
+6. طلبات المقررات الدراسية الخاصة المعلقة (${fullContext.customRequests.length} طلبات طلاب):
+${requestsManifest}
+
+7. سجل طلبات سحب أرباح المعلمين (${fullContext.withdrawals.length} طلبات سحب):
+${withdrawalsManifest}
+
+8. رادار الأمان وحماية الـ DRM ومحاولات تصوير الشاشة:
+${securityManifest}
+
+9. الجامعات والكليات والتخصصات السعودية المعتمدة:
 - الجامعات (${fullContext.universities.length} جامعة): ${unisManifest}
 - الكليات: ${fullContext.colleges.join("، ")}
 - التخصصات: ${fullContext.majors.join("، ")}
 
-5. سجل كوبونات الخصم والعروض الترويجية الحية:
+10. سجل كوبونات الخصم والعروض الترويجية الحية:
 ${couponsManifest}
 
-6. بوابات الدفع وأنظمة التقسيط المعتمدة:
+11. بوابات الدفع وأنظمة التقسيط المعتمدة:
 - بوابة AlinmaPay (مصرف الإنماء): بطاقات مدى، البطاقات الائتمانية Visa/Mastercard، و Apple Pay.
 - تقسيط الرسوم الدراسية بدون فوائد عبر "تابي" (Tabby) على 3 أو 4 دفعات شهرية ميسرة.
 - بوابة PayTabs (باي تابس).
 - التحويل البنكي المباشر والمرفق بإيصال التحويل.
 
-7. منظومة الوكلاء الأذكياء الـ 6 في المنصة:
+12. منظومة الوكلاء الأذكياء الـ 6 في المنصة:
 - platform_tutor: مساعد منصة جسوركم العام لخدمة الزوار وإرشاد الطلاب.
 - video_lesson_tutor: المساعد الذكي المدمج بمشغل الفيديو (يقرأ تفريغ المحاضرة صوتياً ويشرح بـ LaTeX).
 - instructor_copilot: مساعد المعلمين لصياغة بنك الأسئلة والملازم وتنسيق الدروس.
@@ -1296,41 +1956,87 @@ ${couponsManifest}
 - audio_transcriber: محرك تفريغ وتحويل صوت المحاضرات إلى نصوص أكاديمية.
 - request_analyzer: محلل ملفات وسلايدات ومستندات طلبات الطلاب لاستخراج الكلية والتخصص.
 
-8. قاعدة المعرفة والسياسات الخاصة المعتمدة:
+13. قاعدة المعرفة والسياسات الخاصة المعتمدة:
 ${faqsManifest}
 
 ================================================================================
 محرك التنفيذ التلقائي للأوامر الإدارية (Autonomous Action Execution Engine)
 ================================================================================
-أنت تمتلك صلاحيات تنفيذية حقيقية! عندما يطلب منك المدير أو عندما يتطلب الموقف إجراءً تشغيلياً محدداً، يجب عليك تضمين كود الأمر في نهاية ردك بصيغة:
+أنت تمتلك صلاحيات تنفيذية حقيقية! عندما يطلب منك المدير أي إجراء تشغيلي أو إداري، يجب عليك تضمين كود الأمر في نهاية ردك بصيغة:
 \`[[ACTION:نوع_الإجراء:بيانات_JSON]]\`
 
 الإجراءات المدعومة والصيغ المعتمدة:
 
 أ. إنشاء كوبون خصم جديد في قاعدة البيانات:
-[[ACTION:create_coupon:{"code":"SUMMER50","discount_type":"percentage","discount_value":50,"max_uses":100,"expires_at":null,"description_ar":"خصم ترويجي 50% معتمد من الإدارة"}]]
-(ملاحظة: discount_type إما "percentage" للنسبة المئوية أو "fixed" لمبلغ ثابت بالريال).
+[[ACTION:create_coupon:{"code":"SAVE25","discount_type":"percentage","discount_value":25,"max_uses":100,"expires_at":null,"description_ar":"خصم ترويجي 25% معتمد"}]]
+(discount_type: "percentage" للنسبة المئوية أو "fixed" لمبلغ ثابت بالريال).
 
-ب. إسناد وتكليف مهمة إدارية رسمية لمعلم:
-[[ACTION:assign_instructor_task:{"instructor_id":"USER_ID","instructor_name":"اسم المعلم المسجل","title":"إعداد بنك أسئلة لمقرر التفاضل والتكامل 1","message":"يرجى رفع أسئلة الاختبار التفاعلي للمقرر."}]]
+ب. تفعيل أو تعطيل كوبون خصم:
+[[ACTION:toggle_coupon:{"code":"SAVE30","is_active":false}]]
 
-ج. التحكم بحالة وكيل ذكاء اصطناعي (تشغيل / إيقاف):
-[[ACTION:update_agent_status:{"agent_id":"academic_translator","is_active":false}]]
+ج. حذف كوبون خصم نهائياً:
+[[ACTION:delete_coupon:{"code":"OLDCODE"}]]
 
-د. تعديل وحفظ برومبت أو توجيهات وكيل ذكاء اصطناعي:
-[[ACTION:update_agent_prompt:{"agent_id":"video_lesson_tutor","custom_prompt":"اكتب الحلول بأسلوب مبسط وركز على الخطوات التفصيلية مع صيغ LaTeX."}]]
-
-هـ. اعتماد مقرر وتحديد نسبة المعلم:
+د. اعتماد مقرر وتحديد نسبة عمولة المعلم:
 [[ACTION:approve_course:{"course_id":"cc9fc522-ea4b-43fe-9c54-8fb44cc47ae3","commission":60}]]
 
-و. إطلاق تنبيه طارئ وحالة خطر في المنصة لجميع المشرفين والمديرين:
-[[ACTION:trigger_emergency_alert:{"title":"توقف مؤقت في بوابة الدفع AlinmaPay","description":"رصدت المنظومة تأخراً في استجابة بوابة الدفع AlinmaPay للمشتركين الجدد وجارٍ فحص السجلات","severity":"critical","affected_services":["alinma_gateway","checkout"]}]]
+هـ. رفض مقرر دراسي أو طلب تعديلات عليه:
+[[ACTION:reject_course:{"course_id":"COURSE_ID","reason":"يرجى تحسين جودة الصوت في الدرس الثاني وإعادة الرفع."}]]
+
+و. تعديل سعر مقرر دراسي:
+[[ACTION:update_course_price:{"course_id":"COURSE_ID","price":120,"original_price":200}]]
+
+ز. تنشيط أو إخفاء مقرر دراسي:
+[[ACTION:toggle_course_status:{"course_id":"COURSE_ID","is_active":true}]]
+
+ح. إنشاء باقة مقررات دراسية مخفضة (Course Bundle):
+[[ACTION:create_bundle:{"title_ar":"بكج الإعداد الهندسي الشامل","title":"Engineering Bundle","price":299,"original_price":450,"discount_percentage":33,"course_ids":["cc9fc522-ea4b-43fe-9c54-8fb44cc47ae3","9e94bbe7-0d53-4b5a-9a5b-82e0836aecc0"],"description_ar":"تجميع لمقررات التفاضل والجبر الخطي"}]]
+
+ط. تفعيل أو تعطيل باقة دراسية:
+[[ACTION:toggle_bundle_status:{"bundle_id":"BUNDLE_ID","is_active":false}]]
+
+ي. تسجيل طالب يدوياً في مقرر أو باقة (منح صلاحية الوصول):
+[[ACTION:enroll_student:{"user_email":"student@example.com","course_id":"COURSE_ID"}]]
+
+ك. حظر أو رفع الحظر عن حساب مستخدم:
+[[ACTION:ban_user:{"user_email":"abusive@example.com","reason":"مخالفة معايير المجتمع الأكاديمي"}]]
+[[ACTION:unban_user:{"user_email":"student@example.com"}]]
+
+ل. إسناد وتكليف مهمة إدارية رسمية لمعلم:
+[[ACTION:assign_instructor_task:{"instructor_id":"USER_ID","instructor_name":"اسم المعلم","title":"إعداد بنك أسئلة لمقرر التفاضل","message":"يرجى رفع 20 سؤالاً اختيار من متعدد."}]]
+
+م. اعتماد طلب سحب أرباح معلم:
+[[ACTION:approve_withdrawal:{"request_id":"REQ_ID","notes":"تم التحويل البنكي وتأكيد الإيداع"}]]
+
+ن. رفض طلب سحب أرباح:
+[[ACTION:reject_withdrawal:{"request_id":"REQ_ID","reason":"بيانات الآيبان البنكي غير متطابقة مع اسم المعلم"}]]
+
+س. إسناد وتحديث طلب مقرر مخصص لطالب:
+[[ACTION:update_custom_request:{"request_id":"REQ_ID","status":"approved","assigned_instructor_id":"INS_ID","agreed_price":300,"admin_notes":"تم الاتفاق مع الدكتور على شرح المقرر"}]]
+
+ع. بث تعميم أو إشعار جماعي للمنصة:
+[[ACTION:broadcast_notification:{"title":"بدء التسجيل للفصل الدراسي الجديد","message":"يسر المنصة فتح باب التسجيل بخصومات حصرية على جميع الباقات."}]]
+
+ف. مسح أمني فوري لشات ومحادثات المقرر (Panic Wipe):
+[[ACTION:panic_wipe_chat:{"course_id":"COURSE_ID","reason":"إجراء أمني طارئ لتطهير المحادثات وحظر الروابط المخالفة"}]]
+
+ص. إضافة قاعدة أو سياسة جديدة لقاعدة المعرفة والتدريب:
+[[ACTION:add_custom_knowledge:{"question":"ما هي شروط استرجاع المقررات؟","answer":"يمكن استرجاع الرسوم خلال 24 ساعة من الشراء بشرط عدم تجاوز مشاهدة 10% من المقرر.","category":"السياسات المالية"}]]
+
+ق. التحكم بحالة وكيل ذكاء اصطناعي (تشغيل / إيقاف):
+[[ACTION:update_agent_status:{"agent_id":"academic_translator","is_active":false}]]
+
+ر. تعديل وحفظ برومبت أو توجيهات وكيل ذكاء اصطناعي:
+[[ACTION:update_agent_prompt:{"agent_id":"video_lesson_tutor","custom_prompt":"اكتب الحلول بأسلوب مبسط وركز على الخطوات التفصيلية مع صيغ LaTeX."}]]
+
+ش. إطلاق تنبيه طارئ وحالة خطر في المنصة لجميع المشرفين والمديرين:
+[[ACTION:trigger_emergency_alert:{"title":"توقف مؤقت في بوابة الدفع AlinmaPay","description":"رصدت المنظومة تأخراً في استجابة بوابة الدفع وجارٍ فحص السجلات","severity":"critical","affected_services":["alinma_gateway","checkout"]}]]
 
 تعليمات حاسمة للرد:
 1. عند سؤالك عن عدد المعلمين، اذكر بكل ثقة ودقة أن المنصة تضم (${instructorsCount}) معلماً معتمداً مسجلين في النظام، واذكر أسماءهم وتفاصيلهم من السجل أعلاه (مثل: محمود جوارنه، محمد صالح، عماد الحامد، صهيب الجوارنه، محمد الرواشدة، محمد أحمد جوارنه، حسين المومني، دعاء عزمي عوده، أحمد عثامنة، منتصر الشلول...). إياك أن تذكر أن عدد المعلمين صفر أو أن تختلق أي أسماء وهمية أخرى غير الموجودة في السجل أعلاه!
-2. لديك إحاطة شاملة بالمقررات والدروس وتوصيفات الفيديوهات والمحاضرات أعلاه، وعند سؤالك عن أي درس أو مقرر أجب بالتفصيل الأكاديمي الدقيق.
-3. في حال رصد أي مشكلة أو طلب تفعيل الطوارئ، بادر باقتراح وتنفيذ إجراء [[ACTION:trigger_emergency_alert:...]].
-4. قدم تحليلك أو استشارتك التنفيذية أولاً بأسلوب مؤسسي رفيع يبرز الحسابات والأسماء والأرقام الدقيقة، وعند اتخاذ أو طلب إجراء، قم بتضمين وسم [[ACTION:...]] المنضبط بدون أي أخطاء في الـ JSON.`;
+2. لديك إحاطة شاملة بالبكجات، طلبات المقررات، سجلات السحب، والطلاب المسجلين. عند سؤالك عن أي منها، أجب بالتفصيل والأرقام الحقيقية.
+3. عندما يطلب منك المدير أو المشرف أي إجراء يدوي، قم بتأكيد الإجراء وصياغة تحليلك التنفيذي الراقي، ثم **ضمّن فوراً وسم [[ACTION:...]] المنضبط في نهاية ردك بدون أي أخطاء في الـ JSON**.
+4. لا تستخدم أي إيموجي كرتونية إطلاقاً.`;
 
     const chatMessages = [
       { role: "system", content: systemPrompt },

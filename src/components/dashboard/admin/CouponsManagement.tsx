@@ -19,7 +19,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Plus, Ticket, Copy, Trash2, Search, Percent, DollarSign, Users, Calendar } from 'lucide-react';
+import { Plus, Ticket, Copy, Trash2, Search, Percent, DollarSign, Users, Calendar, Pencil, RotateCcw, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { ar, enUS } from 'date-fns/locale';
@@ -32,6 +32,8 @@ export const CouponsManagement = () => {
   const isAr = language === 'ar';
   const [search, setSearch] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingCoupon, setEditingCoupon] = useState<any | null>(null);
   const [form, setForm] = useState({
     code: '',
     discount_type: 'percentage',
@@ -43,6 +45,19 @@ export const CouponsManagement = () => {
     description: '',
     description_ar: '',
     course_id: '',
+  });
+
+  const [editForm, setEditForm] = useState({
+    code: '',
+    discount_type: 'percentage',
+    discount_value: '',
+    max_uses: '',
+    min_order_amount: '',
+    max_discount_amount: '',
+    expires_at: '',
+    description_ar: '',
+    course_id: '',
+    is_active: true,
   });
 
   const { data: coursesList = [] } = useQuery({
@@ -148,6 +163,71 @@ export const CouponsManagement = () => {
     },
   });
 
+  const editMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingCoupon || !editForm.code || !editForm.discount_value) {
+        throw new Error(isAr ? 'يرجى ملء الحقول المطلوبة' : 'Please fill required fields');
+      }
+      const { error } = await supabase.from('coupons').update({
+        code: editForm.code.toUpperCase().trim(),
+        discount_type: editForm.discount_type,
+        discount_value: parseFloat(editForm.discount_value),
+        max_uses: editForm.max_uses ? parseInt(editForm.max_uses) : null,
+        min_order_amount: editForm.min_order_amount ? parseFloat(editForm.min_order_amount) : 0,
+        max_discount_amount: editForm.max_discount_amount ? parseFloat(editForm.max_discount_amount) : null,
+        expires_at: editForm.expires_at || null,
+        description_ar: editForm.description_ar || null,
+        course_id: editForm.course_id || null,
+        is_active: editForm.is_active,
+      }).eq('id', editingCoupon.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-coupons'] });
+      toast.success(isAr ? 'تم حفظ تعديلات الكوبون بنجاح' : 'Coupon updated successfully');
+      setIsEditDialogOpen(false);
+      setEditingCoupon(null);
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const resetUsageMutation = useMutation({
+    mutationFn: async (couponId: string) => {
+      const { error: updErr } = await supabase.from('coupons').update({
+        current_uses: 0,
+      }).eq('id', couponId);
+      if (updErr) throw updErr;
+
+      try {
+        await supabase.from('coupon_usage').delete().eq('coupon_id', couponId);
+      } catch (delErr) {
+        console.warn('Note on deleting coupon_usage rows:', delErr);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-coupons'] });
+      toast.success(isAr ? 'تم تصفير عدد استخدامات الكوبون بنجاح وأصبح متاحاً للطلاب فوراً' : 'Coupon usage reset to 0');
+    },
+    onError: (e: any) => toast.error(e.message),
+  });
+
+  const openEditDialog = (coupon: any) => {
+    setEditingCoupon(coupon);
+    setEditForm({
+      code: coupon.code,
+      discount_type: coupon.discount_type || 'percentage',
+      discount_value: String(coupon.discount_value || ''),
+      max_uses: coupon.max_uses != null ? String(coupon.max_uses) : '',
+      min_order_amount: coupon.min_order_amount != null ? String(coupon.min_order_amount) : '',
+      max_discount_amount: coupon.max_discount_amount != null ? String(coupon.max_discount_amount) : '',
+      expires_at: coupon.expires_at ? coupon.expires_at.slice(0, 16) : '',
+      description_ar: coupon.description_ar || '',
+      course_id: coupon.course_id || '',
+      is_active: coupon.is_active ?? true,
+    });
+    setIsEditDialogOpen(true);
+  };
+
   const copyCode = (code: string) => {
     navigator.clipboard.writeText(code);
     toast.success(t.copied);
@@ -209,9 +289,17 @@ export const CouponsManagement = () => {
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label>{t.maxUses}</Label>
-                  <Input type="number" value={form.max_uses} onChange={e => setForm({ ...form, max_uses: e.target.value })} placeholder="100" />
+                  <Input type="number" value={form.max_uses} onChange={e => setForm({ ...form, max_uses: e.target.value })} placeholder={isAr ? "فارغ = غير محدود للجميع" : "Empty = unlimited"} />
+                  <p className="text-[10px] text-muted-foreground flex items-start gap-1">
+                    <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                    <span>
+                      {isAr 
+                        ? "النظام يمنع تلقائياً استخدام الكوبون مرتين لنفس الطالب. لا تضع 1 هنا إلا إذا أردت أن ينتهي الكوبون للجميع بعد أول طالب."
+                        : "Each student is limited to 1 use. Leave empty for unlimited students."}
+                    </span>
+                  </p>
                 </div>
                 <div className="space-y-2">
                   <Label>{t.expiresAt}</Label>
@@ -347,7 +435,18 @@ export const CouponsManagement = () => {
                         {expired ? (
                           <Badge variant="destructive">{t.expired}</Badge>
                         ) : maxReached ? (
-                          <Badge variant="secondary">{isAr ? 'مكتمل' : 'Maxed'}</Badge>
+                          <div className="flex items-center gap-1.5">
+                            <Badge variant="secondary" className="bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30 font-bold">{isAr ? 'مكتمل' : 'Maxed'}</Badge>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 px-1.5 text-[10px] text-amber-600 font-bold hover:underline"
+                              title={isAr ? "تصفير وإعادة تعيين الاستخدامات للصفر" : "Reset uses to 0"}
+                              onClick={() => resetUsageMutation.mutate(coupon.id)}
+                            >
+                              {isAr ? 'تصفير' : 'Reset'}
+                            </Button>
+                          </div>
                         ) : coupon.is_active ? (
                           <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">{t.active}</Badge>
                         ) : (
@@ -355,7 +454,26 @@ export const CouponsManagement = () => {
                         )}
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                            title={isAr ? "تصفير عدد الاستخدامات (إعادة تعيين إلى 0)" : "Reset usage count to 0"}
+                            onClick={() => resetUsageMutation.mutate(coupon.id)}
+                            disabled={resetUsageMutation.isPending}
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-primary hover:bg-primary/10"
+                            title={isAr ? "تعديل الكوبون" : "Edit Coupon"}
+                            onClick={() => openEditDialog(coupon)}
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
                           <Switch
                             checked={coupon.is_active}
                             onCheckedChange={v => toggleMutation.mutate({ id: coupon.id, is_active: v })}
@@ -373,6 +491,145 @@ export const CouponsManagement = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Edit Coupon Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span>{isAr ? 'تعديل بيانات الكوبون' : 'Edit Coupon'}</span>
+              {editingCoupon && (
+                <Badge variant="outline" className="font-mono text-xs">
+                  {editingCoupon.code}
+                </Badge>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Label>{t.code} *</Label>
+              <Input
+                value={editForm.code}
+                onChange={e => setEditForm({ ...editForm, code: e.target.value.toUpperCase() })}
+                dir="ltr"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t.type}</Label>
+                <Select value={editForm.discount_type} onValueChange={v => setEditForm({ ...editForm, discount_type: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="percentage">{t.percentage} (%)</SelectItem>
+                    <SelectItem value="fixed">{t.fixed} (SAR)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>{t.value} *</Label>
+                <Input
+                  type="number"
+                  value={editForm.discount_value}
+                  onChange={e => setEditForm({ ...editForm, discount_value: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>{t.maxUses}</Label>
+                <Input
+                  type="number"
+                  value={editForm.max_uses}
+                  onChange={e => setEditForm({ ...editForm, max_uses: e.target.value })}
+                  placeholder={isAr ? "فارغ = غير محدود" : "Empty = unlimited"}
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  {isAr ? "اتركه فارغاً للسماح لجميع الطلاب بالاستفادة منه." : "Leave empty for unlimited uses."}
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label>{t.expiresAt}</Label>
+                <Input
+                  type="datetime-local"
+                  value={editForm.expires_at}
+                  onChange={e => setEditForm({ ...editForm, expires_at: e.target.value })}
+                />
+              </div>
+            </div>
+
+            {/* Quick Reset Current Uses Bar */}
+            {editingCoupon && (
+              <div className="p-3 bg-muted/60 rounded-xl border border-border/70 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-foreground">
+                    {isAr ? 'عدد مرات الاستخدام المسجلة حالياً:' : 'Current Recorded Uses:'}
+                    <span className="ms-1 font-mono text-primary font-black text-sm">
+                      {editingCoupon.current_uses || 0}
+                    </span>
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    {isAr ? 'إذا واجه الطلاب خطأ (مكتمل أو تم الاستخدام)، اضغط لتصفير العداد فوراً.' : 'Click to reset counter to 0 immediately.'}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 text-xs text-amber-600 border-amber-500/30 hover:bg-amber-500/10 shrink-0"
+                  onClick={async () => {
+                    await resetUsageMutation.mutateAsync(editingCoupon.id);
+                    setEditingCoupon({ ...editingCoupon, current_uses: 0 });
+                  }}
+                  disabled={resetUsageMutation.isPending}
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>{isAr ? 'تصفير العداد الآن' : 'Reset to 0'}</span>
+                </Button>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>{isAr ? 'حالة الكوبون' : 'Status'}</Label>
+              <div className="flex items-center gap-3">
+                <Switch
+                  checked={editForm.is_active}
+                  onCheckedChange={v => setEditForm({ ...editForm, is_active: v })}
+                />
+                <span className="text-xs text-muted-foreground">
+                  {editForm.is_active ? (isAr ? 'نشط وقابل للاستخدام' : 'Active') : (isAr ? 'معطل وموقوف' : 'Inactive')}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>{t.description}</Label>
+              <Textarea
+                value={editForm.description_ar}
+                onChange={e => setEditForm({ ...editForm, description_ar: e.target.value })}
+                rows={2}
+                placeholder={isAr ? 'وصف الكوبون بالعربية...' : 'Description in Arabic...'}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                {isAr ? 'إلغاء' : 'Cancel'}
+              </Button>
+              <Button
+                type="button"
+                className="btn-gold"
+                onClick={() => editMutation.mutate()}
+                disabled={editMutation.isPending}
+              >
+                {editMutation.isPending ? (isAr ? 'جاري الحفظ...' : 'Saving...') : (isAr ? 'حفظ التعديلات' : 'Save Changes')}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

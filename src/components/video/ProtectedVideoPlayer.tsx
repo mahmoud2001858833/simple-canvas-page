@@ -231,7 +231,7 @@ export const ProtectedVideoPlayer = forwardRef<ProtectedVideoPlayerRef, Protecte
       }
     };
 
-    // Prevent keyboard shortcuts for recording
+    // Prevent keyboard shortcuts for recording, saving, or inspecting
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!protectionEnabled) return;
 
@@ -243,21 +243,40 @@ export const ProtectedVideoPlayer = forwardRef<ProtectedVideoPlayerRef, Protecte
         // Print Screen
         e.key === 'PrintScreen' ||
         // Windows Snipping
-        (e.key === 's' && e.shiftKey && (e.metaKey || e.getModifierState('OS')));
+        ((e.key === 's' || e.key === 'S') && e.shiftKey && (e.metaKey || e.getModifierState('OS')));
 
-      if (isRecordingShortcut) {
+      const isSaveOrInspectShortcut =
+        // Ctrl+S / Cmd+S (Save page/video)
+        ((e.key === 's' || e.key === 'S') && (e.ctrlKey || e.metaKey) && !e.shiftKey) ||
+        // Ctrl+U / Cmd+U (View source)
+        ((e.key === 'u' || e.key === 'U') && (e.ctrlKey || e.metaKey)) ||
+        // F12 (DevTools)
+        e.key === 'F12' ||
+        // Ctrl+Shift+I / Cmd+Option+I (Inspect)
+        ((e.key === 'i' || e.key === 'I') && (e.ctrlKey || e.metaKey) && (e.shiftKey || e.altKey)) ||
+        // Ctrl+Shift+J / Cmd+Option+J (Console)
+        ((e.key === 'j' || e.key === 'J') && (e.ctrlKey || e.metaKey) && (e.shiftKey || e.altKey)) ||
+        // Ctrl+Shift+C / Cmd+Option+C (Element picker)
+        ((e.key === 'c' || e.key === 'C') && (e.ctrlKey || e.metaKey) && e.shiftKey);
+
+      if (isRecordingShortcut || isSaveOrInspectShortcut) {
         e.preventDefault();
         e.stopPropagation();
-        console.log('Recording shortcut blocked');
+        console.warn('Blocked unauthorized capture/download shortcut:', e.key);
         setIsBlurred(true);
-        setBlurReason(isRTL ? 'التسجيل غير مسموح' : 'Recording not allowed');
+        setBlurReason(
+          isSaveOrInspectShortcut
+            ? (isRTL ? 'حفظ الفيديو أو فحصه غير مسموح' : 'Saving or inspecting video is not allowed')
+            : (isRTL ? 'التسجيل غير مسموح' : 'Recording not allowed')
+        );
         
-        // Log the keyboard shortcut attempt
-        logCaptureAttempt('keyboard_shortcut', { 
+        // Log the shortcut attempt
+        logCaptureAttempt(isSaveOrInspectShortcut ? 'save_or_inspect_attempt' : 'keyboard_shortcut', { 
           key: e.key, 
           metaKey: e.metaKey, 
-          shiftKey: e.shiftKey,
-          ctrlKey: e.ctrlKey 
+          shiftKey: e.shiftKey, 
+          ctrlKey: e.ctrlKey,
+          altKey: e.altKey,
         });
         
         setTimeout(() => {
@@ -272,6 +291,56 @@ export const ProtectedVideoPlayer = forwardRef<ProtectedVideoPlayerRef, Protecte
       (videoRef.current as any).disablePictureInPicture = true;
     }
 
+    // Mask video source getters to block IDM and browser extension DOM sniffers
+    if (videoRef.current) {
+      const videoEl = videoRef.current;
+      try {
+        Object.defineProperty(videoEl, 'currentSrc', {
+          get: () => '',
+          configurable: true,
+        });
+      } catch {}
+
+      try {
+        const origGetAttr = videoEl.getAttribute.bind(videoEl);
+        videoEl.getAttribute = (name: string) => {
+          if (name.toLowerCase() === 'src') return '';
+          return origGetAttr(name);
+        };
+      } catch {}
+    }
+
+    // Anti-IDM MutationObserver: purge any floating downloader widgets injected into the page
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        for (const node of Array.from(mutation.addedNodes)) {
+          if (node instanceof HTMLElement) {
+            const id = (node.id || '').toLowerCase();
+            const cls = (typeof node.className === 'string' ? node.className : '').toLowerCase();
+            const aria = (node.getAttribute('aria-label') || '').toLowerCase();
+            if (
+              id.includes('idm') ||
+              cls.includes('idm') ||
+              id.includes('download-panel') ||
+              cls.includes('download-panel') ||
+              id.includes('video-downloader') ||
+              cls.includes('video-downloader') ||
+              node.hasAttribute('data-idm-version') ||
+              aria.includes('download this video') ||
+              aria.includes('تحميل هذا الفيديو')
+            ) {
+              console.warn('IDM or downloader extension widget blocked and purged');
+              node.remove();
+            }
+          }
+        }
+      }
+    });
+
+    try {
+      observer.observe(document.body, { childList: true, subtree: true });
+    } catch {}
+
     window.addEventListener('blur', handleBlur);
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -279,6 +348,7 @@ export const ProtectedVideoPlayer = forwardRef<ProtectedVideoPlayerRef, Protecte
     document.addEventListener('keydown', handleKeyDown, true);
 
     return () => {
+      observer.disconnect();
       window.removeEventListener('blur', handleBlur);
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -294,14 +364,22 @@ export const ProtectedVideoPlayer = forwardRef<ProtectedVideoPlayerRef, Protecte
   return (
     <div 
       ref={containerRef}
-      className={`relative w-full h-full bg-black ${isFullscreen ? 'fullscreen-container' : ''}`}
+      className={`relative w-full h-full bg-black select-none ${isFullscreen ? 'fullscreen-container' : ''}`}
       style={{
-        // CSS protection against some screen recorders
         WebkitUserSelect: 'none',
         userSelect: 'none',
       }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onContextMenu?.(e);
+      }}
+      onDoubleClick={(e) => {
+        e.preventDefault();
+        toggleFullscreen();
+      }}
     >
-      {/* Video Element */}
+      {/* Video Element with pointer-events-none to prevent IDM hover grabbers */}
       <video
         ref={videoRef}
         src={src}
@@ -323,18 +401,12 @@ export const ProtectedVideoPlayer = forwardRef<ProtectedVideoPlayerRef, Protecte
           onPlay?.();
         }}
         onPause={onPause}
-        onContextMenu={onContextMenu}
         controlsList="nodownload noplaybackrate"
         disablePictureInPicture
         playsInline
         style={{
-          // Additional protection styles
           WebkitTouchCallout: 'none',
-        }}
-        // Prevent native fullscreen on video element - use container instead
-        onDoubleClick={(e) => {
-          e.preventDefault();
-          toggleFullscreen();
+          pointerEvents: 'none',
         }}
       />
 

@@ -43,6 +43,10 @@ import {
   Mail,
   Settings2,
   AlertTriangle,
+  Package,
+  ShieldAlert,
+  UserCheck,
+  UserX,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -109,7 +113,7 @@ export function AIControlCenter() {
 
   // Ledger filter & search
   const [instructorSearch, setInstructorSearch] = useState("");
-  const [ledgerSection, setLedgerSection] = useState<"instructors" | "accounting" | "courses" | "coupons">("instructors");
+  const [ledgerSection, setLedgerSection] = useState<"instructors" | "accounting" | "courses" | "bundles" | "students" | "requests" | "withdrawals" | "security" | "coupons">("instructors");
 
   // Live Ping Test for Agent
   const [testingAgentId, setTestingAgentId] = useState<string | null>(null);
@@ -783,45 +787,66 @@ export function AIControlCenter() {
               </Button>
             </div>
 
-            {/* Quick Action Chips (Formal, NO Emojis) */}
+            {/* Quick Action Chips (Executive Manual Commands & Instant Queries) */}
             <div className="px-4 py-2 bg-muted/40 border-b border-border/60 flex items-center gap-2 overflow-x-auto text-xs no-scrollbar">
               <span className="text-[11px] font-bold text-muted-foreground shrink-0 flex items-center gap-1">
-                <Sparkles className="w-3.5 h-3.5 text-amber-500" /> إجراءات سريعة:
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" /> أوامر تشغيلية سريعة:
               </span>
               <button
-                onClick={() => handleSendMasterAI("وضح لي حالة المعلمين المسجلين في المنصة ومدى جاهزية النظام لاستقبال المعلمين الـ 20 ودوراتهم وطلابهم")}
-                className="px-3 py-1.5 rounded-lg bg-card hover:bg-muted border border-border text-[11px] font-semibold text-foreground whitespace-nowrap transition-colors flex items-center gap-1.5"
-              >
-                <Users className="w-3 h-3 text-amber-500" />
-                <span>جاهزية المنصة للمعلمين الـ 20</span>
-              </button>
-              <button
-                onClick={() => handleSendMasterAI("قدم تحليلاً مالياً شاملاً لدفتر الحسابات، متضمناً إجمالي الإيرادات، العمولات المستحقة للأساتذة، وصافي أرباح المنصة التقديرية")}
-                className="px-3 py-1.5 rounded-lg bg-card hover:bg-muted border border-border text-[11px] font-semibold text-foreground whitespace-nowrap transition-colors flex items-center gap-1.5"
-              >
-                <DollarSign className="w-3 h-3 text-emerald-500" />
-                <span>تدقيق دفتر الحسابات والأرباح</span>
-              </button>
-              <button
-                onClick={() => handleSendMasterAI("قم بإنشاء كوبون خصم ترويجي جديد باسم JOS2026 بنسبة 20% لكافة المقررات في قاعدة البيانات")}
+                onClick={() => handleSendMasterAI("قم بإنشاء كوبون خصم ترويجي جديد باسم JOS2026 بنسبة 20% لكافة المقررات")}
                 className="px-3 py-1.5 rounded-lg bg-card hover:bg-muted border border-border text-[11px] font-semibold text-foreground whitespace-nowrap transition-colors flex items-center gap-1.5"
               >
                 <Ticket className="w-3 h-3 text-indigo-500" />
                 <span>إصدار كوبون خصم 20%</span>
               </button>
               <button
-                onClick={() => handleSendMasterAI("ما هي التوصيات والخطوات المتبعة لتوزيع المهام الأكاديمية وإعداد بنوك الأسئلة للمقررات الدراسية؟")}
+                onClick={() => handleSendMasterAI("قم بإنشاء باقة بكج دراسية جديدة تجمع مقررات التفاضل والجبر الخطي بسعر مخفض 299 ر.س")}
                 className="px-3 py-1.5 rounded-lg bg-card hover:bg-muted border border-border text-[11px] font-semibold text-foreground whitespace-nowrap transition-colors flex items-center gap-1.5"
               >
-                <FileText className="w-3 h-3 text-blue-500" />
-                <span>خطة بنوك الأسئلة للمقررات</span>
+                <Package className="w-3 h-3 text-purple-500" />
+                <span>إنشاء بكج مقررات مخفض</span>
               </button>
               <button
-                onClick={() => handleSendMasterAI("ضع خطة تسويقية واقتراح كوبونات حصرية لاستهداف طلاب المعاينة وتحويلهم لمشتركين")}
+                onClick={() => handleSendMasterAI("اعتمد دورة التفاضل والتكامل 1 وثبت نسبة عمولة المعلم عند 60% في النظام")}
                 className="px-3 py-1.5 rounded-lg bg-card hover:bg-muted border border-border text-[11px] font-semibold text-foreground whitespace-nowrap transition-colors flex items-center gap-1.5"
               >
-                <TrendingUp className="w-3 h-3 text-amber-500" />
-                <span>تحويل طلاب المعاينة لمشتركين</span>
+                <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                <span>اعتماد مقرر وتثبيت العمولة</span>
+              </button>
+              <button
+                onClick={() => handleSendMasterAI("استعرض كافة تفاصيل وسجلات البكجات والحزم الدراسية وعدد مبيعات كل باقة بالمنصة")}
+                className="px-3 py-1.5 rounded-lg bg-card hover:bg-muted border border-border text-[11px] font-semibold text-foreground whitespace-nowrap transition-colors flex items-center gap-1.5"
+              >
+                <Package className="w-3 h-3 text-amber-500" />
+                <span>تقرير البكجات والمبيعات</span>
+              </button>
+              <button
+                onClick={() => handleSendMasterAI("أريد تقريراً شاملاً عن الطلاب المسجلين والفرص البيعية والسلات المتروكة")}
+                className="px-3 py-1.5 rounded-lg bg-card hover:bg-muted border border-border text-[11px] font-semibold text-foreground whitespace-nowrap transition-colors flex items-center gap-1.5"
+              >
+                <Users className="w-3 h-3 text-blue-500" />
+                <span>سجل الطلاب والسلات المتروكة</span>
+              </button>
+              <button
+                onClick={() => handleSendMasterAI("استعرض طلبات سحب أرباح المعلمين المعلقة والمكتملة مع بيانات الآيبان البنكي")}
+                className="px-3 py-1.5 rounded-lg bg-card hover:bg-muted border border-border text-[11px] font-semibold text-foreground whitespace-nowrap transition-colors flex items-center gap-1.5"
+              >
+                <DollarSign className="w-3 h-3 text-emerald-500" />
+                <span>سحب الأرباح والآيبان</span>
+              </button>
+              <button
+                onClick={() => handleSendMasterAI("قم بإرسال تعميم إداري جماعي لكافة الطلاب حول بدء التسجيل للفصل الدراسي الجديد")}
+                className="px-3 py-1.5 rounded-lg bg-card hover:bg-muted border border-border text-[11px] font-semibold text-foreground whitespace-nowrap transition-colors flex items-center gap-1.5"
+              >
+                <Send className="w-3 h-3 text-sky-500" />
+                <span>بث تعميم جماعي للمنصة</span>
+              </button>
+              <button
+                onClick={() => handleSendMasterAI("وضح لي رادار أمان تصوير الشاشة وحماية DRM وعدد المحاولات المحظورة")}
+                className="px-3 py-1.5 rounded-lg bg-card hover:bg-muted border border-border text-[11px] font-semibold text-foreground whitespace-nowrap transition-colors flex items-center gap-1.5"
+              >
+                <ShieldCheck className="w-3 h-3 text-rose-500" />
+                <span>رادار حماية DRM والقرصنة</span>
               </button>
             </div>
 
@@ -905,10 +930,28 @@ export function AIControlCenter() {
                               <span className="font-bold text-amber-500 flex items-center gap-1.5">
                                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                                 {act.type === "create_coupon" && "إجراء تنفيذي: تم إصدار وتفعيل كوبون خصم"}
+                                {act.type === "toggle_coupon" && "إجراء تنفيذي: تم تغيير حالة تفعيل الكوبون"}
+                                {act.type === "delete_coupon" && "إجراء تنفيذي: تم حذف الكوبون من النظام"}
+                                {act.type === "reset_coupon_usage" && "إجراء تنفيذي: تم تصفير استخدامات الكوبون وإعادة إتاحته"}
+                                {act.type === "approve_course" && "إجراء تنفيذي: تم اعتماد المقرر وتثبيت العمولة"}
+                                {act.type === "reject_course" && "إجراء تنفيذي: تم رفض أو طلب تعديل المقرر"}
+                                {act.type === "update_course_price" && "إجراء تنفيذي: تم تعديل تسعير المقرر"}
+                                {act.type === "toggle_course_status" && "إجراء تنفيذي: تم تعديل حالة ظهور المقرر"}
+                                {act.type === "create_bundle" && "إجراء تنفيذي: تم إنشاء باقة المقررات المخفضة"}
+                                {act.type === "toggle_bundle_status" && "إجراء تنفيذي: تم تعديل حالة تفعيل الباقة"}
+                                {act.type === "enroll_student" && "إجراء تنفيذي: تم تسجيل الطالب ومنحه الوصول الكامل"}
+                                {act.type === "ban_user" && "إجراء تنفيذي: تم حظر حساب المستخدم"}
+                                {act.type === "unban_user" && "إجراء تنفيذي: تم رفع الحظر واستعادة الحساب"}
                                 {act.type === "assign_instructor_task" && "إجراء تنفيذي: تم توثيق التكليف وإشعار المعلم"}
+                                {act.type === "approve_withdrawal" && "إجراء تنفيذي: تم اعتماد وتسوية سحب الأرباح"}
+                                {act.type === "reject_withdrawal" && "إجراء تنفيذي: تم رفض طلب سحب الأرباح"}
+                                {act.type === "update_custom_request" && "إجراء تنفيذي: تم إسناد/تحديث طلب المقرر المخصص"}
+                                {act.type === "broadcast_notification" && "إجراء تنفيذي: تم بث التعميم الجماعي للمنصة"}
+                                {act.type === "panic_wipe_chat" && "إجراء تنفيذي: تم المسح الأمني الفوري للمحادثات (Panic Wipe)"}
+                                {act.type === "add_custom_knowledge" && "إجراء تنفيذي: تم توثيق القاعدة في التدريب المعرفي"}
                                 {act.type === "update_agent_status" && "إجراء تنفيذي: تم تحديث حالة الوكيل"}
                                 {act.type === "update_agent_prompt" && "إجراء تنفيذي: تم تحديث توجيهات الوكيل"}
-                                {act.type === "approve_course" && "إجراء تنفيذي: تم اعتماد المقرر وضبط العمولة"}
+                                {act.type === "trigger_emergency_alert" && "إجراء تنفيذي: تم إطلاق صافرة الإنذار وحالة الخطر"}
                               </span>
                               <Badge
                                 variant="outline"
@@ -1001,12 +1044,57 @@ export function AIControlCenter() {
               </Button>
               <Button
                 size="sm"
+                variant={ledgerSection === "bundles" ? "default" : "ghost"}
+                onClick={() => setLedgerSection("bundles")}
+                className="gap-2 text-xs font-bold h-9"
+              >
+                <Package className="w-4 h-4 text-purple-500" />
+                <span>البكجات والحزم ({knowledgeSummary?.bundlesList?.length || 0})</span>
+              </Button>
+              <Button
+                size="sm"
+                variant={ledgerSection === "students" ? "default" : "ghost"}
+                onClick={() => setLedgerSection("students")}
+                className="gap-2 text-xs font-bold h-9"
+              >
+                <Users className="w-4 h-4 text-blue-500" />
+                <span>دليل الطلاب ({knowledgeSummary?.studentsCount || 14})</span>
+              </Button>
+              <Button
+                size="sm"
+                variant={ledgerSection === "requests" ? "default" : "ghost"}
+                onClick={() => setLedgerSection("requests")}
+                className="gap-2 text-xs font-bold h-9"
+              >
+                <FileText className="w-4 h-4 text-amber-500" />
+                <span>طلبات المقررات ({knowledgeSummary?.customRequestsList?.length || 0})</span>
+              </Button>
+              <Button
+                size="sm"
+                variant={ledgerSection === "withdrawals" ? "default" : "ghost"}
+                onClick={() => setLedgerSection("withdrawals")}
+                className="gap-2 text-xs font-bold h-9"
+              >
+                <DollarSign className="w-4 h-4 text-emerald-500" />
+                <span>سحب الأرباح ({knowledgeSummary?.withdrawalsList?.length || 0})</span>
+              </Button>
+              <Button
+                size="sm"
+                variant={ledgerSection === "security" ? "default" : "ghost"}
+                onClick={() => setLedgerSection("security")}
+                className="gap-2 text-xs font-bold h-9"
+              >
+                <ShieldCheck className="w-4 h-4 text-rose-500" />
+                <span>أمان DRM ({knowledgeSummary?.securityTelemetry?.captureAttemptsCount || 0})</span>
+              </Button>
+              <Button
+                size="sm"
                 variant={ledgerSection === "coupons" ? "default" : "ghost"}
                 onClick={() => setLedgerSection("coupons")}
                 className="gap-2 text-xs font-bold h-9"
               >
                 <Ticket className="w-4 h-4" />
-                <span>الكوبونات والخصومات ({knowledgeSummary?.couponsList?.length || 2})</span>
+                <span>الكوبونات والخصومات ({knowledgeSummary?.couponsDetailed?.length || knowledgeSummary?.couponsList?.length || 2})</span>
               </Button>
             </div>
 
@@ -1405,7 +1493,7 @@ export function AIControlCenter() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {(knowledgeSummary?.couponsList || []).map((cpn, idx) => (
+                {(knowledgeSummary?.couponsDetailed || []).map((cpn, idx) => (
                   <Card key={idx} className="border-border/80 bg-card">
                     <CardContent className="p-4 space-y-3">
                       <div className="flex items-center justify-between">
@@ -1413,16 +1501,326 @@ export function AIControlCenter() {
                           {cpn.code}
                         </span>
                         <Badge className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px] font-bold">
-                          خصم {cpn.discountPercent}%
+                          خصم {cpn.discountType === "percentage" ? `${cpn.discountValue}%` : `${cpn.discountValue} ر.س`}
                         </Badge>
                       </div>
                       <div className="text-xs text-muted-foreground space-y-1">
-                        <p>مرات الاستخدام: {cpn.usedCount} من أصل {cpn.maxUses}</p>
+                        <p>مرات الاستخدام: {cpn.currentUses} {cpn.maxUses ? `من أصل ${cpn.maxUses}` : "(غير محدود)"}</p>
+                        <p>الحالة: <span className={cpn.isActive ? "text-emerald-600 font-bold" : "text-rose-500 font-bold"}>{cpn.isActive ? "نشط" : "معطل"}</span></p>
                         {cpn.expiresAt && <p>تاريخ الانتهاء: {new Date(cpn.expiresAt).toLocaleDateString("ar-SA")}</p>}
+                      </div>
+                      <div className="pt-2 flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setMasterInput(`قم بـ ${cpn.isActive ? "تعطيل" : "تفعيل"} كود الكوبون ${cpn.code} في النظام`);
+                            setActiveTab("master");
+                          }}
+                          className="w-1/2 text-[11px] h-7"
+                        >
+                          {cpn.isActive ? "تعطيل" : "تفعيل"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setMasterInput(`أريد تصفير عدد استخدامات الكوبون ${cpn.code} وإعادة إتاحته فوراً للطلاب`);
+                            setActiveTab("master");
+                          }}
+                          className="w-1/2 text-[11px] h-7 text-amber-600 border-amber-500/30 hover:bg-amber-500/10"
+                        >
+                          تصفير الاستخدام
+                        </Button>
                       </div>
                     </CardContent>
                   </Card>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Section 5: Course Bundles Manifest */}
+          {ledgerSection === "bundles" && (
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div>
+                  <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                    <Package className="w-5 h-5 text-purple-500" />
+                    <span>البكجات والحزم الدراسية المعتمدة ({knowledgeSummary?.bundlesList?.length || 0})</span>
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    تجميع المقررات في باقات مخفضة ومراقبة مبيعات كل باقة ونسب الخصم التلقائي.
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setMasterInput("أريد إنشاء باقة بكج دراسية جديدة مخفضة تجمع المقررات التالية: ");
+                    setActiveTab("master");
+                  }}
+                  className="gap-1.5 text-xs font-bold h-8 border-purple-500/30 text-purple-600 dark:text-purple-400 hover:bg-purple-500/10"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>إنشاء بكج جديد عبر المستشار</span>
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {(knowledgeSummary?.bundlesList || []).map((b, idx) => (
+                  <Card key={idx} className="border-border/80 bg-card">
+                    <CardHeader className="p-4 pb-2">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <CardTitle className="text-sm font-bold">{b.title_ar || b.title}</CardTitle>
+                          <span className="text-[11px] text-muted-foreground font-mono">{b.title}</span>
+                        </div>
+                        <Badge className="bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30 text-[10px] font-bold">
+                          {b.price} ر.س {b.discount_percentage ? `(خصم ${b.discount_percentage}%)` : ""}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-1 space-y-2.5 text-xs text-muted-foreground">
+                      <p>عدد المقررات: <span className="font-bold text-foreground">{b.courses_count}</span></p>
+                      {b.courses_titles.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {b.courses_titles.map((ct, i) => (
+                            <Badge key={i} variant="secondary" className="text-[10px] bg-muted">{ct}</Badge>
+                          ))}
+                        </div>
+                      )}
+                      <p>إجمالي المبيعات: <span className="font-bold text-emerald-600">{b.purchases_count} عملية شراء</span></p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setMasterInput(`أريد تفاصيل مبيعات وتعديل باقة "${b.title_ar || b.title}" (المعرّف: ${b.id})`);
+                          setActiveTab("master");
+                        }}
+                        className="w-full text-[11px] h-7 mt-2"
+                      >
+                        إدارة الباقة عبر المستشار
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Section 6: Students Directory */}
+          {ledgerSection === "students" && (
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div>
+                  <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                    <Users className="w-5 h-5 text-blue-500" />
+                    <span>دليل الطلاب والمسجلين ({knowledgeSummary?.studentsCount || 14} طالب)</span>
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    سجل شامل لبيانات الطلاب المسجلين بالمنصة مع بيانات التواصل والجامعات وإمكانية التسجيل اليدوي.
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setMasterInput("أريد تسجيل طالب يدوياً في أحد المقررات أو البكجات. بيانات الطالب هي: ");
+                    setActiveTab("master");
+                  }}
+                  className="gap-1.5 text-xs font-bold h-8 border-blue-500/30 text-blue-600 dark:text-blue-400 hover:bg-blue-500/10"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>تسجيل طالب يدوياً عبر المستشار</span>
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {(knowledgeSummary?.studentsSample || []).map((s, idx) => (
+                  <Card key={idx} className="border-border/80 bg-card">
+                    <CardHeader className="p-4 pb-2">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <CardTitle className="text-sm font-bold flex items-center gap-1.5">
+                            {s.name}
+                            {s.is_banned && <Badge variant="destructive" className="text-[9px]">محظور</Badge>}
+                          </CardTitle>
+                          <span className="text-[11px] text-muted-foreground font-mono">{s.email}</span>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-1 space-y-2 text-xs text-muted-foreground">
+                      <p>الجوال: <span className="font-mono text-foreground">{s.phone || "غير مسجل"}</span></p>
+                      <p>الجامعة: <span className="text-foreground">{s.university || "جامعة سعودية"}</span></p>
+                      <div className="pt-2 flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setMasterInput(`أريد تسجيل الطالب "${s.name}" (البريد: ${s.email}) في مقرر: `);
+                            setActiveTab("master");
+                          }}
+                          className="w-full text-[11px] h-7"
+                        >
+                          منح مقرر
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setMasterInput(`أريد ${s.is_banned ? "فك حظر" : "حظر"} حساب الطالب "${s.name}" (البريد: ${s.email})`);
+                            setActiveTab("master");
+                          }}
+                          className={`text-[11px] h-7 ${s.is_banned ? "text-emerald-600" : "text-rose-600"}`}
+                        >
+                          {s.is_banned ? "فك الحظر" : "حظر الحساب"}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Section 7: Custom Course Requests */}
+          {ledgerSection === "requests" && (
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div>
+                  <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-amber-500" />
+                    <span>طلبات المقررات الدراسية الخاصة ({knowledgeSummary?.customRequestsList?.length || 0})</span>
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    طلبات الطلاب لشرح مقررات جامعية محددة مع الميزانية المقترحة وإسنادها للكادر التعليمي.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {(knowledgeSummary?.customRequestsList || []).map((r, idx) => (
+                  <Card key={idx} className="border-border/80 bg-card">
+                    <CardHeader className="p-4 pb-2">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <CardTitle className="text-sm font-bold">{r.subject_name}</CardTitle>
+                          <span className="text-[11px] text-muted-foreground">{r.university}</span>
+                        </div>
+                        <Badge className={`text-[10px] font-bold ${r.status === "approved" ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"}`}>
+                          {r.status === "approved" ? "معتمد ومسند" : "قيد المراجعة"}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-1 space-y-2 text-xs text-muted-foreground">
+                      {r.budget && <p>الميزانية المقترحة: <span className="font-bold text-foreground">{r.budget} ر.س</span></p>}
+                      {r.notes && <p className="italic bg-muted/40 p-2 rounded">"{r.notes}"</p>}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setMasterInput(`أريد اعتماد وإسناد طلب المقرر المخصص "${r.subject_name}" (المعرّف: ${r.id}) لمعلم وتحديد السعر: `);
+                          setActiveTab("master");
+                        }}
+                        className="w-full text-[11px] h-7 mt-1"
+                      >
+                        إسناد الطلب عبر المستشار
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Section 8: Instructor Withdrawals */}
+          {ledgerSection === "withdrawals" && (
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div>
+                  <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                    <DollarSign className="w-5 h-5 text-emerald-500" />
+                    <span>سجل طلبات سحب أرباح المعلمين ({knowledgeSummary?.withdrawalsList?.length || 0})</span>
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    متابعة واعتماد طلبات تحويل الأرباح لحسابات الأساتذة مع تدقيق الآيبان البنكي.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {(knowledgeSummary?.withdrawalsList || []).map((w, idx) => (
+                  <Card key={idx} className="border-border/80 bg-card">
+                    <CardHeader className="p-4 pb-2">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <CardTitle className="text-sm font-bold">{w.instructor_name}</CardTitle>
+                          <span className="text-[11px] text-muted-foreground font-mono">{w.bank_name}</span>
+                        </div>
+                        <Badge className={`text-[10px] font-bold ${w.status === "approved" ? "bg-emerald-500/10 text-emerald-600" : "bg-amber-500/10 text-amber-600"}`}>
+                          {w.status === "approved" ? "تم الإيداع" : "معلق"}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-4 pt-1 space-y-2 text-xs text-muted-foreground">
+                      <p className="text-base font-black text-foreground">{w.amount} ر.س</p>
+                      {w.iban && <p className="font-mono text-[11px] bg-muted/50 p-1.5 rounded">{w.iban}</p>}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setMasterInput(`أريد ${w.status === "approved" ? "مراجعة" : "اعتماد وتسوية"} طلب سحب الأرباح للمعلم "${w.instructor_name}" بمبلغ ${w.amount} ر.س (المعرّف: ${w.id})`);
+                          setActiveTab("master");
+                        }}
+                        className="w-full text-[11px] h-7 mt-1 text-emerald-600"
+                      >
+                        اعتماد السحب عبر المستشار
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Section 9: Security & DRM Telemetry */}
+          {ledgerSection === "security" && (
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div>
+                  <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-rose-500" />
+                    <span>رادار الأمان وحماية المحتوى (DRM & Anti-Piracy Shield)</span>
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    رصد لحظي لمحاولات تصوير الشاشة وتسجيل الفيديوهات مع تطبيق العلامة المائية الديناميكية.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <Card className="border-border/80 bg-card p-4">
+                  <p className="text-xs text-muted-foreground font-semibold">المحاولات المرصودة والمحظورة</p>
+                  <p className="text-3xl font-black text-rose-500 mt-1">
+                    {knowledgeSummary?.securityTelemetry?.captureAttemptsCount || 0}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-1">تم إيقافها بالكامل وتحويل الشاشة للأسود</p>
+                </Card>
+                <Card className="border-border/80 bg-card p-4">
+                  <p className="text-xs text-muted-foreground font-semibold">حالة التشفير الحركي</p>
+                  <p className="text-xl font-bold text-emerald-600 mt-2 flex items-center gap-2">
+                    <CheckCircle2 className="w-5 h-5" /> نشط 100% (AES-128)
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-1">منع استخراج الفيديو عبر برامج IDM</p>
+                </Card>
+                <Card className="border-border/80 bg-card p-4">
+                  <p className="text-xs text-muted-foreground font-semibold">العلامة المائية الجنائية</p>
+                  <p className="text-xl font-bold text-indigo-600 mt-2 flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5" /> تتبع رقم الجوال والـ IP
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mt-1">طباعة متحركة لبيانات الطالب مانعة للتصوير الخارجي</p>
+                </Card>
               </div>
             </div>
           )}

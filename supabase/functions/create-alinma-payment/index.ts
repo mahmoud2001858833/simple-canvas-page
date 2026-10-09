@@ -251,13 +251,30 @@ serve(async (req) => {
     let couponId: string | null = null;
     let discountAmount = 0;
     if (coupon) {
-      const { data: couponResult } = await supabase.rpc("validate_coupon", {
-        p_code: coupon,
+      let codeToValidate = coupon;
+      let { data: couponResult } = await supabase.rpc("validate_coupon", {
+        p_code: codeToValidate,
         p_user_id: uid,
         p_course_id: cid,
         p_order_amount: actualAmount,
       });
-      const cr = couponResult as Record<string, unknown> | null;
+      let cr = couponResult as Record<string, unknown> | null;
+
+      // Fallback check between Arabic and English code variants (e.g. ريمان <-> REMAN)
+      if ((!cr || !cr.valid) && (codeToValidate === "ريمان" || codeToValidate.toUpperCase() === "REMAN")) {
+        const altCode = codeToValidate === "ريمان" ? "REMAN" : "ريمان";
+        const { data: altResult } = await supabase.rpc("validate_coupon", {
+          p_code: altCode,
+          p_user_id: uid,
+          p_course_id: cid,
+          p_order_amount: actualAmount,
+        });
+        if (altResult && (altResult as Record<string, unknown>).valid) {
+          cr = altResult as Record<string, unknown>;
+          codeToValidate = altCode;
+        }
+      }
+
       if (cr?.valid) {
         couponId = String(cr.coupon_id);
         discountAmount = Number(cr.discount_amount || 0);
@@ -465,6 +482,20 @@ serve(async (req) => {
 
     if (!isSuccess) {
       console.error("AlinmaPay error:", parsed);
+
+      // Rollback reserved coupon usage so the customer doesn't lose their coupon on gateway failure
+      if (couponId) {
+        try {
+          await supabase.from("coupon_usage").delete().eq("payment_id", payment.id);
+          const { data: cpData } = await supabase.from("coupons").select("current_uses").eq("id", couponId).single();
+          if (cpData && (cpData.current_uses ?? 0) > 0) {
+            await supabase.from("coupons").update({ current_uses: Math.max(0, (cpData.current_uses ?? 1) - 1) }).eq("id", couponId);
+          }
+        } catch (e) {
+          console.error("Failed to rollback coupon usage on gateway failure:", e);
+        }
+      }
+
       await supabase
         .from("payments")
         .update({

@@ -266,23 +266,47 @@ const Checkout = () => {
     if (!couponCode.trim() || !user) return;
     setCouponLoading(true);
     try {
+      const trimmed = couponCode.trim();
+      let resData: any = null;
+      let resErr: any = null;
+
+      // Primary validation check
       const { data, error } = await supabase.rpc('validate_coupon', {
-        p_code: couponCode.trim(),
+        p_code: trimmed,
         p_user_id: user.id,
         p_course_id: resolvedCourseId || null,
         p_order_amount: priceBeforeCoupon,
       });
-      if (error) throw error;
-      const result = data as unknown as CouponResult;
-      if (result.valid) {
+      resData = data;
+      resErr = error;
+
+      // Fallback check: if user entered Arabic "ريمان" and database has "REMAN" (or vice versa)
+      if ((!resData || !resData.valid) && (trimmed === 'ريمان' || trimmed.toUpperCase() === 'REMAN')) {
+        const altCode = trimmed === 'ريمان' ? 'REMAN' : 'ريمان';
+        const { data: altData } = await supabase.rpc('validate_coupon', {
+          p_code: altCode,
+          p_user_id: user.id,
+          p_course_id: resolvedCourseId || null,
+          p_order_amount: priceBeforeCoupon,
+        });
+        if (altData && (altData as any).valid) {
+          resData = altData;
+          resErr = null;
+          setCouponCode(altCode);
+        }
+      }
+
+      if (resErr) throw resErr;
+      const result = resData as unknown as CouponResult;
+      if (result?.valid) {
         setAppliedCoupon(result);
         toast.success(isRTL ? `تم تطبيق الكوبون! خصم ${result.discount_amount?.toLocaleString()} ر.س` : `Coupon applied! ${result.discount_amount?.toLocaleString()} SAR off`);
       } else {
-        toast.error(isRTL ? result.error_ar : result.error);
+        toast.error(isRTL ? (result?.error_ar || 'كود الكوبون غير صالح') : (result?.error || 'Invalid coupon code'));
         setAppliedCoupon(null);
       }
     } catch (e: any) {
-      toast.error(e.message);
+      toast.error(e.message || (isRTL ? 'فشل التحقق من الكوبون' : 'Failed to validate coupon'));
     } finally {
       setCouponLoading(false);
     }
@@ -433,13 +457,41 @@ const Checkout = () => {
         });
 
         if (error) {
-          const errorMsg = error.message || 'Payment processing failed';
-          if (errorMsg.includes('already enrolled')) {
-            toast.error(isRTL ? 'أنت مسجل بالفعل في هذا الدورة' : 'You are already enrolled in this course');
-          } else if (errorMsg.includes('not configured')) {
-            toast.error(isRTL ? 'بوابة الدفع غير مهيأة. يرجى التواصل مع الدعم' : 'Payment gateway not configured. Please contact support');
+          let errorMsg = error.message || 'Payment processing failed';
+          let errorDetails = '';
+          try {
+            const errContext = await (error as any).context?.json?.();
+            if (errContext?.error) errorMsg = errContext.error;
+            if (errContext?.details) errorDetails = errContext.details;
+          } catch {}
+
+          const fullErr = `${errorMsg} ${errorDetails}`.trim();
+          console.error("create-alinma-payment invocation error:", error, fullErr);
+
+          if (fullErr.includes('already enrolled') || fullErr.includes('أنت مسجل بالفعل')) {
+            toast.error(isRTL ? 'أنت مسجل بالفعل في هذه الدورة' : 'You are already enrolled in this course');
+          } else if (fullErr.includes('not configured') || fullErr.includes('غير مهيأة')) {
+            toast.error(
+              isRTL 
+                ? 'بوابة الدفع الإلكتروني تواجه صيانة مؤقتة. يرجى اختيار التحويل البنكي أو التواصل مع الدعم.' 
+                : 'Payment gateway not configured. Please choose Bank Transfer or contact support'
+            );
+          } else if (fullErr.includes('max_uses_reached') || fullErr.includes('الحد الأقصى') || fullErr.includes('Coupon no longer valid')) {
+            toast.error(
+              isRTL 
+                ? 'تم استنفاذ الحد الأقصى لاستخدام كود الخصم هذا، أو انتهت صلاحيته.' 
+                : 'This coupon has reached its maximum usage limit or expired'
+            );
+          } else if (fullErr.includes('already_used') || fullErr.includes('مسبقاً')) {
+            toast.error(
+              isRTL 
+                ? 'لقد قمت باستخدام كود الخصم هذا مسبقاً على حسابك.' 
+                : 'You have already used this coupon on your account'
+            );
+          } else if (fullErr.includes('Invalid coupon') || fullErr.includes('غير صالح')) {
+            toast.error(errorDetails || (isRTL ? 'كود الخصم غير صالح أو غير منطبق على هذه الدورة' : 'Invalid coupon code'));
           } else {
-            toast.error(isRTL ? 'حدث خطأ أثناء معالجة الدفع' : 'Payment processing error');
+            toast.error(errorDetails || errorMsg || (isRTL ? 'حدث خطأ أثناء معالجة الدفع' : 'Payment processing error'));
           }
           return;
         }
