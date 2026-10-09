@@ -207,7 +207,7 @@ export default {
         });
       }
 
-      // ==================== VIDEO STREAMING ENDPOINT ====================
+      // ==================== VIDEO STREAMING ENDPOINT (ANTI-IDM HARDENED) ====================
       if (request.method === 'GET' && path.startsWith('/video/')) {
         const key = decodeURIComponent(path.replace('/video/', ''));
         
@@ -215,7 +215,21 @@ export default {
           return jsonResponse({ error: 'Video key is required' }, 400);
         }
 
-        // Check for Range header (for video streaming)
+        // 1. Block Download Managers and automated scrapers
+        const userAgent = (request.headers.get('User-Agent') || '').toLowerCase();
+        const blockedAgents = [
+          'idm', 'internet download manager', 'fdm', 'freedownloadmanager',
+          'aria2', 'wget', 'curl', 'python', 'postman', 'jdownloader',
+          'eagleget', 'ninja', 'download master', 'flashget'
+        ];
+        if (blockedAgents.some(agent => userAgent.includes(agent))) {
+          return new Response('Access Denied: Automated download managers are strictly prohibited.', {
+            status: 403,
+            headers: corsHeaders,
+          });
+        }
+
+        // Check for Range header (standard browsers streaming video always use Range)
         const rangeHeader = request.headers.get('Range');
 
         if (rangeHeader) {
@@ -229,9 +243,11 @@ export default {
           }
 
           const headers = new Headers(corsHeaders);
-          headers.set('Content-Type', object.httpMetadata?.contentType || 'video/mp4');
+          // Serve as application/octet-stream so IDM extension network sniffer does not detect media
+          const isStreamMode = url.searchParams.get('stream') === '1' || request.headers.get('Sec-Fetch-Dest') === 'video';
+          headers.set('Content-Type', isStreamMode ? 'application/octet-stream' : (object.httpMetadata?.contentType || 'application/octet-stream'));
           headers.set('Accept-Ranges', 'bytes');
-          headers.set('Cache-Control', 'public, max-age=31536000');
+          headers.set('Cache-Control', 'private, no-cache, no-store, must-revalidate');
 
           // Get range info from R2 response
           const range = object.range as { offset: number; length: number } | undefined;
@@ -247,20 +263,11 @@ export default {
             headers,
           });
         } else {
-          // Full file request
-          const object = await env.MY_BUCKET.get(key);
-
-          if (!object) {
-            return jsonResponse({ error: 'File not found' }, 404);
-          }
-
-          const headers = new Headers(corsHeaders);
-          headers.set('Content-Type', object.httpMetadata?.contentType || 'video/mp4');
-          headers.set('Content-Length', object.size.toString());
-          headers.set('Accept-Ranges', 'bytes');
-          headers.set('Cache-Control', 'public, max-age=31536000');
-
-          return new Response(object.body, { headers });
+          // Direct full-file download without Range is prohibited to prevent bulk downloading via IDM or direct links
+          return new Response('Direct download prohibited. Content is protected and must be streamed.', {
+            status: 403,
+            headers: corsHeaders,
+          });
         }
       }
 

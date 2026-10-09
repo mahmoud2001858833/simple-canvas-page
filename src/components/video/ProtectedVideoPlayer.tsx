@@ -291,56 +291,6 @@ export const ProtectedVideoPlayer = forwardRef<ProtectedVideoPlayerRef, Protecte
       (videoRef.current as any).disablePictureInPicture = true;
     }
 
-    // Mask video source getters to block IDM and browser extension DOM sniffers
-    if (videoRef.current) {
-      const videoEl = videoRef.current;
-      try {
-        Object.defineProperty(videoEl, 'currentSrc', {
-          get: () => '',
-          configurable: true,
-        });
-      } catch {}
-
-      try {
-        const origGetAttr = videoEl.getAttribute.bind(videoEl);
-        videoEl.getAttribute = (name: string) => {
-          if (name.toLowerCase() === 'src') return '';
-          return origGetAttr(name);
-        };
-      } catch {}
-    }
-
-    // Anti-IDM MutationObserver: purge any floating downloader widgets injected into the page
-    const observer = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        for (const node of Array.from(mutation.addedNodes)) {
-          if (node instanceof HTMLElement) {
-            const id = (node.id || '').toLowerCase();
-            const cls = (typeof node.className === 'string' ? node.className : '').toLowerCase();
-            const aria = (node.getAttribute('aria-label') || '').toLowerCase();
-            if (
-              id.includes('idm') ||
-              cls.includes('idm') ||
-              id.includes('download-panel') ||
-              cls.includes('download-panel') ||
-              id.includes('video-downloader') ||
-              cls.includes('video-downloader') ||
-              node.hasAttribute('data-idm-version') ||
-              aria.includes('download this video') ||
-              aria.includes('تحميل هذا الفيديو')
-            ) {
-              console.warn('IDM or downloader extension widget blocked and purged');
-              node.remove();
-            }
-          }
-        }
-      }
-    });
-
-    try {
-      observer.observe(document.body, { childList: true, subtree: true });
-    } catch {}
-
     window.addEventListener('blur', handleBlur);
     window.addEventListener('focus', handleFocus);
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -348,7 +298,6 @@ export const ProtectedVideoPlayer = forwardRef<ProtectedVideoPlayerRef, Protecte
     document.addEventListener('keydown', handleKeyDown, true);
 
     return () => {
-      observer.disconnect();
       window.removeEventListener('blur', handleBlur);
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -360,6 +309,210 @@ export const ProtectedVideoPlayer = forwardRef<ProtectedVideoPlayerRef, Protecte
       }
     };
   }, [protectionEnabled, isRTL, logCaptureAttempt]);
+
+  const shadowHostRef = useRef<HTMLDivElement>(null);
+  const shadowRootRef = useRef<ShadowRoot | null>(null);
+
+  // 1. Closed Shadow DOM: completely hide the video element from browser extensions (IDM cannot find <video>)
+  useEffect(() => {
+    const host = shadowHostRef.current;
+    if (!host) return;
+
+    if (!shadowRootRef.current) {
+      try {
+        shadowRootRef.current = host.attachShadow({ mode: 'closed' });
+      } catch {
+        // Fallback or already attached
+      }
+    }
+
+    const shadow = shadowRootRef.current;
+    if (!shadow) return;
+
+    let video = videoRef.current;
+    if (!video) {
+      const style = document.createElement('style');
+      style.textContent = `
+        :host { display: block; width: 100%; height: 100%; }
+        video {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          display: block;
+          pointer-events: none;
+          -webkit-user-select: none;
+          user-select: none;
+          transition: filter 0.3s ease;
+        }
+        video::-webkit-media-controls { display: none !important; }
+        video::-webkit-media-controls-enclosure { display: none !important; }
+        video::-internal-media-controls-download-button { display: none !important; }
+      `;
+      shadow.appendChild(style);
+
+      video = document.createElement('video');
+      video.playsInline = true;
+      video.setAttribute('playsinline', 'true');
+      video.setAttribute('disablepictureinpicture', 'true');
+      video.setAttribute('controlslist', 'nodownload noplaybackrate');
+      (video as any).disablePictureInPicture = true;
+
+      // Mask video.currentSrc getter so extension scrapers cannot read stream URL
+      try {
+        Object.defineProperty(video, 'currentSrc', { get: () => '', configurable: true });
+      } catch {}
+
+      try {
+        const origGetAttr = video.getAttribute.bind(video);
+        video.getAttribute = (name: string) => {
+          if (name.toLowerCase() === 'src') return '';
+          return origGetAttr(name);
+        };
+      } catch {}
+
+      shadow.appendChild(video);
+      videoRef.current = video;
+    }
+
+    if (src && video.src !== src) {
+      video.src = src;
+    }
+    if (poster && video.poster !== poster) {
+      video.poster = poster;
+    }
+  }, [src, poster]);
+
+  // 2. Sync blur state to video in shadow DOM
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.style.filter = isBlurred ? 'blur(20px)' : 'none';
+    }
+  }, [isBlurred]);
+
+  // 3. Attach video event listeners to shadow DOM video element
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const handleTime = () => onTimeUpdate?.();
+    const handleMeta = () => onLoadedMetadata?.();
+    const handleWait = () => onWaiting?.();
+    const handleCan = () => onCanPlay?.();
+    const handleEnd = () => onEnded?.();
+    const handleP = () => onPause?.();
+    const handlePl = () => {
+      recordVideoView();
+      if (introTitle && !introPlayedRef.current) {
+        introPlayedRef.current = true;
+        video.pause();
+        setShowIntro(true);
+        return;
+      }
+      onPlay?.();
+    };
+
+    video.addEventListener('timeupdate', handleTime);
+    video.addEventListener('loadedmetadata', handleMeta);
+    video.addEventListener('waiting', handleWait);
+    video.addEventListener('canplay', handleCan);
+    video.addEventListener('ended', handleEnd);
+    video.addEventListener('pause', handleP);
+    video.addEventListener('play', handlePl);
+
+    return () => {
+      video.removeEventListener('timeupdate', handleTime);
+      video.removeEventListener('loadedmetadata', handleMeta);
+      video.removeEventListener('waiting', handleWait);
+      video.removeEventListener('canplay', handleCan);
+      video.removeEventListener('ended', handleEnd);
+      video.removeEventListener('pause', handleP);
+      video.removeEventListener('play', handlePl);
+    };
+  }, [onTimeUpdate, onLoadedMetadata, onWaiting, onCanPlay, onEnded, onPause, onPlay, recordVideoView, introTitle]);
+
+  // 4. Aggressive Anti-IDM Shield: CSS rule injection + Real-time DOM text & element purging
+  useEffect(() => {
+    const styleId = 'anti-idm-global-shield';
+    if (!document.getElementById(styleId)) {
+      const styleEl = document.createElement('style');
+      styleEl.id = styleId;
+      styleEl.textContent = `
+        [id*="idm" i],
+        [class*="idm" i],
+        [data-idm-version],
+        [id*="IDM"],
+        [class*="IDM"],
+        div[style*="2147483647"],
+        div[style*="z-index: 2147483647"],
+        div[style*="z-index:2147483647"] {
+          display: none !important;
+          visibility: hidden !important;
+          opacity: 0 !important;
+          pointer-events: none !important;
+          position: fixed !important;
+          top: -99999px !important;
+          left: -99999px !important;
+          width: 0 !important;
+          height: 0 !important;
+          max-width: 0 !important;
+          max-height: 0 !important;
+          clip: rect(0, 0, 0, 0) !important;
+          z-index: -99999 !important;
+        }
+      `;
+      document.head.appendChild(styleEl);
+    }
+
+    const purgeIdmWidgets = () => {
+      try {
+        const allElements = document.querySelectorAll('*');
+        for (let i = 0; i < allElements.length; i++) {
+          const el = allElements[i] as HTMLElement;
+          if (!el || el === document.body || el === document.documentElement || el === containerRef.current) continue;
+          if (containerRef.current?.contains(el)) continue;
+
+          const text = (el.textContent || '').trim();
+          const id = (el.id || '').toLowerCase();
+          const cls = (typeof el.className === 'string' ? el.className : '').toLowerCase();
+          const zIndex = window.getComputedStyle(el).zIndex;
+
+          const isIdmText = 
+            text.includes('Download this video') || 
+            text.includes('تحميل هذا الفيديو') || 
+            (text.includes('IDM') && text.includes('MP4 file')) ||
+            (text.includes('IDM') && text.includes('Download'));
+
+          const isIdmAttribute = 
+            id.includes('idm') || 
+            cls.includes('idm') || 
+            el.hasAttribute('data-idm-version');
+
+          const isExtremeZIndex = zIndex && parseInt(zIndex, 10) >= 2000000000;
+
+          if (isIdmText || isIdmAttribute || isExtremeZIndex) {
+            console.warn('[Anti-IDM] Removed unauthorized download widget:', el);
+            el.remove();
+          }
+        }
+      } catch {}
+    };
+
+    const observer = new MutationObserver(() => {
+      purgeIdmWidgets();
+    });
+
+    try {
+      observer.observe(document.documentElement, { childList: true, subtree: true });
+    } catch {}
+
+    const interval = setInterval(purgeIdmWidgets, 150);
+    purgeIdmWidgets();
+
+    return () => {
+      observer.disconnect();
+      clearInterval(interval);
+    };
+  }, []);
 
   return (
     <div 
@@ -379,35 +532,11 @@ export const ProtectedVideoPlayer = forwardRef<ProtectedVideoPlayerRef, Protecte
         toggleFullscreen();
       }}
     >
-      {/* Video Element with pointer-events-none to prevent IDM hover grabbers */}
-      <video
-        ref={videoRef}
-        src={src}
-        poster={poster}
-        className={`${className} ${isBlurred ? 'blur-xl' : ''} transition-all duration-300 ${isFullscreen ? 'w-full h-full object-contain' : ''}`}
-        onTimeUpdate={onTimeUpdate}
-        onLoadedMetadata={onLoadedMetadata}
-        onWaiting={onWaiting}
-        onCanPlay={onCanPlay}
-        onEnded={onEnded}
-        onPlay={() => {
-          recordVideoView();
-          if (introTitle && !introPlayedRef.current) {
-            introPlayedRef.current = true;
-            videoRef.current?.pause();
-            setShowIntro(true);
-            return;
-          }
-          onPlay?.();
-        }}
-        onPause={onPause}
-        controlsList="nodownload noplaybackrate"
-        disablePictureInPicture
-        playsInline
-        style={{
-          WebkitTouchCallout: 'none',
-          pointerEvents: 'none',
-        }}
+      {/* Video Host with Closed Shadow DOM - 100% invisible to browser extension DOM queries */}
+      <div 
+        ref={shadowHostRef} 
+        className={`w-full h-full ${className} ${isFullscreen ? 'w-full h-full' : ''}`}
+        style={{ pointerEvents: 'none' }}
       />
 
       {/* المقدمة التلقائية مع عنوان الدرس */}

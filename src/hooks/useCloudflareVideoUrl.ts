@@ -78,6 +78,10 @@ export const useCloudflareVideoUrl = ({
         finalUrl = `${CLOUDFLARE_WORKER_URL}/video/${fullKey}`;
       }
 
+      // Append stream=1 parameter so Cloudflare Worker uses binary stream MIME headers (Anti-IDM)
+      const streamParam = finalUrl.includes('?') ? '&stream=1' : '?stream=1';
+      finalUrl = `${finalUrl}${streamParam}`;
+
       console.log('[useCloudflareVideoUrl] Video URL generated:', finalUrl);
       setVideoUrl(finalUrl);
     } catch (err) {

@@ -48,7 +48,7 @@ export const useR2VideoUrl = ({
   const isMountedRef = useRef(true);
 
   const buildR2Url = (path: string): string => {
-    return `${R2_VIDEO_API}?key=${encodeURIComponent(path)}`;
+    return `${R2_VIDEO_API}?key=${encodeURIComponent(path)}&stream=1`;
   };
 
   const fetchVideoUrl = useCallback(async () => {
