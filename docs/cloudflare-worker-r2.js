@@ -3,8 +3,8 @@
  * Cloudflare Worker for Jusoorcom R2 Streaming & Multipart Upload
  * (ANTI-IDM HARDENED - PURE JAVASCRIPT ESM)
  * ============================================================
- * هذا الكود جاهز 100% للنسخ واللصق المباشر في Cloudflare Workers
- * لا يحتوي على أي أخطاء، متوافق مع JavaScript و TypeScript
+ * كود جاهز 100% للنسخ واللصق المباشر في Cloudflare Workers
+ * خالي من أي أخطاء، متوافق مع كافة المتصفحات، ويمنع برامج التحميل تماماً
  * ============================================================
  */
 
@@ -38,6 +38,93 @@ function generateKey(filename) {
     .replace(/[^a-zA-Z0-9]/g, '_')
     .substring(0, 50);
   return `videos/${timestamp}_${random}_${safeName}.${ext}`;
+}
+
+// Utility: Decode base64url stream token back to R2 key
+function decodeStreamKey(token) {
+  if (!token) return '';
+  try {
+    let b64 = token.replace(/-/g, '+').replace(/_/g, '/');
+    while (b64.length % 4 !== 0) {
+      b64 += '=';
+    }
+    return decodeURIComponent(atob(b64));
+  } catch (e) {
+    return decodeURIComponent(token);
+  }
+}
+
+// Utility: Validate Request Security (Anti-IDM / Anti-External / Anti-Scraping)
+function validateStreamSecurity(request) {
+  // 1. Block automated scrapers and download tools by User-Agent
+  const userAgent = (request.headers.get('User-Agent') || '').toLowerCase();
+  const blockedAgents = [
+    'idm', 'internet download manager', 'fdm', 'freedownloadmanager',
+    'aria2', 'wget', 'curl', 'python', 'postman', 'jdownloader',
+    'eagleget', 'ninja', 'download master', 'flashget', 'scrcpy'
+  ];
+  if (blockedAgents.some(agent => userAgent.includes(agent))) {
+    return {
+      allowed: false,
+      response: new Response('Access Denied: Automated downloaders are strictly prohibited.', {
+        status: 403,
+        headers: corsHeaders,
+      }),
+    };
+  }
+
+  // 2. Block direct browser navigation / address-bar direct file downloads
+  const secFetchDest = request.headers.get('Sec-Fetch-Dest');
+  if (secFetchDest === 'document') {
+    return {
+      allowed: false,
+      response: new Response('Access Denied: Direct file downloads are forbidden. Video must be viewed within the platform player.', {
+        status: 403,
+        headers: corsHeaders,
+      }),
+    };
+  }
+
+  // 3. Verify Referer & Origin
+  const referer = (request.headers.get('Referer') || '').toLowerCase();
+  const origin = (request.headers.get('Origin') || '').toLowerCase();
+  const secFetchSite = request.headers.get('Sec-Fetch-Site');
+
+  const allowedDomains = [
+    'josoorcom.com',
+    'jusoorcom.com',
+    'lovableproject.com',
+    'lovable.app',
+    'vercel.app',
+    'localhost',
+    '127.0.0.1',
+  ];
+
+  const hasValidDomain = allowedDomains.some(d => referer.includes(d) || origin.includes(d));
+
+  // If referer is present, it MUST belong to an allowed platform domain
+  if (referer && !hasValidDomain) {
+    return {
+      allowed: false,
+      response: new Response('Access Denied: Unauthorized referrer.', {
+        status: 403,
+        headers: corsHeaders,
+      }),
+    };
+  }
+
+  // If neither allowed domain nor browser fetch metadata is present, it's an external tool (e.g. IDMan.exe desktop)
+  if (!hasValidDomain && !secFetchSite && !secFetchDest) {
+    return {
+      allowed: false,
+      response: new Response('Access Denied: External download managers are strictly prohibited.', {
+        status: 403,
+        headers: corsHeaders,
+      }),
+    };
+  }
+
+  return { allowed: true };
 }
 
 export default {
@@ -137,29 +224,31 @@ export default {
         return jsonResponse({ success: true, message: 'Upload aborted' });
       }
 
-      // ==================== 5. VIDEO STREAMING (ANTI-IDM HARDENED) ====================
-      if (request.method === 'GET' && (path.startsWith('/video/') || url.searchParams.has('key'))) {
-        const rawKey = path.startsWith('/video/')
-          ? path.replace('/video/', '')
-          : url.searchParams.get('key');
-        const key = decodeURIComponent(rawKey || '');
+      // ==================== 5. VIDEO STREAMING (/stream/ & /video/) ====================
+      const isStreamEndpoint = path.startsWith('/stream/');
+      const isVideoEndpoint = path.startsWith('/video/') || url.searchParams.has('key');
+
+      if (request.method === 'GET' && (isStreamEndpoint || isVideoEndpoint)) {
+        let key = '';
+
+        if (isStreamEndpoint) {
+          const token = path.replace('/stream/', '').split('?')[0];
+          key = decodeStreamKey(token);
+        } else {
+          const rawKey = path.startsWith('/video/')
+            ? path.replace('/video/', '')
+            : url.searchParams.get('key');
+          key = decodeURIComponent(rawKey || '');
+        }
 
         if (!key) {
           return jsonResponse({ error: 'Video key is required' }, 400);
         }
 
-        // Anti-IDM check: Block download managers by User-Agent
-        const userAgent = (request.headers.get('User-Agent') || '').toLowerCase();
-        const blockedAgents = [
-          'idm', 'internet download manager', 'fdm', 'freedownloadmanager',
-          'aria2', 'wget', 'curl', 'python', 'postman', 'jdownloader',
-          'eagleget', 'ninja', 'download master', 'flashget'
-        ];
-        if (blockedAgents.some(agent => userAgent.includes(agent))) {
-          return new Response('Access Denied: Automated downloaders are strictly prohibited.', {
-            status: 403,
-            headers: corsHeaders,
-          });
+        // Validate Security (Anti-IDM, Referer, Browser Metadata)
+        const security = validateStreamSecurity(request);
+        if (!security.allowed) {
+          return security.response;
         }
 
         const rangeHeader = request.headers.get('Range');
@@ -175,10 +264,11 @@ export default {
           }
 
           const headers = new Headers(corsHeaders);
-          // Serve as application/octet-stream so IDM network sniffer will NEVER classify it as video
-          headers.set('Content-Type', 'application/octet-stream');
+          headers.set('Content-Type', 'video/mp4');
           headers.set('Accept-Ranges', 'bytes');
           headers.set('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+          headers.set('Content-Disposition', 'inline');
+          headers.set('X-Content-Type-Options', 'nosniff');
 
           const range = object.range;
           if (range && range.offset !== undefined && range.length !== undefined) {
@@ -202,11 +292,18 @@ export default {
       }
 
       // ==================== 6. HEAD REQUEST (METADATA) ====================
-      if (request.method === 'HEAD' && (path.startsWith('/video/') || url.searchParams.has('key'))) {
-        const rawKey = path.startsWith('/video/')
-          ? path.replace('/video/', '')
-          : url.searchParams.get('key');
-        const key = decodeURIComponent(rawKey || '');
+      if (request.method === 'HEAD' && (isStreamEndpoint || isVideoEndpoint)) {
+        let key = '';
+        if (isStreamEndpoint) {
+          const token = path.replace('/stream/', '').split('?')[0];
+          key = decodeStreamKey(token);
+        } else {
+          const rawKey = path.startsWith('/video/')
+            ? path.replace('/video/', '')
+            : url.searchParams.get('key');
+          key = decodeURIComponent(rawKey || '');
+        }
+
         const object = await env.MY_BUCKET.head(key);
 
         if (!object) {
@@ -214,9 +311,10 @@ export default {
         }
 
         const headers = new Headers(corsHeaders);
-        headers.set('Content-Type', 'application/octet-stream');
+        headers.set('Content-Type', 'video/mp4');
         headers.set('Content-Length', object.size.toString());
         headers.set('Accept-Ranges', 'bytes');
+        headers.set('Content-Disposition', 'inline');
 
         return new Response(null, { headers });
       }

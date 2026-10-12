@@ -54,8 +54,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuSubContent,
 } from '@/components/ui/dropdown-menu';
-
-const CLOUDFLARE_WORKER_URL = 'https://ancient-king-9e42.mhawish-alaa.workers.dev';
+import { getProtectedStreamUrl } from '@/lib/videoStreamUrl';
 
 interface LessonsManagementProps {
   courseId: string;
@@ -100,12 +99,7 @@ export const LessonsManagement = ({ courseId, courseTitle, chapterId, onBack }: 
   const previewVideoRef = useRef<HTMLVideoElement>(null);
 
   const getVideoUrl = (videoKey: string) => {
-    if (!videoKey) return null;
-    if (videoKey.startsWith('http://') || videoKey.startsWith('https://')) {
-      return videoKey;
-    }
-    const key = videoKey.startsWith('videos/') ? videoKey : `videos/${videoKey}`;
-    return `${CLOUDFLARE_WORKER_URL}/video/${key}`;
+    return getProtectedStreamUrl(videoKey);
   };
 
   const togglePreviewPlay = () => {

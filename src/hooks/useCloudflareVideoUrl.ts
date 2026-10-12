@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-
-const CLOUDFLARE_WORKER_URL = 'https://ancient-king-9e42.mhawish-alaa.workers.dev';
+import { getProtectedStreamUrl } from '@/lib/videoStreamUrl';
 
 interface UseCloudflareVideoUrlOptions {
   lessonId: string | undefined;
@@ -56,33 +55,11 @@ export const useCloudflareVideoUrl = ({
       }
 
       const videoKey = lesson.video_url;
-      let finalUrl: string;
-
       console.log('[useCloudflareVideoUrl] Video key from database:', videoKey);
 
-      if (videoKey.startsWith('videos/')) {
-        // New R2 format - use path parameter for streaming
-        // The worker expects: /video/videos/xxx (don't encode the path structure)
-        finalUrl = `${CLOUDFLARE_WORKER_URL}/video/${videoKey}`;
-      } else if (videoKey.includes('workers.dev')) {
-        // Already a full Cloudflare Worker URL
-        finalUrl = videoKey;
-      } else if (videoKey.startsWith('http://') || videoKey.startsWith('https://')) {
-        // Legacy external URL
-        console.log('[useCloudflareVideoUrl] Legacy video URL detected');
-        finalUrl = videoKey;
-      } else {
-        // Assume it's a video key without prefix - add videos/ and construct URL
-        const cleanKey = videoKey.replace(/^\/+/, '');
-        const fullKey = cleanKey.startsWith('videos/') ? cleanKey : `videos/${cleanKey}`;
-        finalUrl = `${CLOUDFLARE_WORKER_URL}/video/${fullKey}`;
-      }
+      const finalUrl = getProtectedStreamUrl(videoKey);
 
-      // Append stream=1 parameter so Cloudflare Worker uses binary stream MIME headers (Anti-IDM)
-      const streamParam = finalUrl.includes('?') ? '&stream=1' : '?stream=1';
-      finalUrl = `${finalUrl}${streamParam}`;
-
-      console.log('[useCloudflareVideoUrl] Video URL generated:', finalUrl);
+      console.log('[useCloudflareVideoUrl] Protected stream URL generated:', finalUrl);
       setVideoUrl(finalUrl);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
