@@ -208,21 +208,15 @@ const Checkout = () => {
     if (course && (course.price === 0 || course.price === null) && user && !isExistingEnrollment && resolvedCourseId) {
       const enrollFree = async () => {
         try {
-          const { error } = await supabase.from('enrollments').upsert(
-            {
-              user_id: user.id,
-              course_id: resolvedCourseId,
-              status: 'active',
-              paid_percentage: 100,
-            },
-            { onConflict: 'user_id,course_id', ignoreDuplicates: true },
-          );
-          if (error) {
-            if (/duplicate|conflict/i.test(error.message)) {
-              toast.info(isRTL ? 'أنت مسجل بالفعل في هذه الدورة' : 'You are already enrolled in this course');
-            } else {
-              throw error;
-            }
+          // The server verifies that the course is really free before enrolling
+          const { data: res, error } = await (supabase as any).rpc('enroll_free_course', {
+            p_course_id: resolvedCourseId,
+            p_coupon_code: null,
+          });
+          if (error) throw error;
+          if (!res?.success) throw new Error(res?.error === 'not_free' ? (isRTL ? 'هذه الدورة ليست مجانية' : 'This course is not free') : (res?.error || 'Enrollment failed'));
+          if (res.already_enrolled) {
+            toast.info(isRTL ? 'أنت مسجل بالفعل في هذه الدورة' : 'You are already enrolled in this course');
           } else {
             toast.success(isRTL ? 'تم التسجيل بنجاح!' : 'Enrolled successfully!');
           }
@@ -359,39 +353,18 @@ const Checkout = () => {
     try {
       // Free via 100% coupon → enroll directly, skip gateway
       if (finalPrice === 0 && resolvedCourseId) {
-        const { data: paymentData, error: payErr } = await supabase.from('payments').insert({
-          user_id: user.id,
-          course_id: resolvedCourseId,
-          request_id: requestId || null,
-          amount: 0,
-          payment_method: 'online',
-          status: 'paid',
-          paid_at: new Date().toISOString(),
-          notes: appliedCoupon?.valid ? `100% Coupon: ${couponCode}` : 'Free enrollment',
-        }).select().single();
-        if (payErr) {
-          toast.error(isRTL ? 'فشل تسجيل الدفع' : 'Failed to record payment');
+        // Server-side: re-reads the real course price and re-validates the coupon
+        const { data: freeRes, error: freeErr } = await (supabase as any).rpc('enroll_free_course', {
+          p_course_id: resolvedCourseId,
+          p_coupon_code: appliedCoupon?.valid ? couponCode : null,
+        });
+        if (freeErr || !freeRes?.success) {
+          toast.error(
+            freeRes?.error === 'not_free'
+              ? (isRTL ? 'هذه الدورة ليست مجانية، يرجى إتمام الدفع' : 'This course is not free, please complete the payment')
+              : (isRTL ? 'فشل التسجيل' : 'Enrollment failed'),
+          );
           return;
-        }
-        const { error: enrollErr } = await supabase.from('enrollments').upsert({
-          user_id: user.id,
-          course_id: resolvedCourseId,
-          status: 'active',
-          paid_percentage: 100,
-        }, { onConflict: 'user_id,course_id' });
-        if (enrollErr && !enrollErr.message.includes('duplicate')) {
-          toast.error(isRTL ? 'فشل التسجيل' : 'Enrollment failed');
-          return;
-        }
-        if (appliedCoupon?.valid && appliedCoupon.coupon_id && paymentData) {
-          try {
-            await supabase.rpc('use_coupon', {
-              p_coupon_id: appliedCoupon.coupon_id,
-              p_user_id: user.id,
-              p_payment_id: paymentData.id,
-              p_discount_amount: appliedCoupon.discount_amount || 0,
-            });
-          } catch (e) { console.error(e); }
         }
         toast.success(isRTL ? 'تم تفعيل الدورة مجاناً!' : 'Course activated for free!');
         navigate(`/courses/${course?.slug || courseId}`);

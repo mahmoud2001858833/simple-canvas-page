@@ -372,27 +372,14 @@ const CourseDetails = () => {
     mutationFn: async () => {
       const targetCourseId = courseUUID || course?.id;
       if (!user || !targetCourseId) throw new Error("Not authenticated or course not found");
-      const { data: payment, error: paymentError } = await supabase
-        .from("payments")
-        .insert({ user_id: user.id, course_id: targetCourseId, amount: course?.price || 0, payment_method: "online", status: "pending" })
-        .select()
-        .single();
-      if (paymentError) throw paymentError;
-
-      const { error: updateError } = await supabase
-        .from("payments")
-        .update({ status: "paid", paid_at: new Date().toISOString() })
-        .eq("id", payment.id);
-      if (updateError) throw updateError;
-
-      const { error: enrollError } = await supabase.from("enrollments").upsert({
-        user_id: user.id,
-        course_id: targetCourseId,
-        status: "active",
-        paid_percentage: 100,
-      }, { onConflict: "user_id,course_id" });
+      // Server-side: only succeeds if the course is really free in the database
+      const { data: res, error: enrollError } = await (supabase as any).rpc("enroll_free_course", {
+        p_course_id: targetCourseId,
+        p_coupon_code: null,
+      });
       if (enrollError) throw enrollError;
-      return payment;
+      if (!res?.success) throw new Error(res?.error || "Enrollment failed");
+      return res;
     },
     onSuccess: () => {
       const targetCourseId = courseUUID || course?.id;
