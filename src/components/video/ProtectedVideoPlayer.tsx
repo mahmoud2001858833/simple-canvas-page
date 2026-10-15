@@ -1,3 +1,4 @@
+import Hls from 'hls.js';
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -311,6 +312,7 @@ export const ProtectedVideoPlayer = forwardRef<ProtectedVideoPlayerRef, Protecte
   }, [protectionEnabled, isRTL, logCaptureAttempt]);
 
   const shadowHostRef = useRef<HTMLDivElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
   const shadowRootRef = useRef<ShadowRoot | null>(null);
 
   // 1. Closed Shadow DOM: completely hide the video element from browser extensions (IDM cannot find <video>)
@@ -374,12 +376,28 @@ export const ProtectedVideoPlayer = forwardRef<ProtectedVideoPlayerRef, Protecte
       videoRef.current = video;
     }
 
-    if (src && video.src !== src) {
-      video.src = src;
-    }
     if (poster && video.poster !== poster) {
       video.poster = poster;
     }
+    if (!src) return;
+    const isHls = src.includes(".m3u8") || src.includes("/hls/");
+    if (isHls) {
+      if (Hls.isSupported()) {
+        if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
+        const hls = new Hls({ enableWorker: true, lowLatencyMode: false });
+        hls.loadSource(src);
+        hls.attachMedia(video);
+        hlsRef.current = hls;
+      } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+        if (video.src !== src) video.src = src;
+      }
+    } else {
+      if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
+      if (video.src !== src) video.src = src;
+    }
+    return () => {
+      if (hlsRef.current) { hlsRef.current.destroy(); hlsRef.current = null; }
+    };
   }, [src, poster]);
 
   // 2. Sync blur state to video in shadow DOM

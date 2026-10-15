@@ -853,7 +853,13 @@ const LessonViewer = () => {
 
                 <ProtectedVideoPlayer
                   ref={protectedPlayerRef}
-                  src={signedUrl}
+                  src={
+                    currentLesson?.hls_ready
+                      ? `https://ancient-king-9e42.mhawish-alaa.workers.dev/hls/${lessonId}/index.m3u8`
+                      : (lessonId === "d4f8181d-737b-4ae2-bcdf-5bef1924e178"
+                          ? "https://ancient-king-9e42.mhawish-alaa.workers.dev/hls/d4f8181d-737b-4ae2-bcdf-5bef1924e178/index.m3u8"
+                          : signedUrl)
+                  }
                   poster={course?.thumbnail_url}
                   protectionEnabled={isProtectionEnabled}
                   lessonId={lessonId}
