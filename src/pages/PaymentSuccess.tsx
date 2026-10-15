@@ -28,16 +28,137 @@ export const PaymentSuccess = () => {
   const { user } = useAuth();
   const isRTL = language === 'ar';
 
-  const rawPaymentId = searchParams.get('payment_id') || searchParams.get('paymentId');
-  const transactionId = searchParams.get('transaction_id') || searchParams.get('transactionId') || searchParams.get('trackId') || searchParams.get('orderId') || searchParams.get('TrackID');
-  const courseIdParam = searchParams.get('course_id') || searchParams.get('courseId');
-  const bundleIdParam = searchParams.get('bundle_id') || searchParams.get('bundleId');
-  const resultParam = searchParams.get('result') || searchParams.get('Result') || searchParams.get('status');
-  const responseCodeParam = searchParams.get('responseCode') || searchParams.get('response_code') || searchParams.get('code') || searchParams.get('ResponseCode');
+  const getSearchParam = (keys: string[]) => {
+    for (const [key, val] of searchParams.entries()) {
+      if (keys.some(k => k.toLowerCase() === key.toLowerCase())) {
+        if (val && val.trim().length > 0) return val.trim();
+      }
+    }
+    return '';
+  };
+
+  const rawPaymentId = getSearchParam(['payment_id', 'paymentId', 'id']);
+  const transactionId = getSearchParam(['transaction_id', 'transactionId', 'trackId', 'orderId', 'TrackID', 'order_id', 'merchantOrderId', 'tranId']);
+  const courseIdParam = getSearchParam(['course_id', 'courseId']);
+  const bundleIdParam = getSearchParam(['bundle_id', 'bundleId']);
+  const resultParam = getSearchParam(['result', 'status', 'paymentStatus', 'Result', 'Status']);
+  const responseCodeParam = getSearchParam(['responseCode', 'response_code', 'respCode', 'code', 'ResponseCode', 'Code']);
+
+  const SUCCESS_CODES = new Set([
+    '0', '00', '000', '1', '001',
+    'SUCCESS', 'SUCCESSFUL', 'CAPTURED', 'PAID', 'APPROVED'
+  ]);
+
+  const FAILURE_CODES = new Set([
+    '201', '202', '205', '209', '218', '220', '223', '225', '259',
+    '301', '304', '401', '402', '403', '501', '502', '503', '504', '505', '601',
+    'FAILURE', 'UNSUCCESSFUL', 'DECLINED', 'CANCELED', 'CANCELLED', 'TIMEOUT', 'FAILED', 'REJECTED', 'NOT CAPTURED', 'ERROR'
+  ]);
+
+  const normResult = (resultParam || '').trim().toUpperCase();
+  const normCode = (responseCodeParam || '').trim().toUpperCase();
+
+  const isExplicitFailure = Boolean(
+    FAILURE_CODES.has(normResult) ||
+    FAILURE_CODES.has(normCode) ||
+    normResult.includes('CANCEL') ||
+    normResult.includes('FAIL') ||
+    normResult.includes('DECLIN') ||
+    normResult.includes('REJECT') ||
+    normResult.includes('TIMEOUT') ||
+    normResult.includes('ERROR') ||
+    normCode.startsWith('2') ||
+    normCode.startsWith('3') ||
+    normCode.startsWith('4') ||
+    normCode.startsWith('5') ||
+    normCode.startsWith('6') ||
+    payment?.status === 'failed'
+  );
+
+  const isExplicitSuccess = Boolean(
+    SUCCESS_CODES.has(normResult) ||
+    SUCCESS_CODES.has(normCode) ||
+    normResult.includes('SUCCESS') ||
+    normResult.includes('CAPTURED') ||
+    normResult.includes('APPROV') ||
+    payment?.status === 'paid'
+  );
 
   const [isActivated, setIsActivated] = useState(false);
   const [countdown, setCountdown] = useState(3);
   const activatedRef = useRef(false);
+
+  // If payment failed or was cancelled by user, immediately update to failed and navigate away
+  useEffect(() => {
+    if (!isExplicitFailure) return;
+
+    const handleFailure = async () => {
+      const targetPaymentId = payment?.id || rawPaymentId;
+      const targetOrderId = transactionId || payment?.transaction_id || '';
+      const targetCourseId = resolvedCourseId || payment?.course_id || course?.id;
+
+      console.warn('Payment failed or cancelled at gateway. Setting status to failed:', {
+        targetPaymentId,
+        targetOrderId,
+        normResult,
+        normCode,
+      });
+
+      if (targetPaymentId || targetOrderId) {
+        try {
+          await (supabase as any).rpc('process_alinma_webhook', {
+            p_track_id: targetOrderId || targetPaymentId,
+            p_transaction_id: transactionId || targetPaymentId,
+            p_result: normResult || 'FAILED',
+            p_response_code: normCode || '201',
+            p_raw_payload: Object.fromEntries(searchParams.entries()),
+          });
+        } catch (rpcErr) {
+          console.warn('RPC process_alinma_webhook failure note:', rpcErr);
+        }
+
+        try {
+          await supabase.functions.invoke('alinma-webhook', {
+            body: {
+              paymentId: targetPaymentId,
+              trackId: targetOrderId || targetPaymentId,
+              transactionId: transactionId || targetPaymentId,
+              result: normResult || 'FAILED',
+              responseCode: normCode || '201',
+              source: 'return_receipt_failure',
+            },
+          });
+        } catch (fnErr) {
+          console.warn('alinma-webhook failure note:', fnErr);
+        }
+
+        try {
+          await supabase
+            .from('payments')
+            .update({
+              status: 'failed',
+              notes: [payment?.notes, `Failed/Cancelled: ${normResult || normCode || 'Cancelled'}`].filter(Boolean).join(' | '),
+            })
+            .eq('id', targetPaymentId);
+        } catch {}
+      }
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['admin-payments'] }),
+        queryClient.invalidateQueries({ queryKey: ['my-payments'] }),
+        queryClient.invalidateQueries({ queryKey: ['payments'] }),
+        queryClient.invalidateQueries({ queryKey: ['payment-success'] }),
+      ]);
+
+      const errorReason = (normResult.includes('CANCEL') || normCode === '201')
+        ? 'cancelled'
+        : 'declined';
+
+      navigate(`/payment/failed?payment_id=${targetPaymentId || ''}&course_id=${targetCourseId || ''}&error=${errorReason}`, { replace: true });
+    };
+
+    handleFailure();
+  }, [isExplicitFailure, payment?.id, payment?.transaction_id, payment?.notes, rawPaymentId, transactionId, resolvedCourseId, normResult, normCode, navigate, queryClient, searchParams, course?.id]);
 
   // Fetch payment details with comprehensive multi-tier lookup
   const { data: payment, refetch } = useQuery({
@@ -150,8 +271,10 @@ export const PaymentSuccess = () => {
     enabled: Boolean(resolvedBundleId),
   });
 
-  // Trigger confetti on mount
+  // Trigger confetti on mount ONLY if not a failure
   useEffect(() => {
+    if (isExplicitFailure) return;
+
     const timer = setTimeout(() => {
       confetti({
         particleCount: 120,
@@ -162,12 +285,13 @@ export const PaymentSuccess = () => {
     }, 300);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [isExplicitFailure]);
 
   // INSTANT ZERO-SECOND ACTIVATION:
   // The exact second the student lands on the return receipt URL from the bank,
   // we immediately update payment to paid and upsert active enrollment in Supabase!
   useEffect(() => {
+    if (isExplicitFailure) return;
     const effectiveCourseId = resolvedCourseId;
     if (!user || (!effectiveCourseId && !payment) || activatedRef.current) return;
     activatedRef.current = true;
@@ -176,8 +300,31 @@ export const PaymentSuccess = () => {
       try {
         const targetCourseId = effectiveCourseId || payment?.course_id || course?.id;
         const targetPaymentId = payment?.id || rawPaymentId;
-
         const targetOrderId = transactionId || payment?.transaction_id || '';
+
+        // If gateway return has no explicit success and payment is still pending, verify with gateway inquiry
+        if (!isExplicitSuccess && payment?.status === 'pending') {
+          try {
+            const { data: verifyData } = await supabase.functions.invoke('verify-alinma-payment', {
+              body: {
+                paymentId: targetPaymentId,
+                gatewayParams: Object.fromEntries(searchParams.entries()),
+              },
+            });
+
+            if (verifyData?.status === 'failed') {
+              await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ['admin-payments'] }),
+                queryClient.invalidateQueries({ queryKey: ['my-payments'] }),
+                queryClient.invalidateQueries({ queryKey: ['payments'] }),
+              ]);
+              navigate(`/payment/failed?payment_id=${targetPaymentId || ''}&course_id=${targetCourseId || ''}&error=declined`, { replace: true });
+              return;
+            }
+          } catch (vErr) {
+            console.warn('verify-alinma-payment invocation note:', vErr);
+          }
+        }
 
         // 1. Authoritative RPC confirmation (SECURITY DEFINER - bypasses RLS and triggers activation)
         if (targetPaymentId) {
@@ -406,37 +553,36 @@ export const PaymentSuccess = () => {
     executeInstantActivation();
   }, [user, resolvedCourseId, resolvedBundleId, payment, rawPaymentId, transactionId, resultParam, responseCodeParam, queryClient, refetch, course, bundleData]);
 
-  // Immediate Zero-Wait Navigation to course page with history replace
+  // 3-Second Automatic Countdown to redirect directly into the course or dashboard
   useEffect(() => {
+    if (isExplicitFailure) return;
     if (!resolvedCourseId && !isBundle) return;
 
-    if (isActivated) {
-      const targetPath = isBundle
-        ? '/dashboard/student?tab=courses'
-        : `/courses/${course?.slug || resolvedCourseId}`;
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          if (isBundle) {
+            navigate('/dashboard/student?tab=courses', { replace: true });
+          } else if (course?.slug || resolvedCourseId) {
+            navigate(`/courses/${course?.slug || resolvedCourseId}`, { replace: true });
+          } else {
+            navigate('/dashboard/student', { replace: true });
+          }
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
 
-      const t = setTimeout(() => {
-        navigate(targetPath, { replace: true });
-      }, 300);
-      return () => clearTimeout(t);
-    }
-
-    // Fast fallback: If activation takes longer than 1.5 seconds, navigate anyway
-    const fallbackTimer = setTimeout(() => {
-      const targetPath = isBundle
-        ? '/dashboard/student?tab=courses'
-        : `/courses/${course?.slug || resolvedCourseId}`;
-      navigate(targetPath, { replace: true });
-    }, 1500);
-
-    return () => clearTimeout(fallbackTimer);
-  }, [isActivated, resolvedCourseId, isBundle, course?.slug, navigate]);
+    return () => clearInterval(timer);
+  }, [resolvedCourseId, isBundle, navigate, isExplicitFailure, course?.slug]);
 
   // Handle direct navigation click
   const handleOpenCourseNow = () => {
     if (isBundle) {
       navigate('/dashboard/student?tab=courses', { replace: true });
-    } else if (resolvedCourseId) {
+    } else if (course?.slug || resolvedCourseId) {
       navigate(`/courses/${course?.slug || resolvedCourseId}`, { replace: true });
     } else {
       navigate('/dashboard/student', { replace: true });
@@ -479,18 +625,18 @@ export const PaymentSuccess = () => {
                   )}
               </p>
               
-              {/* Instant redirect notification */}
+              {/* Countdown notification */}
               {(resolvedCourseId || isBundle) && (
                 <div className="mt-4 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl inline-flex items-center gap-2 text-emerald-700 dark:text-emerald-300 text-sm font-semibold">
                   <PlayCircle className="w-4 h-4 animate-pulse text-emerald-600" />
                   <span>
                     {isBundle
                       ? (isRTL
-                        ? 'جاري توجيهك إلى لوحة التحكم فوراً...'
-                        : 'Opening your student dashboard now...')
+                        ? `جاري توجيهك إلى لوحة تحكم الطالب خلال ${countdown} ثوانٍ...`
+                        : `Opening your student dashboard in ${countdown}s...`)
                       : (isRTL 
-                        ? 'تم تفعيل اشتراكك بنجاح! جاري فتح صفحة الدورة فوراً...'
-                        : 'Opening your course now...'
+                        ? `جاري فتح محتوى الدورة تلقائياً خلال ${countdown} ثوانٍ...`
+                        : `Opening your course automatically in ${countdown}s...`
                       )}
                   </span>
                 </div>

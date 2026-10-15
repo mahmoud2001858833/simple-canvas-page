@@ -1,5 +1,8 @@
+import { useEffect } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
@@ -15,12 +18,66 @@ import {
 const PaymentFailed = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { language } = useLanguage();
   const isRTL = language === 'ar';
 
   const errorCode = searchParams.get('error');
   const courseId = searchParams.get('course_id');
   const requestId = searchParams.get('request_id');
+  const paymentId = searchParams.get('payment_id') || searchParams.get('paymentId');
+  const orderId = searchParams.get('order_id') || searchParams.get('orderId') || searchParams.get('trackId') || searchParams.get('transaction_id');
+
+  useEffect(() => {
+    if (!paymentId && !orderId) return;
+
+    const finalizeFailure = async () => {
+      try {
+        if (orderId || paymentId) {
+          await (supabase as any).rpc('process_alinma_webhook', {
+            p_track_id: orderId || paymentId,
+            p_transaction_id: orderId || paymentId,
+            p_result: 'FAILED',
+            p_response_code: '201',
+          });
+        }
+      } catch (e) {
+        console.warn('RPC process_alinma_webhook on failed page:', e);
+      }
+
+      if (paymentId) {
+        try {
+          await supabase
+            .from('payments')
+            .update({
+              status: 'failed',
+              notes: 'Payment cancelled or failed at gateway',
+            })
+            .eq('id', paymentId);
+        } catch {}
+      }
+
+      try {
+        await supabase.functions.invoke('alinma-webhook', {
+          body: {
+            paymentId,
+            trackId: orderId,
+            result: 'FAILED',
+            responseCode: '201',
+            source: 'payment_failed_page',
+          },
+        });
+      } catch {}
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['admin-payments'] }),
+        queryClient.invalidateQueries({ queryKey: ['my-payments'] }),
+        queryClient.invalidateQueries({ queryKey: ['payments'] }),
+      ]);
+    };
+
+    finalizeFailure();
+  }, [paymentId, orderId, queryClient]);
 
   const getErrorMessage = () => {
     switch (errorCode) {
