@@ -351,24 +351,9 @@ serve(async (req) => {
       if (data) payment = data;
     }
 
-    // 6. By customer email fallback (matches most recent payment)
-    const emailCandidate = String(payload.customerEmail || payload.email || "").trim().toLowerCase();
-    if (!payment && emailCandidate && emailCandidate.includes("@")) {
-      const { data: prof } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("email", emailCandidate)
-        .maybeSingle();
-      if (prof?.id) {
-        const { data: pList } = await supabase
-          .from("payments")
-          .select("*")
-          .eq("user_id", prof.id)
-          .order("created_at", { ascending: false })
-          .limit(1);
-        if (pList && pList[0]) payment = pList[0];
-      }
-    }
+    // NOTE: there is intentionally no "match the user's latest payment by e-mail" fallback.
+    // This endpoint is public, so an e-mail address alone must never be enough to settle
+    // somebody's payment. Unmatched notifications are logged below for manual reconciliation.
 
     if (!payment) {
       console.warn("Payment record not found for webhook; logging to security_audit_logs");
@@ -399,6 +384,35 @@ serve(async (req) => {
 
     const { status: newStatus, description } = determineStatus(responseCode, result);
     console.log(`Resolved status for payment ${payment.id}: ${newStatus} (${description})`);
+
+    // A payment that is already paid is never downgraded by a later failed / pending notification.
+    if (payment.status === "paid" && newStatus !== "paid") {
+      console.log(`Ignoring ${newStatus} notification for already paid payment ${payment.id}`);
+      return jsonResponse({
+        success: true,
+        status: "paid",
+        payment_id: payment.id,
+        message: "Payment already paid; notification ignored",
+      });
+    }
+
+    // Optional strict mode: once you have confirmed AlinmaPay signs its notifications,
+    // set the secret ALINMA_REQUIRE_SIGNED_WEBHOOK=true so that an unsigned (forgeable)
+    // "SUCCESS" can never mark a payment as paid.
+    const requireSignedWebhook =
+      (Deno.env.get("ALINMA_REQUIRE_SIGNED_WEBHOOK") || "").trim().toLowerCase() === "true";
+    if (newStatus === "paid" && payment.status !== "paid" && requireSignedWebhook && !signatureVerified) {
+      console.warn(`Rejected unsigned paid notification for payment ${payment.id}`);
+      await supabase.from("security_audit_logs").insert({
+        user_id: payment.user_id,
+        action_type: "alinma_webhook_unsigned_rejected",
+        table_name: "payments",
+        record_id: payment.id,
+        ip_address: clientIP,
+        details: { trackId, paymentId, transactionId, responseCode, result, amount },
+      });
+      return jsonResponse({ success: false, message: "Signature verification failed" }, 401);
+    }
 
     // Idempotency: if already paid, ensure enrollment is active and return success
     if (payment.status === "paid" && newStatus === "paid") {
