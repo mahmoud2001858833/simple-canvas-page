@@ -237,6 +237,14 @@ const Checkout = () => {
     }
   }, [course, user, courseId, resolvedCourseId, navigate, isRTL, isExistingEnrollment]);
 
+  // If already enrolled and fully paid, redirect immediately to the course page
+  useEffect(() => {
+    if (isExistingEnrollment && currentPaidPercent >= 100 && (course || resolvedCourseId)) {
+      toast.info(isRTL ? 'أنت مشترك بالفعل في هذه الدورة!' : 'You are already enrolled in this course!');
+      navigate(`/courses/${course?.slug || resolvedCourseId || courseId}`, { replace: true });
+    }
+  }, [isExistingEnrollment, currentPaidPercent, course, resolvedCourseId, courseId, navigate, isRTL]);
+
   // Calculate installment amount: pay the delta between target % and current paid %
   const selectedOption = allInstallmentOptions.find(opt => opt.percent === selectedInstallment);
   const installmentAmount = Math.ceil(totalPrice * ((selectedInstallment - currentPaidPercent) / 100));

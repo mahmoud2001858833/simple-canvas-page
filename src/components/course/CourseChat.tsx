@@ -42,18 +42,31 @@ export const CourseChat = ({ open, onOpenChange, courseId, instructorId, courseN
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const isUUID = courseId ? /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(courseId) : false;
+  const [effectiveCourseId, setEffectiveCourseId] = useState(isUUID ? courseId : '');
+
   useEffect(() => {
-    if (open && user) {
+    if (isUUID) {
+      setEffectiveCourseId(courseId);
+    } else if (courseId) {
+      supabase.from('courses').select('id').eq('slug', courseId).maybeSingle().then(({ data }) => {
+        if (data?.id) setEffectiveCourseId(data.id);
+      });
+    }
+  }, [courseId, isUUID]);
+
+  useEffect(() => {
+    if (open && user && effectiveCourseId) {
       fetchMessages();
       markAsRead();
 
       const channel = supabase
-        .channel(`course-chat-${courseId}-${user.id}`)
+        .channel(`course-chat-${effectiveCourseId}-${user.id}`)
         .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',
           table: 'course_messages',
-          filter: `course_id=eq.${courseId}`,
+          filter: `course_id=eq.${effectiveCourseId}`,
         }, (payload) => {
           const msg = payload.new as ChatMessage;
           if (msg.sender_id === user.id || msg.receiver_id === user.id) {
@@ -65,7 +78,7 @@ export const CourseChat = ({ open, onOpenChange, courseId, instructorId, courseN
 
       return () => { supabase.removeChannel(channel); };
     }
-  }, [open, user, courseId]);
+  }, [open, user, effectiveCourseId]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -74,11 +87,11 @@ export const CourseChat = ({ open, onOpenChange, courseId, instructorId, courseN
   }, [messages]);
 
   const fetchMessages = async () => {
-    if (!user) return;
+    if (!user || !effectiveCourseId) return;
     const { data, error } = await supabase
       .from('course_messages')
       .select('*')
-      .eq('course_id', courseId)
+      .eq('course_id', effectiveCourseId)
       .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
       .order('created_at', { ascending: true });
 
@@ -86,24 +99,24 @@ export const CourseChat = ({ open, onOpenChange, courseId, instructorId, courseN
   };
 
   const markAsRead = async () => {
-    if (!user) return;
+    if (!user || !effectiveCourseId) return;
     await supabase
       .from('course_messages')
       .update({ is_read: true })
-      .eq('course_id', courseId)
+      .eq('course_id', effectiveCourseId)
       .eq('receiver_id', user.id)
       .eq('is_read', false);
   };
 
   const sendMessage = async (content?: string, fileUrl?: string, fileName?: string, fileType?: string) => {
-    if (!user) return;
+    if (!user || !effectiveCourseId) return;
     const msgContent = content?.trim();
     if (!msgContent && !fileUrl) return;
 
     setSending(true);
     try {
       const { error } = await supabase.from('course_messages').insert({
-        course_id: courseId,
+        course_id: effectiveCourseId,
         sender_id: user.id,
         receiver_id: instructorId,
         content: msgContent || null,

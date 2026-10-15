@@ -193,17 +193,22 @@ const CourseDetails = () => {
     }
   };
 
-  // Fetch lessons
+  // Fetch lessons (sorted by chapter order first, then lesson order)
   const { data: lessons = [] } = useQuery({
     queryKey: ["lessons", courseUUID],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lessons")
-        .select("*")
+        .select("*, chapters:chapter_id(sort_order)")
         .eq("course_id", courseUUID!)
         .order("sort_order");
       if (error) throw error;
-      return data;
+      return (data || []).sort((a, b) => {
+        const aChapterOrder = (a as any).chapters?.sort_order ?? 9999;
+        const bChapterOrder = (b as any).chapters?.sort_order ?? 9999;
+        if (aChapterOrder !== bChapterOrder) return aChapterOrder - bChapterOrder;
+        return (a.sort_order || 0) - (b.sort_order || 0);
+      });
     },
     enabled: !!courseUUID,
   });
@@ -342,18 +347,22 @@ const CourseDetails = () => {
     enabled: !!courseUUID,
   });
 
-  // Fetch instructor profile
+  // Fetch instructor profile safely
   const { data: instructor } = useQuery({
     queryKey: ["instructor", course?.instructor_id],
     queryFn: async () => {
       if (!course?.instructor_id) return null;
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", course.instructor_id)
-        .single();
-      if (error) throw error;
-      return data;
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("id, full_name, full_name_ar, avatar_url")
+          .eq("id", course.instructor_id)
+          .maybeSingle();
+        if (error) return null;
+        return data;
+      } catch {
+        return null;
+      }
     },
     enabled: !!course?.instructor_id,
   });
@@ -652,11 +661,17 @@ const CourseDetails = () => {
                         </div>
                         <Progress value={progressPercent} className="h-2" />
                       </div>
-                      <Button className="w-full" size="lg" asChild>
-                        <Link to={`/courses/${courseUUID || id}/lessons/${lessons[0]?.id}`}>
-                          <Play className="h-4 w-4 mr-2" />{isRTL ? "متابعة التعلم" : "Continue Learning"}
-                        </Link>
-                      </Button>
+                      {lessons.length > 0 ? (
+                        <Button className="w-full" size="lg" asChild>
+                          <Link to={`/courses/${(course as any)?.slug || courseUUID || id}/lessons/${lessons[0].id}`}>
+                            <Play className="h-4 w-4 mr-2" />{isRTL ? "متابعة التعلم" : "Continue Learning"}
+                          </Link>
+                        </Button>
+                      ) : (
+                        <Button className="w-full" size="lg" disabled variant="secondary">
+                          {isRTL ? "لم تتم إضافة دروس بعد" : "No lessons available"}
+                        </Button>
+                      )}
                       {course?.instructor_id && enrollment && (
                         <Button variant="outline" className="w-full" onClick={() => setShowChat(true)}>
                           <MessageSquare className="h-4 w-4 me-2" />
@@ -1000,7 +1015,7 @@ const CourseDetails = () => {
             </Card>
 
             {/* Reviews Section */}
-            <CourseReviews courseId={id!} isRTL={isRTL} />
+            <CourseReviews courseId={courseUUID || id!} isRTL={isRTL} />
 
             {/* Course Community & Group Chat */}
             {(enrollment?.status === "active" || hasStaffFreeAccess) && (
@@ -1108,7 +1123,7 @@ const CourseDetails = () => {
         <CourseChat
           open={showChat}
           onOpenChange={setShowChat}
-          courseId={id!}
+          courseId={courseUUID || id!}
           instructorId={course.instructor_id}
           courseName={isRTL ? course.title_ar : course.title}
         />

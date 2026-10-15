@@ -101,13 +101,33 @@ export const CourseReviews = ({ courseId, isRTL }: CourseReviewsProps) => {
     deleted: isRTL ? 'تم حذف تقييمك' : 'Review deleted',
   };
 
-  const { data: reviews = [] } = useQuery({
-    queryKey: ['course-reviews', courseId],
+  const isUUID = courseId ? /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(courseId) : false;
+
+  // If courseId is a slug, resolve its UUID
+  const { data: resolvedCourse } = useQuery({
+    queryKey: ['course-id-by-slug', courseId],
     queryFn: async () => {
+      const { data, error } = await supabase
+        .from('courses')
+        .select('id')
+        .eq('slug', courseId)
+        .maybeSingle();
+      if (error) return null;
+      return data;
+    },
+    enabled: !isUUID && !!courseId,
+  });
+
+  const effectiveCourseId = isUUID ? courseId : resolvedCourse?.id;
+
+  const { data: reviews = [] } = useQuery({
+    queryKey: ['course-reviews', effectiveCourseId],
+    queryFn: async () => {
+      if (!effectiveCourseId) return [];
       const { data, error } = await supabase
         .from('course_reviews')
         .select('*')
-        .eq('course_id', courseId)
+        .eq('course_id', effectiveCourseId)
         .order('created_at', { ascending: false });
       if (error) throw error;
 
@@ -122,21 +142,22 @@ export const CourseReviews = ({ courseId, isRTL }: CourseReviewsProps) => {
         profile: profiles?.find(p => p.id === review.user_id),
       }));
     },
+    enabled: !!effectiveCourseId,
   });
 
   const { data: canReview } = useQuery({
-    queryKey: ['can-review', courseId, user?.id],
+    queryKey: ['can-review', effectiveCourseId, user?.id],
     queryFn: async () => {
-      if (!user) return false;
+      if (!user || !effectiveCourseId) return false;
       const { data } = await supabase
         .from('enrollments')
         .select('progress')
-        .eq('course_id', courseId)
+        .eq('course_id', effectiveCourseId)
         .eq('user_id', user.id)
         .maybeSingle();
       return (data?.progress ?? 0) >= 100;
     },
-    enabled: !!user,
+    enabled: !!user && !!effectiveCourseId,
   });
 
   const myReview = reviews.find(r => r.user_id === user?.id);
@@ -166,9 +187,10 @@ export const CourseReviews = ({ courseId, isRTL }: CourseReviewsProps) => {
 
   const submitMutation = useMutation({
     mutationFn: async () => {
+      if (!effectiveCourseId) throw new Error('Course not found');
       if (newRating === 0) throw new Error(t.selectRating);
       const { error } = await supabase.from('course_reviews').insert({
-        course_id: courseId,
+        course_id: effectiveCourseId,
         user_id: user!.id,
         rating: scaleToStars(newRating),
         comment: newComment || null,
@@ -176,7 +198,7 @@ export const CourseReviews = ({ courseId, isRTL }: CourseReviewsProps) => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['course-reviews', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['course-reviews', effectiveCourseId] });
       toast.success(t.success);
       setNewRating(0);
       setNewComment('');
@@ -193,7 +215,7 @@ export const CourseReviews = ({ courseId, isRTL }: CourseReviewsProps) => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['course-reviews', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['course-reviews', effectiveCourseId] });
       toast.success(t.updated);
       setEditingId(null);
     },
@@ -206,7 +228,7 @@ export const CourseReviews = ({ courseId, isRTL }: CourseReviewsProps) => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['course-reviews', courseId] });
+      queryClient.invalidateQueries({ queryKey: ['course-reviews', effectiveCourseId] });
       toast.success(t.deleted);
     },
   });

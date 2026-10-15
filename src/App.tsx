@@ -14,6 +14,7 @@ import { UnifiedRealtimeProvider } from "@/components/UnifiedRealtimeProvider";
 import { createOptimizedQueryClient } from "@/lib/queryConfig";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
+import { ErrorBoundary } from "@/components/common/ErrorBoundary";
 
 // Eagerly loaded homepage (critical path)
 import Index from "./pages/Index";
@@ -175,111 +176,113 @@ const App = () => (
                   <BrowserRouter>
                     <PasswordRecoveryHandler />
                     <MaintenanceGuard>
-                      <Suspense fallback={<PageSkeleton />}>
-                        <Routes>
-                          <Route path="/" element={<Index />} />
-                          <Route path="/about" element={<About />} />
-                          <Route path="/courses" element={<Courses />} />
-                          <Route path="/courses/:id" element={<CourseDetails />} />
-                          <Route path="/courses/:id/community" element={<CourseCommunityPage />} />
-                          <Route path="/courses/:courseId/lessons/:lessonId" element={<LessonViewer />} />
-                          <Route path="/checkout/:courseId" element={<Checkout />} />
-                          <Route path="/checkout" element={<Checkout />} />
-                          <Route path="/payment/success" element={<PaymentSuccess />} />
-                          <Route path="/payment/failed" element={<PaymentFailed />} />
-                          <Route path="/payment/pending" element={<PaymentPending />} />
-                          <Route path="/login" element={<Login />} />
-                          <Route path="/reset-password" element={<ResetPassword />} />
-                          <Route path="/email-verification" element={<EmailVerification />} />
-                          <Route path="/signup" element={<Signup />} />
-                          <Route
-                            path="/dashboard"
-                            element={
-                              <ProtectedRoute allowedRoles={['student']}>
-                                <StudentDashboard />
-                              </ProtectedRoute>
-                            }
-                          />
-                          <Route
-                            path="/instructor"
-                            element={
-                              <ProtectedRoute allowedRoles={['instructor', 'admin']}>
-                                <InstructorDashboard />
-                              </ProtectedRoute>
-                            }
-                          />
-                          <Route
-                            path="/teacher/onboarding"
-                            element={
-                              <ProtectedRoute allowedRoles={['instructor', 'admin']}>
-                                <TeacherOnboardingPage />
-                              </ProtectedRoute>
-                            }
-                          />
-                          <Route
-                            path="/instructor/onboarding"
-                            element={
-                              <ProtectedRoute allowedRoles={['instructor', 'admin']}>
-                                <TeacherOnboardingPage />
-                              </ProtectedRoute>
-                            }
-                          />
-                          <Route
-                            path="/teacher/payout-setup"
-                            element={
-                              <ProtectedRoute allowedRoles={['instructor', 'admin']}>
-                                <TeacherPayoutSetupPage />
-                              </ProtectedRoute>
-                            }
-                          />
-                          <Route
-                            path="/instructor/payout-setup"
-                            element={
-                              <ProtectedRoute allowedRoles={['instructor', 'admin']}>
-                                <TeacherPayoutSetupPage />
-                              </ProtectedRoute>
-                            }
-                          />
-                          <Route
-                            path="/instructor/negotiation"
-                            element={
-                              <ProtectedRoute allowedRoles={['instructor', 'admin']}>
-                                <TeacherNegotiationPage />
-                              </ProtectedRoute>
-                            }
-                          />
-                          <Route
-                            path="/teacher/negotiation"
-                            element={
-                              <ProtectedRoute allowedRoles={['instructor', 'admin']}>
-                                <TeacherNegotiationPage />
-                              </ProtectedRoute>
-                            }
-                          />
-                          <Route
-                            path="/instructor/video-editor/:lessonId"
-                            element={
-                              <ProtectedRoute allowedRoles={['instructor', 'admin']}>
-                                <VideoEditor />
-                              </ProtectedRoute>
-                            }
-                          />
-                          <Route
-                            path="/admin"
-                            element={
-                              <ProtectedRoute allowedRoles={['admin']}>
-                                <AdminDashboard />
-                              </ProtectedRoute>
-                            }
-                          />
-                          <Route path="/quiz/:quizId" element={<QuizPage />} />
-                          <Route path="/verify/:token" element={<CertificateVerify />} />
-                          <Route path="/tutorials" element={<Tutorials />} />
-                          <Route path="/terms" element={<Terms />} />
-                          <Route path="/privacy" element={<Terms />} />
-                          <Route path="*" element={<NotFound />} />
-                        </Routes>
-                      </Suspense>
+                      <ErrorBoundary>
+                        <Suspense fallback={<PageSkeleton />}>
+                          <Routes>
+                            <Route path="/" element={<Index />} />
+                            <Route path="/about" element={<About />} />
+                            <Route path="/courses" element={<Courses />} />
+                            <Route path="/courses/:id" element={<CourseDetails />} />
+                            <Route path="/courses/:id/community" element={<CourseCommunityPage />} />
+                            <Route path="/courses/:courseId/lessons/:lessonId" element={<LessonViewer />} />
+                            <Route path="/checkout/:courseId" element={<Checkout />} />
+                            <Route path="/checkout" element={<Checkout />} />
+                            <Route path="/payment/success" element={<PaymentSuccess />} />
+                            <Route path="/payment/failed" element={<PaymentFailed />} />
+                            <Route path="/payment/pending" element={<PaymentPending />} />
+                            <Route path="/login" element={<Login />} />
+                            <Route path="/reset-password" element={<ResetPassword />} />
+                            <Route path="/email-verification" element={<EmailVerification />} />
+                            <Route path="/signup" element={<Signup />} />
+                            <Route
+                              path="/dashboard"
+                              element={
+                                <ProtectedRoute allowedRoles={['student']}>
+                                  <StudentDashboard />
+                                </ProtectedRoute>
+                              }
+                            />
+                            <Route
+                              path="/instructor"
+                              element={
+                                <ProtectedRoute allowedRoles={['instructor', 'admin']}>
+                                  <InstructorDashboard />
+                                </ProtectedRoute>
+                              }
+                            />
+                            <Route
+                              path="/teacher/onboarding"
+                              element={
+                                <ProtectedRoute allowedRoles={['instructor', 'admin']}>
+                                  <TeacherOnboardingPage />
+                                </ProtectedRoute>
+                              }
+                            />
+                            <Route
+                              path="/instructor/onboarding"
+                              element={
+                                <ProtectedRoute allowedRoles={['instructor', 'admin']}>
+                                  <TeacherOnboardingPage />
+                                </ProtectedRoute>
+                              }
+                            />
+                            <Route
+                              path="/teacher/payout-setup"
+                              element={
+                                <ProtectedRoute allowedRoles={['instructor', 'admin']}>
+                                  <TeacherPayoutSetupPage />
+                                </ProtectedRoute>
+                              }
+                            />
+                            <Route
+                              path="/instructor/payout-setup"
+                              element={
+                                <ProtectedRoute allowedRoles={['instructor', 'admin']}>
+                                  <TeacherPayoutSetupPage />
+                                </ProtectedRoute>
+                              }
+                            />
+                            <Route
+                              path="/instructor/negotiation"
+                              element={
+                                <ProtectedRoute allowedRoles={['instructor', 'admin']}>
+                                  <TeacherNegotiationPage />
+                                </ProtectedRoute>
+                              }
+                            />
+                            <Route
+                              path="/teacher/negotiation"
+                              element={
+                                <ProtectedRoute allowedRoles={['instructor', 'admin']}>
+                                  <TeacherNegotiationPage />
+                                </ProtectedRoute>
+                              }
+                            />
+                            <Route
+                              path="/instructor/video-editor/:lessonId"
+                              element={
+                                <ProtectedRoute allowedRoles={['instructor', 'admin']}>
+                                  <VideoEditor />
+                                </ProtectedRoute>
+                              }
+                            />
+                            <Route
+                              path="/admin"
+                              element={
+                                <ProtectedRoute allowedRoles={['admin']}>
+                                  <AdminDashboard />
+                                </ProtectedRoute>
+                              }
+                            />
+                            <Route path="/quiz/:quizId" element={<QuizPage />} />
+                            <Route path="/verify/:token" element={<CertificateVerify />} />
+                            <Route path="/tutorials" element={<Tutorials />} />
+                            <Route path="/terms" element={<Terms />} />
+                            <Route path="/privacy" element={<Terms />} />
+                            <Route path="*" element={<NotFound />} />
+                          </Routes>
+                        </Suspense>
+                      </ErrorBoundary>
                       <Suspense fallback={null}>
                         <ChatWidget />
                         <DirectSupportChat />

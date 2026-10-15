@@ -406,36 +406,38 @@ export const PaymentSuccess = () => {
     executeInstantActivation();
   }, [user, resolvedCourseId, resolvedBundleId, payment, rawPaymentId, transactionId, resultParam, responseCodeParam, queryClient, refetch, course, bundleData]);
 
-  // 3-Second Automatic Countdown to redirect directly into the course or dashboard
+  // Immediate Zero-Wait Navigation to course page with history replace
   useEffect(() => {
     if (!resolvedCourseId && !isBundle) return;
 
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          if (isBundle) {
-            navigate('/dashboard/student?tab=courses', { replace: true });
-          } else if (resolvedCourseId) {
-            navigate(`/courses/${resolvedCourseId}`, { replace: true });
-          } else {
-            navigate('/dashboard/student', { replace: true });
-          }
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    if (isActivated) {
+      const targetPath = isBundle
+        ? '/dashboard/student?tab=courses'
+        : `/courses/${course?.slug || resolvedCourseId}`;
 
-    return () => clearInterval(timer);
-  }, [resolvedCourseId, isBundle, navigate]);
+      const t = setTimeout(() => {
+        navigate(targetPath, { replace: true });
+      }, 300);
+      return () => clearTimeout(t);
+    }
+
+    // Fast fallback: If activation takes longer than 1.5 seconds, navigate anyway
+    const fallbackTimer = setTimeout(() => {
+      const targetPath = isBundle
+        ? '/dashboard/student?tab=courses'
+        : `/courses/${course?.slug || resolvedCourseId}`;
+      navigate(targetPath, { replace: true });
+    }, 1500);
+
+    return () => clearTimeout(fallbackTimer);
+  }, [isActivated, resolvedCourseId, isBundle, course?.slug, navigate]);
 
   // Handle direct navigation click
   const handleOpenCourseNow = () => {
     if (isBundle) {
       navigate('/dashboard/student?tab=courses', { replace: true });
     } else if (resolvedCourseId) {
-      navigate(`/courses/${resolvedCourseId}`, { replace: true });
+      navigate(`/courses/${course?.slug || resolvedCourseId}`, { replace: true });
     } else {
       navigate('/dashboard/student', { replace: true });
     }
@@ -477,18 +479,18 @@ export const PaymentSuccess = () => {
                   )}
               </p>
               
-              {/* Countdown notification */}
+              {/* Instant redirect notification */}
               {(resolvedCourseId || isBundle) && (
                 <div className="mt-4 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl inline-flex items-center gap-2 text-emerald-700 dark:text-emerald-300 text-sm font-semibold">
                   <PlayCircle className="w-4 h-4 animate-pulse text-emerald-600" />
                   <span>
                     {isBundle
                       ? (isRTL
-                        ? `جاري توجيهك إلى لوحة تحكم الطالب خلال ${countdown} ثوانٍ...`
-                        : `Opening your student dashboard in ${countdown}s...`)
+                        ? 'جاري توجيهك إلى لوحة التحكم فوراً...'
+                        : 'Opening your student dashboard now...')
                       : (isRTL 
-                        ? `جاري فتح محتوى الدورة تلقائياً خلال ${countdown} ثوانٍ...`
-                        : `Opening your course automatically in ${countdown}s...`
+                        ? 'تم تفعيل اشتراكك بنجاح! جاري فتح صفحة الدورة فوراً...'
+                        : 'Opening your course now...'
                       )}
                   </span>
                 </div>
