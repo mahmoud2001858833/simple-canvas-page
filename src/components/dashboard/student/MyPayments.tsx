@@ -160,10 +160,13 @@ export const MyPayments = () => {
   }
 
   const totalPaid = payments?.filter(p => p.status === 'paid').reduce((sum, p) => sum + Number(p.amount), 0) || 0;
-  const pendingAmount = payments?.filter(p => p.status === 'pending').reduce((sum, p) => sum + Number(p.amount), 0) || 0;
+  const pendingAmount = payments?.filter(p => p.status === 'pending' && p.payment_method === 'bank_transfer').reduce((sum, p) => sum + Number(p.amount), 0) || 0;
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
+  const getStatusIcon = (status: string, method?: string) => {
+    const effectiveStatus = (status === 'pending' && (method === 'online' || method === 'alinmapay'))
+      ? 'failed'
+      : status;
+    switch (effectiveStatus) {
       case 'paid': return <CheckCircle className="w-4 h-4 text-green-500" />;
       case 'pending': return <Clock className="w-4 h-4 text-amber-500" />;
       case 'failed': return <XCircle className="w-4 h-4 text-destructive" />;
@@ -262,7 +265,7 @@ export const MyPayments = () => {
                 >
                   <div className="flex items-center gap-4">
                     <div className="flex-shrink-0">
-                      {getStatusIcon(payment.status)}
+                      {getStatusIcon(payment.status, payment.payment_method)}
                     </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="font-medium truncate">
@@ -281,12 +284,19 @@ export const MyPayments = () => {
                     </div>
                     <div className="flex flex-col items-end gap-1">
                       <span className="font-bold">{Number(payment.amount).toLocaleString()} ر.س</span>
-                      <Badge
-                        variant={payment.status === 'paid' ? 'default' : payment.status === 'failed' ? 'destructive' : 'secondary'}
-                        className={payment.status === 'paid' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : ''}
-                      >
-                        {t.status[payment.status as keyof typeof t.status] || payment.status}
-                      </Badge>
+                      {(() => {
+                        const effectiveStatus = (payment.status === 'pending' && (payment.payment_method === 'online' || payment.payment_method === 'alinmapay'))
+                          ? 'failed'
+                          : payment.status;
+                        return (
+                          <Badge
+                            variant={effectiveStatus === 'paid' ? 'default' : effectiveStatus === 'failed' ? 'destructive' : 'secondary'}
+                            className={effectiveStatus === 'paid' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : ''}
+                          >
+                            {t.status[effectiveStatus as keyof typeof t.status] || effectiveStatus}
+                          </Badge>
+                        );
+                      })()}
                     </div>
                   </div>
 

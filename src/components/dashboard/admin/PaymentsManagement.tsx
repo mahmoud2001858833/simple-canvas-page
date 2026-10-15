@@ -84,6 +84,22 @@ export const PaymentsManagement = () => {
   const { data: payments, isLoading } = useQuery({
     queryKey: ['admin-payments', search, statusFilter, dateFrom, dateTo],
     queryFn: async () => {
+      // Automatically reconcile online payments:
+      // Online card payments (AlinmaPay/Visa/Mada) that are in pending status are uncompleted/cancelled attempts.
+      // Unlike manual bank transfers which require admin receipt review, online payments must show and resolve to 'failed' if not paid.
+      try {
+        await supabase
+          .from('payments')
+          .update({
+            status: 'failed',
+            notes: 'Online payment uncompleted / failed at bank gateway',
+          })
+          .eq('status', 'pending')
+          .in('payment_method', ['online', 'alinmapay']);
+      } catch (e) {
+        console.warn('Auto resolve pending online payments note:', e);
+      }
+
       let query = supabase
         .from('payments')
         .select(`*, course:courses(title, title_ar, instructor_id, instructor_commission)`)
@@ -302,6 +318,20 @@ export const PaymentsManagement = () => {
   // Ask the payment gateway for the real status of every stuck pending payment
   const reconcileMutation = useMutation({
     mutationFn: async () => {
+      // 1. Mark any unconfirmed online payments in DB as failed
+      try {
+        await supabase
+          .from('payments')
+          .update({
+            status: 'failed',
+            notes: 'Reconciled: online card payment unconfirmed / cancelled at gateway',
+          })
+          .eq('status', 'pending')
+          .in('payment_method', ['online', 'alinmapay']);
+      } catch (e) {
+        console.warn('Direct reconcile failed update note:', e);
+      }
+
       const { data, error } = await supabase.functions.invoke('verify-alinma-payment', {
         body: { reconcileAll: true },
       });
@@ -373,7 +403,12 @@ export const PaymentsManagement = () => {
     onError: (error: any) => toast.error(error.message),
   });
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: string, method?: string) => {
+    // If an online card payment is pending, it was not completed at the bank gateway
+    const effectiveStatus = (status === 'pending' && (method === 'online' || method === 'alinmapay'))
+      ? 'failed'
+      : status;
+
     const config: Record<string, { color: string; icon: any; label: { ar: string; en: string } }> = {
       pending: { color: 'bg-warning', icon: Clock, label: { ar: 'معلق', en: 'Pending' } },
       paid: { color: 'bg-success', icon: CheckCircle, label: { ar: 'مدفوع', en: 'Paid' } },
@@ -381,7 +416,7 @@ export const PaymentsManagement = () => {
       refunded: { color: 'bg-muted', icon: RefreshCw, label: { ar: 'مسترد', en: 'Refunded' } },
       partial: { color: 'bg-info', icon: DollarSign, label: { ar: 'جزئي', en: 'Partial' } },
     };
-    const cfg = config[status] || config.pending;
+    const cfg = config[effectiveStatus] || config.pending;
     const Icon = cfg.icon;
     return (
       <Badge className={`${cfg.color} text-white flex items-center gap-1 w-fit`}>
@@ -641,7 +676,7 @@ export const PaymentsManagement = () => {
                   <TableCell>
                     <Badge variant="outline">{getMethodLabel(payment.payment_method)}</Badge>
                   </TableCell>
-                  <TableCell>{getStatusBadge(payment.status)}</TableCell>
+                  <TableCell>{getStatusBadge(payment.status, payment.payment_method)}</TableCell>
                   <TableCell className="text-muted-foreground">
                     {format(new Date(payment.created_at), 'd MMM yyyy', {
                       locale: language === 'ar' ? ar : enUS,
@@ -665,8 +700,8 @@ export const PaymentsManagement = () => {
                           {language === 'ar' ? 'الوصل' : 'Receipt'}
                         </Button>
                       )}
-                      {/* Failed Payment: One-click Confirm & Activate */}
-                      {payment.status === 'failed' && (
+                      {/* Failed Payment or Uncompleted Online Payment: One-click Confirm & Activate */}
+                      {(payment.status === 'failed' || (payment.status === 'pending' && (payment.payment_method === 'online' || payment.payment_method === 'alinmapay'))) && (
                         <Button
                           size="sm"
                           className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-sm gap-1 text-xs"
@@ -678,7 +713,7 @@ export const PaymentsManagement = () => {
                         </Button>
                       )}
 
-                      {payment.status === 'pending' && (
+                      {payment.status === 'pending' && payment.payment_method === 'bank_transfer' && (
                         <>
                           <Button
                             size="sm"

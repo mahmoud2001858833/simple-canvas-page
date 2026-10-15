@@ -497,6 +497,20 @@ const Checkout = () => {
         }
 
         if (data?.redirect_url) {
+          // Initialize online payment attempt as failed in DB until explicitly confirmed by gateway return or webhook
+          if (data.payment_id) {
+            try {
+              await (supabase as any).rpc('process_alinma_webhook', {
+                p_track_id: data.payment_id,
+                p_transaction_id: data.transaction_id || data.payment_id,
+                p_result: 'FAILED',
+                p_response_code: '201',
+              });
+            } catch (initErr) {
+              console.warn('Initial failed status note in checkout:', initErr);
+            }
+          }
+
           window.location.href = data.redirect_url;
         } else {
           toast.error(isRTL ? 'لم يتم استلام رابط الدفع' : 'No payment link received');
