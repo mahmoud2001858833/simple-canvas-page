@@ -1,32 +1,35 @@
-import { createClient } from '@supabase/supabase-js';
+// Public endpoint that AlinmaPay may call (notification / callback URL).
+//
+// It does NOT decide whether a payment succeeded. It only forwards what the bank sent,
+// unchanged, to the `alinma-webhook` Supabase Edge Function, which owns the authoritative
+// logic (matching the payment, signature check, idempotency, enrollment).
+//
+// IMPORTANT: a missing `result` / `responseCode` must never be treated as success, and this
+// handler must never write `paid` to the database itself.
 
-// Configuration matching the active Supabase project
 const SUPABASE_URL =
   process.env.VITE_SUPABASE_URL ||
   process.env.SUPABASE_URL ||
   'https://nrioqyolqusiexgpxfxz.supabase.co';
 
-const SUPABASE_KEY =
-  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+// Public (anon / publishable) key only. The Edge Function is deployed with verify_jwt = false,
+// so the key is optional; it is sent when available.
+const PUBLIC_KEY =
   process.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5yaW9xeW9scXVzaWV4Z3B4Znh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg2NTUyOTAsImV4cCI6MjA4NDIzMTI5MH0.Uz6aoBl2kjTKENXw8eTrSdOM4W93RVuWTDWr1fCLpAo';
+  process.env.SUPABASE_PUBLISHABLE_KEY ||
+  process.env.SUPABASE_ANON_KEY ||
+  '';
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-
-const SUCCESS_CODES = new Set([
-  '0', '00', '000', '1', '001', 'SUCCESS', 'SUCCESSFUL', 'CAPTURED', 'PAID', 'APPROVED'
+const ALLOWED_ORIGINS = new Set([
+  'https://www.josoorcom.com',
+  'https://josoorcom.com',
+  'http://localhost:5173',
+  'http://localhost:8080',
+  'http://localhost:3000',
 ]);
 
 export default async function handler(req: any, res: any) {
   // CORS Headers - Restrict to trusted origins
-  const ALLOWED_ORIGINS = new Set([
-    'https://www.josoorcom.com',
-    'https://josoorcom.com',
-    'http://localhost:5173',
-    'http://localhost:8080',
-    'http://localhost:3000',
-  ]);
-
   const origin = req.headers?.origin || req.headers?.Origin;
   if (origin && ALLOWED_ORIGINS.has(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
@@ -60,7 +63,7 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    // Parse payload from body and query
+    // Parse payload from body and query (JSON or form-encoded)
     let body = req.body || {};
     if (typeof body === 'string') {
       try {
@@ -68,7 +71,9 @@ export default async function handler(req: any, res: any) {
       } catch {
         const params = new URLSearchParams(body);
         const obj: Record<string, any> = {};
-        params.forEach((v, k) => { obj[k] = v; });
+        params.forEach((v, k) => {
+          obj[k] = v;
+        });
         body = obj;
       }
     }
@@ -80,358 +85,38 @@ export default async function handler(req: any, res: any) {
 
     console.log('Alinma Webhook received payload:', JSON.stringify(payload));
 
-    const orderObj = payload.order || {};
-    const orderDetails = payload.orderDetails || {};
-    const addDetails = payload.additionalDetails || {};
-
-    // Extract userData if present
-    let parsedUserData: Record<string, any> = {};
-    try {
-      const rawUD = addDetails.userData || payload.userData || payload.metadata;
-      if (typeof rawUD === 'string') {
-        parsedUserData = JSON.parse(rawUD);
-      } else if (typeof rawUD === 'object' && rawUD !== null) {
-        parsedUserData = rawUD;
-      }
-    } catch {}
-
-    // Extract reference across all Alinma formats (Hosted Checkout, Apple Pay, Inquiry)
-    const alinmaRef = String(
-      payload.transactionRef ||
-      payload.TransactionRef ||
-      payload.tranRef ||
-      payload.TranRef ||
-      payload.transaction_ref ||
-      payload.referenceId ||
-      payload.ReferenceId ||
-      payload.referenceNo ||
-      payload.ReferenceNo ||
-      payload.refNumber ||
-      payload.ref ||
-      payload.MerchantTxnId ||
-      ''
-    ).trim();
-
-    const trackId = String(
-      payload.trackId ||
-      payload.trackid ||
-      payload.TrackId ||
-      payload.TrackID ||
-      payload.orderId ||
-      payload.order_id ||
-      orderObj.orderId ||
-      orderDetails.orderId ||
-      parsedUserData.orderId ||
-      ''
-    ).trim();
-
-    const paymentId = String(
-      parsedUserData.paymentId ||
-      payload.paymentId ||
-      payload.paymentid ||
-      payload.PaymentID ||
-      payload.transactionId ||
-      payload.tranid ||
-      payload.trans_id ||
-      alinmaRef ||
-      ''
-    ).trim();
-
-    const transactionId = String(
-      alinmaRef ||
-      payload.transactionId ||
-      payload.tranid ||
-      payload.trans_id ||
-      payload.TranID ||
-      ''
-    ).trim();
-
-    const result = String(
-      payload.result ||
-      payload.Result ||
-      payload.status ||
-      payload.Status ||
-      payload.transStatus ||
-      'SUCCESS'
-    ).trim().toUpperCase();
-
-    const responseCode = String(
-      payload.responseCode ||
-      payload.response_code ||
-      payload.ResponseCode ||
-      payload.code ||
-      payload.ResultCode ||
-      '000'
-    ).trim();
-
-    const eventName = String(
-      payload.event ||
-      payload.eventType ||
-      payload.Event ||
-      payload.action ||
-      payload.notificationType ||
-      ''
-    ).trim();
-
-    const normEvent = eventName.toUpperCase();
-
-    const normResult = result.toUpperCase();
-    const isSuccess =
-      SUCCESS_CODES.has(normResult) ||
-      SUCCESS_CODES.has(responseCode) ||
-      normResult.includes('SUCCESS') ||
-      normResult.includes('CAPTURED') ||
-      normResult.includes('APPROVED') ||
-      normResult.includes('PAID') ||
-      normEvent.includes('SUCCESS') ||
-      normEvent.includes('CAPTURED') ||
-      responseCode === '000' ||
-      responseCode === '00' ||
-      responseCode === '0';
-
-    const FAILURE_CODES = new Set([
-      '201', '202', '205', '209', '218', '220', '223', '225', '259',
-      '301', '304', '401', '402', '403', '501', '502', '503', '504', '505', '601',
-      'FAILURE', 'UNSUCCESSFUL', 'DECLINED', 'CANCELED', 'CANCELLED', 'TIMEOUT', 'REJECTED'
-    ]);
-
-    const isFailure =
-      FAILURE_CODES.has(normResult) ||
-      FAILURE_CODES.has(responseCode) ||
-      normResult.includes('DECLIN') ||
-      normResult.includes('CANCEL') ||
-      normResult.includes('FAIL') ||
-      normEvent.includes('DECLIN') ||
-      normEvent.includes('CANCEL') ||
-      normEvent.includes('FAIL') ||
-      normEvent.includes('TIMEOUT');
-
-    // Look for payment in Supabase
-    let payment: any = null;
-
-    // 1. By internal UUID
-    const uuidCandidate = [parsedUserData.paymentId, paymentId, trackId, String(payload.id || '')].find((v) =>
-      v && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
-    );
-    if (uuidCandidate) {
-      const { data } = await supabase.from('payments').select('*').eq('id', uuidCandidate).maybeSingle();
-      if (data) payment = data;
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (PUBLIC_KEY) {
+      headers.apikey = PUBLIC_KEY;
+      headers.Authorization = `Bearer ${PUBLIC_KEY}`;
     }
+    // Let the Edge Function see the bank's signature header if it was sent as a header
+    const headerSignature = req.headers?.['x-signature'] || req.headers?.signature;
+    if (headerSignature) headers['x-signature'] = String(headerSignature);
 
-    // 2. By transaction_id = trackId
-    if (!payment && trackId) {
-      const { data } = await supabase.from('payments').select('*').eq('transaction_id', trackId).maybeSingle();
-      if (data) payment = data;
-    }
-
-    // 3. By tabby_payment_id = transactionId / paymentId / alinmaRef
-    const lookupRef = transactionId || paymentId || alinmaRef;
-    if (!payment && lookupRef) {
-      const { data } = await supabase
-        .from('payments')
-        .select('*')
-        .eq('tabby_payment_id', lookupRef)
-        .maybeSingle();
-      if (data) payment = data;
-    }
-
-    // 4. By transaction_id = paymentId / alinmaRef
-    if (!payment && lookupRef) {
-      const { data } = await supabase.from('payments').select('*').eq('transaction_id', lookupRef).maybeSingle();
-      if (data) payment = data;
-    }
-
-    // 5. By customer email (matches most recent payment)
-    const emailCandidate = String(payload.customerEmail || payload.email || orderObj.customerEmail || '').trim().toLowerCase();
-    if (!payment && emailCandidate && emailCandidate.includes('@')) {
-      const { data: prof } = await supabase.from('profiles').select('id').eq('email', emailCandidate).maybeSingle();
-      if (prof?.id) {
-        const { data: recentList } = await supabase
-          .from('payments')
-          .select('*')
-          .eq('user_id', prof.id)
-          .order('created_at', { ascending: false })
-          .limit(1);
-        if (recentList && recentList[0]) payment = recentList[0];
-      }
-    }
-
-    // Forward enriched payload to Supabase Edge Function (has full Service Role access)
-    const forwardPayload = {
-      ...payload,
-      trackId: trackId || payment?.transaction_id,
-      paymentId: payment?.id || paymentId,
-      transactionId: transactionId || payment?.tabby_payment_id,
-      additionalDetails: {
-        userData: JSON.stringify({
-          paymentId: payment?.id || paymentId,
-          courseId: payment?.course_id,
-          orderId: trackId || payment?.transaction_id,
-        }),
-      },
-    };
-
-    fetch(`${SUPABASE_URL}/functions/v1/alinma-webhook`, {
+    const forwardRes = await fetch(`${SUPABASE_URL}/functions/v1/alinma-webhook`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
-      },
-      body: JSON.stringify(forwardPayload),
-    }).catch((err) => console.warn('Forward to Supabase edge function failed:', err));
+      headers,
+      body: JSON.stringify(payload),
+    });
 
-    // Call authoritative RPC to bypass any RLS limitations and activate enrollment immediately
-    try {
-      const { data: rpcResult, error: rpcError } = await supabase.rpc('process_alinma_webhook', {
-        p_track_id: trackId || payment?.transaction_id || paymentId,
-        p_transaction_id: transactionId || payment?.tabby_payment_id || paymentId,
-        p_result: result,
-        p_response_code: responseCode,
-        p_raw_payload: payload,
-      });
-      console.log('process_alinma_webhook RPC result:', rpcResult, rpcError);
-    } catch (rpcErr) {
-      console.warn('RPC call fallback:', rpcErr);
-    }
+    const forwardData = await forwardRes.json().catch(() => ({}));
+    console.log('alinma-webhook edge function responded:', forwardRes.status, JSON.stringify(forwardData));
 
-    if (!payment) {
-      console.warn('Payment not found for payload:', { trackId, paymentId, transactionId });
-      return res.status(200).json({
-        success: true,
-        message: 'Webhook processed via database reconciliation',
-        trackId,
-      });
-    }
-
-    console.log(`Matched payment: ${payment.id} (user: ${payment.user_id}, course: ${payment.course_id})`);
-
-    if (isSuccess) {
-      // 1. Update payment to paid (even if it was previously marked failed by timeout/creation events)
-      await supabase
-        .from('payments')
-        .update({
-          status: 'paid',
-          paid_at: new Date().toISOString(),
-          tabby_payment_id: transactionId || paymentId || payment.tabby_payment_id,
-          notes: `${payment.notes || ''} | Alinma Webhook Confirmed: ${result} (${responseCode})`.trim(),
-        })
-        .eq('id', payment.id);
-
-      // 2. Activate course enrollment immediately
-      if (payment.course_id && payment.user_id) {
-        await supabase.from('enrollments').upsert(
-          {
-            user_id: payment.user_id,
-            course_id: payment.course_id,
-            status: 'active',
-            paid_percentage: 100,
-            enrolled_at: new Date().toISOString(),
-          },
-          { onConflict: 'user_id,course_id' }
-        );
-        console.log(`Course ${payment.course_id} unlocked for user ${payment.user_id}`);
-      }
-
-      // 2b. If bundle payment: unlock ONLY courses that belong to the purchased bundle
-      const isBundle = payment.installment_plan?.is_bundle || payment.installment_plan?.bundle_id || parsedUserData?.bundleId;
-      const bId = payment.installment_plan?.bundle_id || parsedUserData?.bundleId;
-      if (isBundle && payment.user_id) {
-        try {
-          let bundleLinkedCourseIds: string[] = [];
-          if (bId) {
-            const { data: bCourses } = await supabase
-              .from('bundle_courses')
-              .select('course_id')
-              .eq('bundle_id', bId);
-            if (bCourses && bCourses.length > 0) {
-              bundleLinkedCourseIds = bCourses.map((b: any) => b.course_id);
-            }
-          }
-
-          let reqCourseIds: string[] = [];
-          if (payment.request_id) {
-            const { data: reqRow } = await supabase
-              .from('custom_course_requests')
-              .select('notes')
-              .eq('id', payment.request_id)
-              .maybeSingle();
-            if (reqRow?.notes) {
-              try {
-                const parsed = JSON.parse(reqRow.notes);
-                if (Array.isArray(parsed?.course_ids)) {
-                  reqCourseIds = parsed.course_ids;
-                }
-              } catch {}
-            }
-          }
-
-          const bundleCoursesToUnlock = Array.from(new Set([
-            ...bundleLinkedCourseIds,
-            ...reqCourseIds,
-            ...(Array.isArray(parsedUserData?.courseIds) ? parsedUserData.courseIds : []),
-          ].filter(Boolean)));
-
-          for (const cId of bundleCoursesToUnlock) {
-            await supabase.from('enrollments').upsert({
-              user_id: payment.user_id,
-              course_id: cId,
-              status: 'active',
-              paid_percentage: 100,
-              enrolled_at: new Date().toISOString(),
-            }, { onConflict: 'user_id,course_id' });
-          }
-          console.log(`Unlocked ${bundleCoursesToUnlock.length} bundle courses for user ${payment.user_id}`);
-        } catch (bErr) {
-          console.warn('Error activating bundle courses in webhook:', bErr);
-        }
-      }
-
-      // 3. If custom course request
-      if (payment.request_id) {
-        await supabase
-          .from('custom_course_requests')
-          .update({ status: 'in_progress' })
-          .eq('id', payment.request_id);
-      }
-
-      return res.status(200).json({
-        success: true,
-        status: 'paid',
-        payment_id: payment.id,
-        message: 'Payment confirmed and course activated successfully',
-      });
-    } else if (isFailure) {
-      // Explicit payment failure
-      await supabase
-        .from('payments')
-        .update({
-          status: 'failed',
-          notes: `${payment.notes || ''} | Alinma Webhook Declined: ${result} (${responseCode})`.trim(),
-        })
-        .eq('id', payment.id);
-
-      return res.status(200).json({
-        success: true,
-        status: 'failed',
-        payment_id: payment.id,
-        message: 'Payment recorded as failed',
-      });
-    } else {
-      // Non-terminal event (e.g. TransactionCreated, LinkBased.Created, InProgress)
-      // DO NOT mark as failed! Keep current status and return OK.
-      console.log(`Non-terminal event ${result} for payment ${payment.id}, keeping pending status`);
-      return res.status(200).json({
-        success: true,
-        status: payment.status,
-        payment_id: payment.id,
-        message: 'Event logged; payment status maintained',
-      });
-    }
-  } catch (error: any) {
-    console.error('Webhook error:', error);
+    // Always acknowledge with 200 so the bank does not keep retrying; the real outcome is in
+    // the Edge Function response / audit logs.
     return res.status(200).json({
       success: true,
+      forwarded: forwardRes.ok,
+      status: forwardData?.status,
+      payment_id: forwardData?.payment_id,
+      message: forwardData?.message || 'Webhook forwarded',
+    });
+  } catch (error: any) {
+    console.error('Webhook forward error:', error);
+    return res.status(200).json({
+      success: true,
+      forwarded: false,
       message: 'Webhook received with warning',
       error: error?.message || 'Unknown error',
     });

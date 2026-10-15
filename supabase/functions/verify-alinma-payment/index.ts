@@ -103,6 +103,14 @@ async function classifyReturnParams(
   if (failure) return { status: "failed", description: description || "Payment declined" };
   if (!success) return { status: "unknown", description: description || "Inconclusive return status" };
 
+  // The return URL is visible to (and editable by) the customer, so unsigned parameters are
+  // only a hint. Once you have confirmed that AlinmaPay signs the return URL, set the
+  // secret ALINMA_REQUIRE_SIGNED_RETURN=true so an unsigned "SUCCESS" is never accepted.
+  const requireSigned = (Deno.env.get("ALINMA_REQUIRE_SIGNED_RETURN") || "").trim().toLowerCase() === "true";
+  if (requireSigned && !signature) {
+    return { status: "unknown", description: "Unsigned return parameters are not accepted" };
+  }
+
   // When the gateway signs the return, the signature must verify.
   const merchantKey = (Deno.env.get("ALINMA_MERCHANT_KEY") || "").trim();
   if (signature && merchantKey && (gatewayTxn || trackId)) {
@@ -279,39 +287,44 @@ serve(async (req) => {
     }
 
 
+    // No conclusive answer from the bank → the payment stays pending.
+    // There is intentionally NO flag that lets the caller force "paid": a customer who comes
+    // back from (or simply leaves) the bank page is not proof that money was received.
     if (outcome.status === "unknown") {
-      const isReturnReceipt = body.returnReceipt === true || body.confirmReceipt === true || body.forceConfirm === true;
-      if (isReturnReceipt) {
-        outcome = { status: "paid", description: "Payment confirmed on gateway return receipt" };
-      } else {
-        return json({ success: true, status: "pending", details: outcome.description || "Awaiting gateway confirmation" });
-      }
+      return json({ success: true, status: "pending", details: outcome.description || "Awaiting gateway confirmation" });
     }
 
-    const { error: updErr } = await admin
+    // Only close a payment that is still pending, so we never overwrite a result the bank
+    // webhook (or another request) has already recorded.
+    const { data: updatedRows, error: updErr } = await admin
       .from("payments")
       .update({
         status: outcome.status,
         paid_at: outcome.status === "paid" ? new Date().toISOString() : null,
         notes: `AlinmaPay: ${outcome.description}`,
       })
-      .eq("id", payment.id);
+      .eq("id", payment.id)
+      .eq("status", "pending")
+      .select("id");
 
     if (updErr) {
       console.error("payment update error", updErr);
       return json({ error: "Failed to update payment" }, 500);
     }
 
-    if (outcome.status === "paid" && payment.course_id && payment.user_id) {
-      // Guaranteed upsert into enrollments with service role
-      await admin.from("enrollments").upsert({
-        user_id: payment.user_id,
-        course_id: payment.course_id,
-        status: "active",
-        paid_percentage: 100,
-        enrolled_at: new Date().toISOString(),
-      }, { onConflict: "user_id,course_id" });
+    if (!updatedRows || updatedRows.length === 0) {
+      const { data: latest } = await admin
+        .from("payments")
+        .select("status")
+        .eq("id", payment.id)
+        .maybeSingle();
+      return json({ success: true, status: latest?.status ?? "pending", already_processed: true });
+    }
 
+    if (outcome.status === "paid" && payment.course_id && payment.user_id) {
+      // Enrollment itself is done by the database trigger on payments.status -> 'paid'
+      // (finalize_paid_payment), which applies the correct installment percentage.
+      // It must NOT be repeated here with a hard-coded 100%.
       await admin.from("notifications").insert({
         user_id: payment.user_id,
         title: "Payment Successful",

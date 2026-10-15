@@ -7,18 +7,37 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
-import { 
-  CheckCircle2, 
-  PartyPopper, 
-  BookOpen, 
-  GraduationCap, 
-  ArrowRight, 
+import {
+  CheckCircle2,
+  PartyPopper,
+  BookOpen,
+  GraduationCap,
+  ArrowRight,
   Receipt,
   PlayCircle,
-  Package
+  Package,
+  Loader2,
+  Clock,
+  RefreshCw,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { trackXapi } from '@/lib/xapi';
+
+// 'checking'    → we are asking the server (which asks the bank) for the real result
+// 'paid'        → the server confirmed the payment as paid
+// 'unconfirmed' → no confirmation yet (customer left the bank page, or the bank is slow)
+type Phase = 'checking' | 'paid' | 'unconfirmed';
+
+const VERIFY_ATTEMPTS = 6;
+const VERIFY_DELAY_MS = 4000;
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const PAYMENT_SELECT = `
+  *,
+  courses (id, slug, title, title_ar, category),
+  custom_course_requests (id, title, notes)
+`;
 
 export const PaymentSuccess = () => {
   const [searchParams] = useSearchParams();
@@ -29,147 +48,85 @@ export const PaymentSuccess = () => {
   const isRTL = language === 'ar';
 
   const rawPaymentId = searchParams.get('payment_id') || searchParams.get('paymentId');
-  const transactionId = searchParams.get('transaction_id') || searchParams.get('transactionId') || searchParams.get('trackId') || searchParams.get('orderId') || searchParams.get('TrackID');
+  const transactionId =
+    searchParams.get('transaction_id') ||
+    searchParams.get('transactionId') ||
+    searchParams.get('trackId') ||
+    searchParams.get('orderId') ||
+    searchParams.get('order_id') ||
+    searchParams.get('TrackID');
   const courseIdParam = searchParams.get('course_id') || searchParams.get('courseId');
   const bundleIdParam = searchParams.get('bundle_id') || searchParams.get('bundleId');
   const resultParam = searchParams.get('result') || searchParams.get('Result') || searchParams.get('status');
-  const responseCodeParam = searchParams.get('responseCode') || searchParams.get('response_code') || searchParams.get('code') || searchParams.get('ResponseCode');
+  const responseCodeParam =
+    searchParams.get('responseCode') ||
+    searchParams.get('response_code') ||
+    searchParams.get('code') ||
+    searchParams.get('ResponseCode');
 
   const normResult = (resultParam || '').toUpperCase().trim();
   const normCode = (responseCodeParam || '').trim();
 
-  // Explicit failure if gateway indicates cancel, failure, timeout, decline, or error response code
-  const isExplicitFailure = Boolean(
+  // The bank explicitly told the customer's browser the payment was cancelled / declined.
+  // This is only used to show the failure page sooner. It can never make a payment "paid".
+  const hasFailureParams = Boolean(
     normResult.includes('CANCEL') ||
-    normResult.includes('FAIL') ||
-    normResult.includes('DECLIN') ||
-    normResult.includes('REJECT') ||
-    normResult.includes('TIMEOUT') ||
-    normResult.includes('ERROR') ||
-    normCode === '201' ||
-    (normCode && !['0', '00', '000', '1', '001'].includes(normCode)) ||
-    payment?.status === 'failed'
+      normResult.includes('FAIL') ||
+      normResult.includes('DECLIN') ||
+      normResult.includes('REJECT') ||
+      normResult.includes('TIMEOUT') ||
+      normResult.includes('ERROR') ||
+      normCode === '201' ||
+      (normCode && !['0', '00', '000', '1', '001'].includes(normCode)),
   );
+  const isCancelled = normResult.includes('CANCEL') || normCode === '201';
 
-  const isExplicitSuccess = Boolean(
-    normResult.includes('SUCCESS') ||
-    normResult.includes('CAPTURED') ||
-    normResult.includes('APPROV') ||
-    normResult.includes('PAID') ||
-    ['0', '00', '000', '1', '001'].includes(normCode) ||
-    payment?.status === 'paid'
-  );
-
-  const [isActivated, setIsActivated] = useState(false);
+  const [phase, setPhase] = useState<Phase>('checking');
   const [countdown, setCountdown] = useState(3);
+  const [checkRound, setCheckRound] = useState(0);
+  const finalizedRef = useRef(false);
   const activatedRef = useRef(false);
 
-  // If payment failed or was cancelled by user at the bank gateway, immediately update to failed and navigate away
-  useEffect(() => {
-    if (!isExplicitFailure) return;
-
-    const handleFailure = async () => {
-      const targetPaymentId = payment?.id || rawPaymentId;
-      const targetCourseId = resolvedCourseId || payment?.course_id || course?.id;
-
-      if (targetPaymentId) {
-        try {
-          await supabase
-            .from('payments')
-            .update({
-              status: 'failed',
-              notes: [payment?.notes, `Failed/Cancelled: ${normResult || normCode || 'Cancelled'}`].filter(Boolean).join(' | '),
-            })
-            .eq('id', targetPaymentId);
-        } catch (e) {
-          console.warn('Update failed status error:', e);
-        }
-      }
-
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['admin-payments'] }),
-        queryClient.invalidateQueries({ queryKey: ['my-payments'] }),
-        queryClient.invalidateQueries({ queryKey: ['payments'] }),
-        queryClient.invalidateQueries({ queryKey: ['payment-success'] }),
-      ]);
-
-      const errorReason = (normResult.includes('CANCEL') || normCode === '201')
-        ? 'cancelled'
-        : 'declined';
-
-      navigate(`/payment/failed?payment_id=${targetPaymentId || ''}&course_id=${targetCourseId || ''}&error=${errorReason}`, { replace: true });
-    };
-
-    handleFailure();
-  }, [isExplicitFailure, payment?.id, payment?.notes, rawPaymentId, resolvedCourseId, normResult, normCode, navigate, queryClient, course?.id]);
-
-  // Fetch payment details with comprehensive multi-tier lookup
-  const { data: payment, refetch } = useQuery({
+  // Fetch payment details (lookup by id, then by gateway order id / transaction id)
+  const {
+    data: payment,
+    isFetched: paymentFetched,
+    refetch,
+  } = useQuery({
     queryKey: ['payment-success', rawPaymentId, transactionId, user?.id],
     queryFn: async () => {
-      // 1. If valid UUID, query by id
-      const isUuid = rawPaymentId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawPaymentId);
-      if (isUuid) {
+      if (rawPaymentId && UUID_RE.test(rawPaymentId)) {
         const { data } = await supabase
           .from('payments')
-          .select(`
-            *,
-            courses (id, title, title_ar),
-            custom_course_requests (id, title)
-          `)
+          .select(PAYMENT_SELECT)
           .eq('id', rawPaymentId)
           .maybeSingle();
         if (data) return data;
       }
 
-      // 2. Query by transaction_id (orderId / trackId)
       const lookupTrack = transactionId || rawPaymentId;
       if (lookupTrack) {
         const { data } = await supabase
           .from('payments')
-          .select(`
-            *,
-            courses (id, title, title_ar),
-            custom_course_requests (id, title)
-          `)
+          .select(PAYMENT_SELECT)
           .eq('transaction_id', lookupTrack)
           .maybeSingle();
         if (data) return data;
-      }
 
-      // 3. Query by tabby_payment_id
-      if (lookupTrack) {
-        const { data } = await supabase
+        const { data: byGatewayId } = await supabase
           .from('payments')
-          .select(`
-            *,
-            courses (id, title, title_ar),
-            custom_course_requests (id, title)
-          `)
+          .select(PAYMENT_SELECT)
           .eq('tabby_payment_id', lookupTrack)
           .maybeSingle();
-        if (data) return data;
+        if (byGatewayId) return byGatewayId;
       }
 
-      // 4. Query latest payment for currently authenticated user
-      if (user?.id) {
-        const { data } = await supabase
-          .from('payments')
-          .select(`
-            *,
-            courses (id, title, title_ar),
-            custom_course_requests (id, title)
-          `)
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (data) return data;
-      }
-
+      // Deliberately NO "latest payment of this user" fallback: showing the result of a
+      // different payment is how a cancelled attempt could look like a successful one.
       return null;
     },
-    enabled: !!(rawPaymentId || transactionId || user?.id),
+    enabled: !!user?.id && !!(rawPaymentId || transactionId),
+    refetchOnWindowFocus: false,
   });
 
   const course = payment?.courses as any;
@@ -179,14 +136,16 @@ export const PaymentSuccess = () => {
   // Also check sessionStorage for pending bundle checkout if bundleIdParam is not in URL
   let sessionBundleInfo: any = null;
   try {
-    const rawSession = sessionStorage.getItem("pending_bundle_checkout");
+    const rawSession = sessionStorage.getItem('pending_bundle_checkout');
     if (rawSession) sessionBundleInfo = JSON.parse(rawSession);
   } catch {}
 
   const reqNotes = request?.notes;
   let parsedReqNotes: any = null;
   if (typeof reqNotes === 'string' && reqNotes.startsWith('{')) {
-    try { parsedReqNotes = JSON.parse(reqNotes); } catch {}
+    try {
+      parsedReqNotes = JSON.parse(reqNotes);
+    } catch {}
   }
 
   const instPlan = payment?.installment_plan as any;
@@ -211,13 +170,157 @@ export const PaymentSuccess = () => {
         .maybeSingle();
       return data;
     },
-    enabled: Boolean(resolvedBundleId),
+    enabled: Boolean(resolvedBundleId) && phase === 'paid',
   });
 
-  // Trigger confetti on mount ONLY if not an explicit failure
-  useEffect(() => {
-    if (isExplicitFailure) return;
+  const invalidatePaymentQueries = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['admin-payments'] }),
+      queryClient.invalidateQueries({ queryKey: ['my-payments'] }),
+      queryClient.invalidateQueries({ queryKey: ['payments'] }),
+    ]);
 
+  // The payment could not be found at all (e.g. broken link) → cannot confirm anything.
+  useEffect(() => {
+    if (user?.id && paymentFetched && !payment) setPhase('unconfirmed');
+  }, [user?.id, paymentFetched, payment]);
+
+  // THE ONLY source of truth is the server. Nothing here marks a payment as paid:
+  // we ask `verify-alinma-payment` (which checks with the bank) and just display its answer.
+  useEffect(() => {
+    if (!user || !payment || finalizedRef.current) return;
+    let cancelled = false;
+
+    const goFailed = (reason: string) => {
+      finalizedRef.current = true;
+      navigate(
+        `/payment/failed?payment_id=${payment.id}&course_id=${payment.course_id || courseIdParam || ''}&error=${reason}`,
+        { replace: true },
+      );
+    };
+
+    const run = async () => {
+      // Already settled by the bank webhook before the customer came back.
+      if (payment.status === 'paid') {
+        finalizedRef.current = true;
+        setPhase('paid');
+        return;
+      }
+      if (payment.status === 'failed' || payment.status === 'refunded') {
+        goFailed('declined');
+        return;
+      }
+
+      // Customer cancelled / was declined at the bank: close the attempt as failed
+      // (server-side function: only affects the caller's own pending online payment).
+      if (hasFailureParams) {
+        try {
+          await (supabase as any).rpc('mark_payment_failed', { p_payment_id: payment.id });
+        } catch (e) {
+          console.warn('mark_payment_failed note:', e);
+        }
+        if (cancelled) return;
+        await invalidatePaymentQueries();
+        goFailed(isCancelled ? 'cancelled' : 'declined');
+        return;
+      }
+
+      // No explicit answer in the URL → ask the server, retrying a few times while the
+      // bank finishes processing.
+      for (let attempt = 0; attempt < VERIFY_ATTEMPTS; attempt++) {
+        if (cancelled) return;
+        const { data, error } = await supabase.functions.invoke('verify-alinma-payment', {
+          body: {
+            paymentId: payment.id,
+            gatewayParams: Object.fromEntries(searchParams.entries()),
+          },
+        });
+        if (cancelled) return;
+
+        const status = error ? 'pending' : (data as any)?.status;
+        if (status === 'paid') {
+          finalizedRef.current = true;
+          setPhase('paid');
+          await Promise.all([refetch(), invalidatePaymentQueries()]);
+          return;
+        }
+        if (status === 'failed') {
+          await invalidatePaymentQueries();
+          goFailed('declined');
+          return;
+        }
+        if (attempt < VERIFY_ATTEMPTS - 1) await sleep(VERIFY_DELAY_MS);
+      }
+
+      if (!cancelled) setPhase('unconfirmed');
+    };
+
+    setPhase('checking');
+    run();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, payment?.id, payment?.status, checkRound]);
+
+  // After the server confirmed the payment: run the post-payment bookkeeping once.
+  // Course enrollment itself is done by the database (trigger on payments.status → paid,
+  // with the correct installment percentage), so it is NOT repeated from the browser.
+  useEffect(() => {
+    if (phase !== 'paid' || !user || !payment || activatedRef.current) return;
+    activatedRef.current = true;
+
+    const finalize = async () => {
+      try {
+        // Bundles unlock several courses; that fulfilment lives in this database function,
+        // which itself refuses to run unless the payment is already marked paid.
+        if (isBundle || (payment.courses as any)?.category === 'bundle') {
+          try {
+            await (supabase as any).rpc('confirm_payment_on_return', {
+              p_payment_id: payment.id,
+              p_order_id: payment.transaction_id || '',
+            });
+          } catch (rpcErr) {
+            console.warn('RPC confirm_payment_on_return note:', rpcErr);
+          }
+        }
+
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['my-enrollments'] }),
+          queryClient.invalidateQueries({ queryKey: ['enrollment'] }),
+          queryClient.invalidateQueries({ queryKey: ['enrollments'] }),
+          queryClient.invalidateQueries({ queryKey: ['course-content'] }),
+          queryClient.invalidateQueries({ queryKey: ['course'] }),
+          queryClient.invalidateQueries({ queryKey: ['student-bundles'] }),
+          invalidatePaymentQueries(),
+        ]);
+
+        const targetCourseId = resolvedCourseId || payment.course_id;
+        if (targetCourseId) {
+          try {
+            trackXapi({ verb: 'registered', courseId: targetCourseId });
+          } catch {
+            /* non-blocking */
+          }
+        }
+
+        try {
+          localStorage.removeItem('pending_checkout');
+          sessionStorage.removeItem('pending_checkout');
+          sessionStorage.removeItem('pending_bundle_checkout');
+        } catch {}
+      } catch (err) {
+        console.error('Post-payment finalize error:', err);
+      }
+    };
+
+    finalize();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, user?.id, payment?.id]);
+
+  // Trigger confetti only once the payment is really confirmed
+  useEffect(() => {
+    if (phase !== 'paid') return;
     const timer = setTimeout(() => {
       confetti({
         particleCount: 120,
@@ -226,293 +329,12 @@ export const PaymentSuccess = () => {
         colors: ['#10B981', '#3B82F6', '#F59E0B', '#EC4899'],
       });
     }, 300);
-
     return () => clearTimeout(timer);
-  }, [isExplicitFailure]);
+  }, [phase]);
 
-  // INSTANT ZERO-SECOND ACTIVATION:
-  // ONLY activates when genuinely confirmed paid, never on cancel/failure!
+  // 3-second automatic countdown to the course / dashboard — only after a confirmed payment
   useEffect(() => {
-    if (isExplicitFailure) return;
-    const effectiveCourseId = resolvedCourseId;
-    if (!user || (!effectiveCourseId && !payment) || activatedRef.current) return;
-
-    const executeInstantActivation = async () => {
-      try {
-        const targetCourseId = effectiveCourseId || payment?.course_id || course?.id;
-        const targetPaymentId = payment?.id || rawPaymentId;
-        const targetOrderId = transactionId || payment?.transaction_id || '';
-
-        // If gateway return has no explicit success and payment is still pending, verify with gateway inquiry
-        if (!isExplicitSuccess && payment?.status === 'pending') {
-          try {
-            const { data: verifyData } = await supabase.functions.invoke('verify-alinma-payment', {
-              body: {
-                paymentId: targetPaymentId,
-                gatewayParams: Object.fromEntries(searchParams.entries()),
-              },
-            });
-
-            if (verifyData?.status === 'failed') {
-              await supabase
-                .from('payments')
-                .update({
-                  status: 'failed',
-                  notes: [payment?.notes, 'Failed at gateway'].filter(Boolean).join(' | '),
-                })
-                .eq('id', targetPaymentId);
-
-              await Promise.all([
-                queryClient.invalidateQueries({ queryKey: ['admin-payments'] }),
-                queryClient.invalidateQueries({ queryKey: ['my-payments'] }),
-                queryClient.invalidateQueries({ queryKey: ['payments'] }),
-              ]);
-              navigate(`/payment/failed?payment_id=${targetPaymentId || ''}&course_id=${targetCourseId || ''}&error=declined`, { replace: true });
-              return;
-            } else if (verifyData?.status !== 'paid') {
-              // Not confirmed paid
-              navigate(`/payment/failed?payment_id=${targetPaymentId || ''}&course_id=${targetCourseId || ''}&error=declined`, { replace: true });
-              return;
-            }
-          } catch (vErr) {
-            console.warn('verify-alinma-payment invocation note:', vErr);
-            navigate(`/payment/failed?payment_id=${targetPaymentId || ''}&course_id=${targetCourseId || ''}&error=declined`, { replace: true });
-            return;
-          }
-        }
-
-        activatedRef.current = true;
-
-        // 1. Authoritative RPC confirmation (SECURITY DEFINER - bypasses RLS and triggers activation)
-        if (targetPaymentId) {
-          try {
-            await (supabase as any).rpc('confirm_payment_on_return', {
-              p_payment_id: targetPaymentId,
-              p_order_id: targetOrderId,
-            });
-          } catch (rpcErr) {
-            console.warn('RPC confirm_payment_on_return note:', rpcErr);
-          }
-
-          // Fallback direct payment update
-          try {
-            await supabase
-              .from('payments')
-              .update({
-                status: 'paid',
-                paid_at: new Date().toISOString(),
-                tabby_payment_id: transactionId || payment?.tabby_payment_id || undefined,
-                notes: [payment?.notes, 'Payment confirmed on return receipt'].filter(Boolean).join(' | '),
-              })
-              .eq('id', targetPaymentId);
-          } catch (updErr) {
-            console.warn('Direct update note:', updErr);
-          }
-        }
-
-        // 2. Detect if this is a bundle payment
-        let isBundlePayment = Boolean(isBundle || resolvedBundleId);
-        if (!isBundlePayment && targetCourseId) {
-          try {
-            const { data: cRow } = await supabase
-              .from('courses')
-              .select('category')
-              .eq('id', targetCourseId)
-              .maybeSingle();
-            if (cRow?.category === 'bundle') {
-              isBundlePayment = true;
-            } else {
-              const { data: bRow } = await supabase
-                .from('course_bundles')
-                .select('id')
-                .eq('id', targetCourseId)
-                .maybeSingle();
-              if (bRow?.id) {
-                isBundlePayment = true;
-              }
-            }
-          } catch {}
-        }
-
-        // 3. Guaranteed Activation
-        if (isBundlePayment && user.id) {
-          // USER INSTRUCTION: "بدي عندما يتم شراء البكج بتفعل الدورات الموجودة بس بالبكج"
-          // Activate ONLY the courses that belong to this specific bundle!
-          console.log("Activating bundle-specific courses for purchase, user:", user.id);
-
-          try {
-            // A. Fetch any explicitly attached bundle courses from DB
-            const effectiveBundleId = resolvedBundleId || targetCourseId;
-            let bundleLinkedCourseIds: string[] = [];
-            if (effectiveBundleId) {
-              const { data: bCourses } = await supabase
-                .from('bundle_courses')
-                .select('course_id')
-                .eq('bundle_id', effectiveBundleId);
-              if (bCourses && bCourses.length > 0) {
-                bundleLinkedCourseIds = bCourses.map((b) => b.course_id);
-              }
-            }
-
-            // B. Resolve bundle courses from DB, session storage, or request metadata
-            const bundleCoursesToUnlock = Array.from(
-              new Set([
-                ...bundleLinkedCourseIds,
-                ...(sessionBundleInfo?.courseIds || []),
-                ...(parsedReqNotes?.course_ids || []),
-              ].filter(Boolean))
-            );
-
-            console.log(`Unlocking ${bundleCoursesToUnlock.length} bundle courses for student:`, bundleCoursesToUnlock);
-
-            // C. Enroll the student in ONLY the courses included in this bundle
-            for (const cId of bundleCoursesToUnlock) {
-              try {
-                await supabase
-                  .from('enrollments')
-                  .upsert(
-                    {
-                      user_id: user.id,
-                      course_id: cId,
-                      status: 'active',
-                      paid_percentage: 100,
-                      enrolled_at: new Date().toISOString(),
-                    },
-                    { onConflict: 'user_id,course_id' }
-                  );
-              } catch (eErr) {
-                console.warn(`Enrollment error for course ${cId}:`, eErr);
-              }
-            }
-
-            // D. Also mark the bundle course itself active
-            if (targetCourseId) {
-              try {
-                await supabase
-                  .from('enrollments')
-                  .upsert(
-                    {
-                      user_id: user.id,
-                      course_id: targetCourseId,
-                      status: 'active',
-                      paid_percentage: 100,
-                      enrolled_at: new Date().toISOString(),
-                    },
-                    { onConflict: 'user_id,course_id' }
-                  );
-              } catch {}
-            }
-
-            // E. Record bundle purchase tracking
-            if (effectiveBundleId) {
-              try {
-                await supabase
-                  .from('bundle_purchases')
-                  .insert({
-                    bundle_id: effectiveBundleId,
-                    user_id: user.id,
-                    payment_id: targetPaymentId || null,
-                    amount_paid: Number(payment?.amount || bundleData?.price || sessionBundleInfo?.amountPaidToday || 0),
-                    status: 'active',
-                    purchased_at: new Date().toISOString(),
-                  });
-              } catch (bpErr) {
-                console.warn('Bundle purchase insert note:', bpErr);
-              }
-            }
-
-            setIsActivated(true);
-          } catch (bundleErr) {
-            console.error('Bundle platform-wide activation error:', bundleErr);
-          }
-        } else if (targetCourseId && user.id) {
-          // Standard single course activation
-          try {
-            await supabase
-              .from('enrollments')
-              .upsert(
-                {
-                  user_id: user.id,
-                  course_id: targetCourseId,
-                  status: 'active',
-                  paid_percentage: 100,
-                  enrolled_at: new Date().toISOString(),
-                },
-                { onConflict: 'user_id,course_id' }
-              );
-          } catch (enrErr) {
-            console.warn('Direct enrollment note:', enrErr);
-          }
-
-          setIsActivated(true);
-        }
-
-        // 3. Invalidate all query caches so all course and dashboard pages reflect instant enrollment
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: ['my-enrollments'] }),
-          queryClient.invalidateQueries({ queryKey: ['enrollment'] }),
-          queryClient.invalidateQueries({ queryKey: ['enrollments'] }),
-          queryClient.invalidateQueries({ queryKey: ['course-content'] }),
-          queryClient.invalidateQueries({ queryKey: ['course'] }),
-          queryClient.invalidateQueries({ queryKey: ['admin-payments'] }),
-          queryClient.invalidateQueries({ queryKey: ['my-payments'] }),
-          queryClient.invalidateQueries({ queryKey: ['student-bundles'] }),
-        ]);
-
-        // 4. Track registration event
-        if (targetCourseId) {
-          try {
-            trackXapi({ verb: 'registered', courseId: targetCourseId });
-          } catch { /* non-blocking */ }
-        }
-
-        // Clean up pending storage
-        try {
-          localStorage.removeItem('pending_checkout');
-          sessionStorage.removeItem('pending_checkout');
-          sessionStorage.removeItem('pending_bundle_checkout');
-        } catch {}
-
-        // 5. Notify both webhooks in the background with full userData for permanent database confirmation
-        const webhookPayload = {
-          paymentId: targetPaymentId,
-          courseId: targetCourseId,
-          bundleId: resolvedBundleId,
-          trackId: transactionId || payment?.transaction_id || targetPaymentId,
-          transactionId: transactionId || payment?.tabby_payment_id,
-          additionalDetails: {
-            userData: JSON.stringify({
-              paymentId: targetPaymentId,
-              courseId: targetCourseId,
-              bundleId: resolvedBundleId,
-              orderId: transactionId || payment?.transaction_id,
-            }),
-          },
-          result: resultParam || 'SUCCESS',
-          responseCode: responseCodeParam || '000',
-          source: 'return_receipt',
-        };
-
-        supabase.functions.invoke('alinma-webhook', { body: webhookPayload }).catch(console.warn);
-
-        fetch('/api/alinma-webhook', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(webhookPayload),
-        }).catch(console.warn);
-
-        await refetch();
-      } catch (err) {
-        console.error('Instant activation error:', err);
-      }
-    };
-
-    executeInstantActivation();
-  }, [user, resolvedCourseId, resolvedBundleId, payment, rawPaymentId, transactionId, resultParam, responseCodeParam, queryClient, refetch, course, bundleData, isExplicitFailure, isExplicitSuccess, searchParams, navigate]);
-
-  // 3-Second Automatic Countdown to redirect directly into the course or dashboard
-  useEffect(() => {
-    if (isExplicitFailure) return;
+    if (phase !== 'paid') return;
     if (!resolvedCourseId && !isBundle) return;
 
     const timer = setInterval(() => {
@@ -533,7 +355,7 @@ export const PaymentSuccess = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [resolvedCourseId, isBundle, navigate, isExplicitFailure, course?.slug]);
+  }, [phase, resolvedCourseId, isBundle, navigate, course?.slug]);
 
   // Handle direct navigation click
   const handleOpenCourseNow = () => {
@@ -545,6 +367,72 @@ export const PaymentSuccess = () => {
       navigate('/dashboard/student', { replace: true });
     }
   };
+
+  // Not (yet) a confirmed payment → never show the success screen.
+  if (phase !== 'paid') {
+    const checking = phase === 'checking';
+    const retryTarget = payment?.course_id || courseIdParam;
+    return (
+      <div
+        className={`min-h-screen bg-gradient-to-b from-amber-50 to-background dark:from-amber-950/20 ${isRTL ? 'rtl' : 'ltr'}`}
+        dir={isRTL ? 'rtl' : 'ltr'}
+      >
+        <div className="container mx-auto px-4 py-16">
+          <div className="max-w-lg mx-auto text-center">
+            <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-amber-100 dark:bg-amber-900/30 mb-6">
+              {checking ? (
+                <Loader2 className="h-12 w-12 text-amber-600 animate-spin" />
+              ) : (
+                <Clock className="h-12 w-12 text-amber-600" />
+              )}
+            </div>
+
+            <h1 className="text-2xl font-bold text-amber-800 dark:text-amber-400 mb-2">
+              {checking
+                ? (isRTL ? 'جاري التحقق من الدفع مع البنك...' : 'Verifying your payment with the bank...')
+                : (isRTL ? 'لم يصلنا تأكيد الدفع من البنك' : 'We have not received a payment confirmation')}
+            </h1>
+            <p className="text-muted-foreground mb-8">
+              {checking
+                ? (isRTL ? 'يرجى عدم إغلاق هذه الصفحة.' : 'Please do not close this page.')
+                : (isRTL
+                  ? 'إذا خرجت من صفحة البنك دون إكمال الدفع فلم يتم أي خصم ويمكنك المحاولة من جديد. وإذا تم الخصم من حسابك فسيتم تفعيل الدورة تلقائياً فور وصول تأكيد البنك.'
+                  : 'If you left the bank page without completing the payment, you were not charged and can try again. If you were charged, the course will be activated automatically as soon as the bank confirms.')}
+            </p>
+
+            {!checking && (
+              <Card>
+                <CardContent className="pt-6 space-y-3">
+                  <Button
+                    className="w-full"
+                    size="lg"
+                    onClick={() => {
+                      finalizedRef.current = false;
+                      setCheckRound((r) => r + 1);
+                    }}
+                    disabled={!payment}
+                  >
+                    <RefreshCw className="h-4 w-4 me-2" />
+                    {isRTL ? 'تحقق مرة أخرى' : 'Check again'}
+                  </Button>
+                  {retryTarget && (
+                    <Button variant="outline" className="w-full" onClick={() => navigate(`/checkout/${retryTarget}`)}>
+                      {isRTL ? 'إعادة محاولة الدفع' : 'Try the payment again'}
+                    </Button>
+                  )}
+                  <Button variant="ghost" className="w-full" asChild>
+                    <Link to="/dashboard/student">
+                      {isRTL ? 'الذهاب للوحة التحكم' : 'Go to Dashboard'}
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen bg-gradient-to-b from-green-50 via-background to-background dark:from-green-950/20 ${isRTL ? 'rtl' : 'ltr'}`} dir={isRTL ? 'rtl' : 'ltr'}>
