@@ -497,19 +497,6 @@ export const BundleCheckoutModal = ({
       toast.dismiss(loadingToast);
 
       if (finalRedirectUrl) {
-        if (bankData?.payment_id) {
-          try {
-            await (supabase as any).rpc('process_alinma_webhook', {
-              p_track_id: bankData.payment_id,
-              p_transaction_id: bankData.transaction_id || bankData.payment_id,
-              p_result: 'FAILED',
-              p_response_code: '201',
-            });
-          } catch (bErr) {
-            console.warn('Initial bundle payment failed status note:', bErr);
-          }
-        }
-
         setRedirectingUrl(finalRedirectUrl);
         toast.success(isRTL ? "تم تجهيز جلسة الدفع! جاري تحويلك إلى البنك..." : "Redirecting to bank gateway...");
         // IMMEDIATE DIRECT REDIRECTION TO THE BANK PAYMENT PAGE

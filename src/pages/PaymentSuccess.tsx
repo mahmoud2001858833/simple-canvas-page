@@ -28,59 +28,35 @@ export const PaymentSuccess = () => {
   const { user } = useAuth();
   const isRTL = language === 'ar';
 
-  const getSearchParam = (keys: string[]) => {
-    for (const [key, val] of searchParams.entries()) {
-      if (keys.some(k => k.toLowerCase() === key.toLowerCase())) {
-        if (val && val.trim().length > 0) return val.trim();
-      }
-    }
-    return '';
-  };
+  const rawPaymentId = searchParams.get('payment_id') || searchParams.get('paymentId');
+  const transactionId = searchParams.get('transaction_id') || searchParams.get('transactionId') || searchParams.get('trackId') || searchParams.get('orderId') || searchParams.get('TrackID');
+  const courseIdParam = searchParams.get('course_id') || searchParams.get('courseId');
+  const bundleIdParam = searchParams.get('bundle_id') || searchParams.get('bundleId');
+  const resultParam = searchParams.get('result') || searchParams.get('Result') || searchParams.get('status');
+  const responseCodeParam = searchParams.get('responseCode') || searchParams.get('response_code') || searchParams.get('code') || searchParams.get('ResponseCode');
 
-  const rawPaymentId = getSearchParam(['payment_id', 'paymentId', 'id']);
-  const transactionId = getSearchParam(['transaction_id', 'transactionId', 'trackId', 'orderId', 'TrackID', 'order_id', 'merchantOrderId', 'tranId']);
-  const courseIdParam = getSearchParam(['course_id', 'courseId']);
-  const bundleIdParam = getSearchParam(['bundle_id', 'bundleId']);
-  const resultParam = getSearchParam(['result', 'status', 'paymentStatus', 'Result', 'Status']);
-  const responseCodeParam = getSearchParam(['responseCode', 'response_code', 'respCode', 'code', 'ResponseCode', 'Code']);
+  const normResult = (resultParam || '').toUpperCase().trim();
+  const normCode = (responseCodeParam || '').trim();
 
-  const SUCCESS_CODES = new Set([
-    '0', '00', '000', '1', '001',
-    'SUCCESS', 'SUCCESSFUL', 'CAPTURED', 'PAID', 'APPROVED'
-  ]);
-
-  const FAILURE_CODES = new Set([
-    '201', '202', '205', '209', '218', '220', '223', '225', '259',
-    '301', '304', '401', '402', '403', '501', '502', '503', '504', '505', '601',
-    'FAILURE', 'UNSUCCESSFUL', 'DECLINED', 'CANCELED', 'CANCELLED', 'TIMEOUT', 'FAILED', 'REJECTED', 'NOT CAPTURED', 'ERROR'
-  ]);
-
-  const normResult = (resultParam || '').trim().toUpperCase();
-  const normCode = (responseCodeParam || '').trim().toUpperCase();
-
+  // Explicit failure if gateway indicates cancel, failure, timeout, decline, or error response code
   const isExplicitFailure = Boolean(
-    FAILURE_CODES.has(normResult) ||
-    FAILURE_CODES.has(normCode) ||
     normResult.includes('CANCEL') ||
     normResult.includes('FAIL') ||
     normResult.includes('DECLIN') ||
     normResult.includes('REJECT') ||
     normResult.includes('TIMEOUT') ||
     normResult.includes('ERROR') ||
-    normCode.startsWith('2') ||
-    normCode.startsWith('3') ||
-    normCode.startsWith('4') ||
-    normCode.startsWith('5') ||
-    normCode.startsWith('6') ||
+    normCode === '201' ||
+    (normCode && !['0', '00', '000', '1', '001'].includes(normCode)) ||
     payment?.status === 'failed'
   );
 
   const isExplicitSuccess = Boolean(
-    SUCCESS_CODES.has(normResult) ||
-    SUCCESS_CODES.has(normCode) ||
     normResult.includes('SUCCESS') ||
     normResult.includes('CAPTURED') ||
     normResult.includes('APPROV') ||
+    normResult.includes('PAID') ||
+    ['0', '00', '000', '1', '001'].includes(normCode) ||
     payment?.status === 'paid'
   );
 
@@ -88,50 +64,15 @@ export const PaymentSuccess = () => {
   const [countdown, setCountdown] = useState(3);
   const activatedRef = useRef(false);
 
-  // If payment failed or was cancelled by user, immediately update to failed and navigate away
+  // If payment failed or was cancelled by user at the bank gateway, immediately update to failed and navigate away
   useEffect(() => {
     if (!isExplicitFailure) return;
 
     const handleFailure = async () => {
       const targetPaymentId = payment?.id || rawPaymentId;
-      const targetOrderId = transactionId || payment?.transaction_id || '';
       const targetCourseId = resolvedCourseId || payment?.course_id || course?.id;
 
-      console.warn('Payment failed or cancelled at gateway. Setting status to failed:', {
-        targetPaymentId,
-        targetOrderId,
-        normResult,
-        normCode,
-      });
-
-      if (targetPaymentId || targetOrderId) {
-        try {
-          await (supabase as any).rpc('process_alinma_webhook', {
-            p_track_id: targetOrderId || targetPaymentId,
-            p_transaction_id: transactionId || targetPaymentId,
-            p_result: normResult || 'FAILED',
-            p_response_code: normCode || '201',
-            p_raw_payload: Object.fromEntries(searchParams.entries()),
-          });
-        } catch (rpcErr) {
-          console.warn('RPC process_alinma_webhook failure note:', rpcErr);
-        }
-
-        try {
-          await supabase.functions.invoke('alinma-webhook', {
-            body: {
-              paymentId: targetPaymentId,
-              trackId: targetOrderId || targetPaymentId,
-              transactionId: transactionId || targetPaymentId,
-              result: normResult || 'FAILED',
-              responseCode: normCode || '201',
-              source: 'return_receipt_failure',
-            },
-          });
-        } catch (fnErr) {
-          console.warn('alinma-webhook failure note:', fnErr);
-        }
-
+      if (targetPaymentId) {
         try {
           await supabase
             .from('payments')
@@ -140,7 +81,9 @@ export const PaymentSuccess = () => {
               notes: [payment?.notes, `Failed/Cancelled: ${normResult || normCode || 'Cancelled'}`].filter(Boolean).join(' | '),
             })
             .eq('id', targetPaymentId);
-        } catch {}
+        } catch (e) {
+          console.warn('Update failed status error:', e);
+        }
       }
 
       await Promise.all([
@@ -158,7 +101,7 @@ export const PaymentSuccess = () => {
     };
 
     handleFailure();
-  }, [isExplicitFailure, payment?.id, payment?.transaction_id, payment?.notes, rawPaymentId, transactionId, resolvedCourseId, normResult, normCode, navigate, queryClient, searchParams, course?.id]);
+  }, [isExplicitFailure, payment?.id, payment?.notes, rawPaymentId, resolvedCourseId, normResult, normCode, navigate, queryClient, course?.id]);
 
   // Fetch payment details with comprehensive multi-tier lookup
   const { data: payment, refetch } = useQuery({
@@ -271,7 +214,7 @@ export const PaymentSuccess = () => {
     enabled: Boolean(resolvedBundleId),
   });
 
-  // Trigger confetti on mount ONLY if not a failure
+  // Trigger confetti on mount ONLY if not an explicit failure
   useEffect(() => {
     if (isExplicitFailure) return;
 
@@ -288,13 +231,11 @@ export const PaymentSuccess = () => {
   }, [isExplicitFailure]);
 
   // INSTANT ZERO-SECOND ACTIVATION:
-  // The exact second the student lands on the return receipt URL from the bank,
-  // we immediately update payment to paid and upsert active enrollment in Supabase!
+  // ONLY activates when genuinely confirmed paid, never on cancel/failure!
   useEffect(() => {
     if (isExplicitFailure) return;
     const effectiveCourseId = resolvedCourseId;
     if (!user || (!effectiveCourseId && !payment) || activatedRef.current) return;
-    activatedRef.current = true;
 
     const executeInstantActivation = async () => {
       try {
@@ -313,6 +254,14 @@ export const PaymentSuccess = () => {
             });
 
             if (verifyData?.status === 'failed') {
+              await supabase
+                .from('payments')
+                .update({
+                  status: 'failed',
+                  notes: [payment?.notes, 'Failed at gateway'].filter(Boolean).join(' | '),
+                })
+                .eq('id', targetPaymentId);
+
               await Promise.all([
                 queryClient.invalidateQueries({ queryKey: ['admin-payments'] }),
                 queryClient.invalidateQueries({ queryKey: ['my-payments'] }),
@@ -320,11 +269,19 @@ export const PaymentSuccess = () => {
               ]);
               navigate(`/payment/failed?payment_id=${targetPaymentId || ''}&course_id=${targetCourseId || ''}&error=declined`, { replace: true });
               return;
+            } else if (verifyData?.status !== 'paid') {
+              // Not confirmed paid
+              navigate(`/payment/failed?payment_id=${targetPaymentId || ''}&course_id=${targetCourseId || ''}&error=declined`, { replace: true });
+              return;
             }
           } catch (vErr) {
             console.warn('verify-alinma-payment invocation note:', vErr);
+            navigate(`/payment/failed?payment_id=${targetPaymentId || ''}&course_id=${targetCourseId || ''}&error=declined`, { replace: true });
+            return;
           }
         }
+
+        activatedRef.current = true;
 
         // 1. Authoritative RPC confirmation (SECURITY DEFINER - bypasses RLS and triggers activation)
         if (targetPaymentId) {
@@ -551,7 +508,7 @@ export const PaymentSuccess = () => {
     };
 
     executeInstantActivation();
-  }, [user, resolvedCourseId, resolvedBundleId, payment, rawPaymentId, transactionId, resultParam, responseCodeParam, queryClient, refetch, course, bundleData]);
+  }, [user, resolvedCourseId, resolvedBundleId, payment, rawPaymentId, transactionId, resultParam, responseCodeParam, queryClient, refetch, course, bundleData, isExplicitFailure, isExplicitSuccess, searchParams, navigate]);
 
   // 3-Second Automatic Countdown to redirect directly into the course or dashboard
   useEffect(() => {
