@@ -48,6 +48,29 @@ function safeText(v: unknown, fallback: string, maxLen: number): string {
   return /[A-Za-z0-9]/.test(cleaned) ? cleaned : fallback;
 }
 
+// The bank rejects (code 620) any cardholder name that is not "First Last" in Latin letters.
+// Build a valid one here so a payment never depends on what the profile happens to contain.
+function cardholderName(fullName: unknown, email: unknown): string {
+  const toWords = (v: unknown) =>
+    String(v || "")
+      .replace(/[^A-Za-z\s]/g, " ")
+      .split(/\s+/)
+      .filter((w) => w.length >= 2);
+  let words = toWords(fullName);
+  if (words.length < 2) {
+    const fromEmail = toWords(String(email || "").split("@")[0].replace(/[._\-+0-9]/g, " "));
+    words = [...words, ...fromEmail];
+  }
+  if (words.length === 0) words = ["Josoor"];
+  if (words.length < 2) words.push("Student");
+  return words
+    .slice(0, 3)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ")
+    .slice(0, 50)
+    .trim();
+}
+
 function safeEmail(v: unknown, fallback = "customer@example.com"): string {
   const cleaned = ascii(v, "").toLowerCase();
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleaned) ? cleaned : fallback;
@@ -395,7 +418,7 @@ serve(async (req) => {
         orderId,
       },
       customer: {
-        cardHolderName: safeText(profile.full_name || "", "Josoor Student", 50),
+        cardHolderName: cardholderName(profile.full_name, email || profile.email),
         customerEmail: safeEmail(email || profile.email || ""),
         billingAddressStreet: "",
         billingAddressCountry: "SA",
@@ -433,6 +456,7 @@ serve(async (req) => {
           Accept: "application/json",
         },
         body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(20000),
       });
       return { status: r.status, text: await r.text() };
     };

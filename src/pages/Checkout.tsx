@@ -416,7 +416,10 @@ const Checkout = () => {
           console.warn('Profile Latin name verification note in Checkout:', profErr);
         }
 
+        const abortCtl = new AbortController();
+        const abortTimer = setTimeout(() => abortCtl.abort(), 45000);
         const { data, error } = await supabase.functions.invoke('create-alinma-payment', {
+          signal: abortCtl.signal,
           body: {
             courseId: resolvedCourseId || null,
             requestId: requestId || null,
@@ -428,6 +431,8 @@ const Checkout = () => {
             customerEmail: user.email,
           },
         });
+
+        clearTimeout(abortTimer);
 
         if (error) {
           let errorMsg = error.message || 'Payment processing failed';
