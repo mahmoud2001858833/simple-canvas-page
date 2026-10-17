@@ -252,17 +252,105 @@ const LessonViewer = () => {
     enabled: !!resolvedCourseId && !!user,
   });
 
+  // Fetch user's paid payments for this course (handles cumulative installments & immediate access)
+  const { data: paidCoursePayments = [] } = useQuery({
+    queryKey: ["user-course-paid-payments", resolvedCourseId, user?.id],
+    queryFn: async () => {
+      if (!user || !resolvedCourseId) return [];
+      const { data, error } = await supabase
+        .from("payments")
+        .select("id, amount, status, installment_plan")
+        .eq("user_id", user.id)
+        .eq("course_id", resolvedCourseId)
+        .eq("status", "paid");
+      if (error) return [];
+      return data || [];
+    },
+    enabled: !!resolvedCourseId && !!user,
+  });
+
+  // Self-heal enrollment if user has a paid payment in DB but enrollment row is missing or inactive
+  useEffect(() => {
+    if (!user || !resolvedCourseId || paidCoursePayments.length === 0) return;
+    if (!enrollment || enrollment.status !== "active") {
+      supabase
+        .rpc("confirm_payment_on_return" as any, { p_payment_id: paidCoursePayments[0].id })
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ["enrollment", resolvedCourseId, user.id] });
+          queryClient.invalidateQueries({ queryKey: ["course-access", resolvedCourseId, user.id] });
+          queryClient.invalidateQueries({ queryKey: ["my-enrollments"] });
+        });
+    }
+  }, [user, resolvedCourseId, paidCoursePayments, enrollment, queryClient]);
+
+  // Active paid enrollment check
+  const isEnrolledActive =
+    (enrollment?.status === "active" && paidAccess) || paidCoursePayments.length > 0;
 
   // Chapter-based installment access logic
   // Monthly installment: access expires at the end of each paid month
   const enrollmentExpired = !!(enrollment as any)?.expires_at
     && new Date((enrollment as any).expires_at).getTime() < Date.now();
-  const paidPercentage = (enrollment as any)?.paid_percentage ?? 100;
+
+  const paidPercentage = (() => {
+    const enrollmentPct = enrollment?.status === "active"
+      ? Number((enrollment as any)?.paid_percentage ?? 100)
+      : 0;
+    if (paidCoursePayments.length === 0) return enrollmentPct;
+
+    const totalPaidAmount = paidCoursePayments.reduce((sum, p: any) => sum + Number(p.amount || 0), 0);
+    const coursePrice = Number((course as any)?.price || 0);
+    let amountPct = 0;
+    if (coursePrice > 0 && totalPaidAmount > 0) {
+      const rawPct = Math.round((totalPaidAmount / coursePrice) * 100);
+      amountPct = rawPct >= 95 ? 100 : rawPct >= 60 ? Math.max(rawPct, 66) : rawPct >= 30 ? Math.max(rawPct, 33) : rawPct;
+    }
+
+    const maxPlanPct = Math.max(
+      0,
+      ...paidCoursePayments.map((p: any) => Number(p.installment_plan?.new_paid_percentage || 0))
+    );
+    const sumPlanPct = paidCoursePayments.reduce((sum, p: any) => {
+      const plan = p.installment_plan;
+      if (!plan) return sum + 100;
+      return sum + Number(plan.installment_percent || 33);
+    }, 0);
+    const countFloorPct =
+      paidCoursePayments.length >= 3 ? 100 : paidCoursePayments.length === 2 ? 66 : 33;
+
+    const computed = Math.min(100, Math.max(enrollmentPct, amountPct, maxPlanPct, sumPlanPct, countFloorPct));
+    return computed >= 95 ? 100 : computed;
+  })();
+
   const chaptersWithContent = chapters.filter(ch => lessons.some(l => (l as any).chapter_id === ch.id));
-  const totalChaptersCount = chaptersWithContent.length || 1;
-  const accessibleChapterCount = Math.ceil((paidPercentage / 100) * totalChaptersCount);
   const sortedChapters = [...chaptersWithContent].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-  const accessibleChapterIds = new Set(sortedChapters.slice(0, accessibleChapterCount).map(ch => ch.id));
+
+  // Separate preview-only chapters from paid chapters so free intro chapters don't consume paid installment quota
+  const previewOnlyChapters = sortedChapters.filter(ch => {
+    const chLessons = lessons.filter(l => (l as any).chapter_id === ch.id);
+    return chLessons.length > 0 && chLessons.every(l => l.is_preview);
+  });
+  const paidChapters = sortedChapters.filter(ch =>
+    lessons.some(l => (l as any).chapter_id === ch.id && !l.is_preview)
+  );
+
+  const accessiblePaidChapterCount = paidPercentage > 0
+    ? Math.max(1, Math.ceil((paidPercentage / 100) * (paidChapters.length || 1)))
+    : 0;
+
+  const accessibleChapterIds = new Set([
+    ...previewOnlyChapters.map(ch => ch.id),
+    ...paidChapters.slice(0, accessiblePaidChapterCount).map(ch => ch.id),
+  ]);
+
+  // Also compute proportional lesson-level access across non-preview lessons
+  const paidLessons = lessons.filter((l: any) => !l.is_preview);
+  const accessiblePaidLessonCount = paidPercentage > 0
+    ? Math.max(1, Math.ceil((paidPercentage / 100) * paidLessons.length))
+    : 0;
+  const accessiblePaidLessonIds = new Set(
+    paidLessons.slice(0, accessiblePaidLessonCount).map((l: any) => l.id)
+  );
 
   // Admin: free access to everything. Instructor: free access to own courses only.
   const hasStaffFreeAccess = role === 'admin'
@@ -272,14 +360,13 @@ const LessonViewer = () => {
   const hasAccess = (() => {
     if (currentLesson?.is_preview) return !!user;
     if (hasStaffFreeAccess) return true;
-    if (!enrollment || enrollment.status !== 'active') return false;
+    if (!isEnrolledActive) return false;
     if (enrollmentExpired) return false;
-    if (!paidAccess) return false;
 
     if (paidPercentage >= 100) return true;
     const chapterId = (currentLesson as any)?.chapter_id;
     if (!chapterId) return true; // lessons without chapter are accessible
-    return accessibleChapterIds.has(chapterId);
+    return accessibleChapterIds.has(chapterId) || (!!currentLesson?.id && accessiblePaidLessonIds.has(currentLesson.id));
   })();
 
   // Track preview lesson access by authenticated student in video_access_logs
@@ -584,14 +671,13 @@ const LessonViewer = () => {
   const isLessonAccessible = (lesson: any, _index: number) => {
     if (lesson.is_preview) return !!user;
     if (hasStaffFreeAccess) return true;
-    if (!enrollment || enrollment.status !== 'active') return false;
+    if (!isEnrolledActive) return false;
     if (enrollmentExpired) return false;
-    if (!paidAccess) return false;
 
     if (paidPercentage >= 100) return true;
     const chapterId = (lesson as any).chapter_id;
     if (!chapterId) return true;
-    return accessibleChapterIds.has(chapterId);
+    return accessibleChapterIds.has(chapterId) || accessiblePaidLessonIds.has(lesson.id);
   };
 
   const getLessonProgress = (lessonId: string) => {
@@ -632,7 +718,7 @@ const LessonViewer = () => {
 
   if (!hasAccess) {
     const isPreviewGated = currentLesson?.is_preview && !user;
-    const isLockedByInstallment = enrollment?.status === 'active' && paidPercentage < 100;
+    const isLockedByInstallment = isEnrolledActive && paidPercentage < 100;
 
     if (isPreviewGated) {
       return (
@@ -1186,7 +1272,7 @@ const LessonViewer = () => {
             )}
 
             {/* Lesson Attachments */}
-            <LessonAttachments lessonId={lessonId!} isRTL={isRTL} isEnrolled={(!!enrollment && enrollment.status === "active") || hasStaffFreeAccess} />
+            <LessonAttachments lessonId={lessonId!} isRTL={isRTL} isEnrolled={isEnrolledActive || hasStaffFreeAccess} />
 
             {/* AI Assistant */}
             {(course as any)?.ai_enabled && (

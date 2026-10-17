@@ -83,6 +83,13 @@ export const MyCourses = ({ limit, showViewAll, onViewAll }: MyCoursesProps) => 
     queryFn: async () => {
       if (!user) return [];
 
+      // Check if user has any 'paid' payments that haven't been synced into enrollments yet
+      const { data: paidPayments } = await supabase
+        .from('payments')
+        .select('id, course_id')
+        .eq('user_id', user.id)
+        .eq('status', 'paid');
+
       let query = supabase
         .from('enrollments')
         .select(`
@@ -99,6 +106,20 @@ export const MyCourses = ({ limit, showViewAll, onViewAll }: MyCoursesProps) => 
 
       const { data, error } = await query;
       if (error) throw error;
+
+      const enrolledCourseIds = new Set((data || []).map((e: any) => e.course_id));
+      const unsyncedPayments = (paidPayments || []).filter(
+        (p: any) => p.course_id && !enrolledCourseIds.has(p.course_id)
+      );
+
+      if (unsyncedPayments.length > 0) {
+        for (const p of unsyncedPayments) {
+          await supabase.rpc('confirm_payment_on_return' as any, { p_payment_id: p.id });
+        }
+        const { data: refreshed } = await query;
+        return refreshed || data || [];
+      }
+
       return data;
     },
     enabled: !!user,
