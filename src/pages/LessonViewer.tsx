@@ -1,3 +1,4 @@
+import { unlockedChapters } from "@/lib/chapterInstallments";
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -260,7 +261,7 @@ const LessonViewer = () => {
   const paidPercentage = (enrollment as any)?.paid_percentage ?? 100;
   const chaptersWithContent = chapters.filter(ch => lessons.some(l => (l as any).chapter_id === ch.id));
   const totalChaptersCount = chaptersWithContent.length || 1;
-  const accessibleChapterCount = Math.ceil((paidPercentage / 100) * totalChaptersCount);
+  const accessibleChapterCount = unlockedChapters(paidPercentage, totalChaptersCount);
   const sortedChapters = [...chaptersWithContent].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
   const accessibleChapterIds = new Set(sortedChapters.slice(0, accessibleChapterCount).map(ch => ch.id));
 

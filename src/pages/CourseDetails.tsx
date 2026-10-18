@@ -1,3 +1,4 @@
+import { unlockedChapters } from "@/lib/chapterInstallments";
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -423,7 +424,7 @@ const CourseDetails = () => {
   const paidPercentage = (enrollment as any)?.paid_percentage ?? 100;
   const chaptersWithContent = chapters.filter(ch => lessons.some(l => (l as any).chapter_id === ch.id));
   const totalChaptersCount = chaptersWithContent.length || 1;
-  const accessibleChapterCount = Math.ceil((paidPercentage / 100) * totalChaptersCount);
+  const accessibleChapterCount = unlockedChapters(paidPercentage, totalChaptersCount);
   
   // Get accessible chapter IDs based on sort order
   const sortedChapters = [...chaptersWithContent].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
@@ -622,11 +623,11 @@ const CourseDetails = () => {
                   {enrollment?.status === 'active' && paidPercentage < 100 && (
                     <div className="mb-4 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
                       <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                        {isRTL ? `المدفوع: ${paidPercentage}% - متاح ${accessibleChapterCount} من ${totalChaptersCount} فصل` : `Paid: ${paidPercentage}% - ${accessibleChapterCount} of ${totalChaptersCount} chapters available`}
+                        {isRTL ? `المفتوح: ${accessibleChapterCount} من ${totalChaptersCount} فصول` : `Unlocked: ${accessibleChapterCount} of ${totalChaptersCount} chapters`}
                       </p>
                       <Button size="sm" className="mt-2 w-full" onClick={() => navigate(`/checkout/${courseUUID || id}`)}>
                         <CreditCard className="h-4 w-4 mr-2" />
-                        {isRTL ? 'ادفع القسط التالي' : 'Pay Next Installment'}
+                        {isRTL ? 'ادفع الفصل التالي' : 'Pay for the next chapter'}
                       </Button>
                     </div>
                   )}
@@ -676,9 +677,9 @@ const CourseDetails = () => {
                       <Button className="w-full" size="lg" onClick={() => { if (!user) { navigate("/login"); return; } navigate(`/checkout/${courseUUID || id}?installment=100`); }}>
                         <ShoppingCart className="h-4 w-4 mr-2" />{isRTL ? "اشتري الآن" : "Buy Now"}
                       </Button>
-                      <Button variant="outline" className="w-full" onClick={() => { if (!user) { navigate("/login"); return; } navigate(`/checkout/${courseUUID || id}?installment=33`); }}>
+                      <Button variant="outline" className="w-full" onClick={() => { if (!user) { navigate("/login"); return; } navigate(`/checkout/${courseUUID || id}?installment=first`); }}>
                         <CreditCard className="h-4 w-4 me-2" />
-                        {isRTL ? "الشراء بالتقسيط (ادفع 1/3)" : "Pay in installments (1/3)"}
+                        {isRTL ? "الدفع فصلاً بفصل (ابدأ بالفصل الأول)" : "Pay chapter by chapter (start with chapter 1)"}
                       </Button>
                       {(course as any)?.monthly_installment_enabled && (
                         <Button variant="outline" className="w-full" onClick={() => { if (!user) { navigate("/login"); return; } navigate(`/checkout/${courseUUID || id}?plan=monthly`); }}>

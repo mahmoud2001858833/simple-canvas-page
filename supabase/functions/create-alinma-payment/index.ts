@@ -71,6 +71,25 @@ function cardholderName(fullName: unknown, email: unknown): string {
     .trim();
 }
 
+// ---- Chapter-based installments (KEEP IN SYNC with src/lib/chapterInstallments.ts) ----
+function unlockedChapters(paidPercentage: number, totalChapters: number): number {
+  const n = Math.max(1, Math.floor(totalChapters || 1));
+  const pct = Number(paidPercentage ?? 0);
+  if (!(pct > 0)) return 0;
+  if (pct >= 99.99) return n;
+  return Math.min(n, Math.max(0, Math.ceil((pct / 100) * n - 0.01)));
+}
+function percentForChapters(k: number, totalChapters: number): number {
+  const n = Math.max(1, Math.floor(totalChapters || 1));
+  if (k >= n) return 100;
+  return Math.round((k / n) * 100 * 10000) / 10000;
+}
+function chapterInstallmentAmount(price: number, from: number, to: number, totalChapters: number): number {
+  const n = Math.max(1, Math.floor(totalChapters || 1));
+  const raw = (price * (to - from)) / n;
+  return Math.ceil(Math.round(raw * 100) / 100);
+}
+
 function safeEmail(v: unknown, fallback = "customer@example.com"): string {
   const cleaned = ascii(v, "").toLowerCase();
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleaned) ? cleaned : fallback;
@@ -114,7 +133,8 @@ serve(async (req) => {
     const body = await req.json().catch(() => null);
     if (!body) return json({ error: "Invalid request body" }, 400);
 
-    const { amount, courseId, requestId, bundleId, bundleTitle, userId, customerEmail, couponCode, installmentPercent, planType } =
+    const { amount, courseId, requestId, bundleId, bundleTitle, userId, customerEmail, couponCode, installmentPercent,
+      installmentChapters, planType } =
       body as Record<string, unknown>;
     const uid = String(userId || "").trim();
     const cid = typeof courseId === "string" && courseId.trim() ? courseId.trim() : null;
@@ -156,6 +176,7 @@ serve(async (req) => {
     let currentPaidPercent = 0;
 
     let monthlyPlanMeta: Record<string, unknown> | null = null;
+    let chapterTargetPercent: number | null = null;
 
     if (cid) {
       const { data: course } = await supabase
@@ -217,7 +238,27 @@ serve(async (req) => {
           return json({ error: "Invalid installment selection" }, 400);
         }
 
-        actualAmount = Math.ceil(Number(course.price) * ((targetPercent - currentPaidPercent) / 100));
+        // Chapter-based plan: a course with N chapters is paid in N payments; paying k of them
+        // unlocks the first k chapters. The server counts the chapters itself and ignores any
+        // amount / percentage the browser computed.
+        const { data: chapterRows } = await supabase.from("chapters").select("id").eq("course_id", cid);
+        const { data: lessonRows } = await supabase
+          .from("lessons").select("chapter_id").eq("course_id", cid).not("chapter_id", "is", null);
+        const withLessons = new Set((lessonRows || []).map((l: any) => l.chapter_id));
+        const totalChaptersN = (chapterRows || []).filter((c: any) => withLessons.has(c.id)).length;
+        const wantedK = Number(installmentChapters);
+
+        if (totalChaptersN >= 2 && Number.isInteger(wantedK) && wantedK >= 1) {
+          const k = Math.min(wantedK, totalChaptersN);
+          const kCurrent = unlockedChapters(currentPaidPercent, totalChaptersN);
+          if (k <= kCurrent) {
+            return json({ error: "Invalid installment selection" }, 400);
+          }
+          chapterTargetPercent = percentForChapters(k, totalChaptersN);
+          actualAmount = chapterInstallmentAmount(Number(course.price), kCurrent, k, totalChaptersN);
+        } else {
+          actualAmount = Math.ceil(Number(course.price) * ((targetPercent - currentPaidPercent) / 100));
+        }
       }
     } else if (rid) {
       const { data: request } = await supabase
@@ -339,15 +380,15 @@ serve(async (req) => {
           cid
             ? (monthlyPlanMeta
               ? `Monthly installment: month ${monthlyPlanMeta.month_number} of ${monthlyPlanMeta.total_months}`
-              : `Installment: ${targetPercent}% (paid before: ${currentPaidPercent}%)`)
+              : `Installment: ${chapterTargetPercent ?? targetPercent}% (paid before: ${currentPaidPercent}%)`)
             : (bid || monthlyPlanMeta
               ? (monthlyPlanMeta ? `Bundle Monthly installment: month 1 of ${monthlyPlanMeta.total_months}` : `Bundle: ${itemTitle}`)
               : null),
         ].filter(Boolean).join(" | "),
         installment_plan: cid
           ? (monthlyPlanMeta ?? {
-            installment_percent: targetPercent,
-            new_paid_percentage: targetPercent,
+            installment_percent: chapterTargetPercent ?? targetPercent,
+            new_paid_percentage: chapterTargetPercent ?? targetPercent,
             is_continuation: currentPaidPercent > 0,
           })
           : (monthlyPlanMeta ?? (bid ? { is_bundle: true, bundle_id: bid, total_bundle_price: actualAmount } : null)),
