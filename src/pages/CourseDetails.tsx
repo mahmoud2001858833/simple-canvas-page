@@ -1,3 +1,4 @@
+import { unlockedChapters } from "@/lib/chapterInstallments";
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -456,68 +457,32 @@ const CourseDetails = () => {
   const enrollmentExpired = !!(enrollment as any)?.expires_at
     && new Date((enrollment as any).expires_at).getTime() < Date.now();
 
+  // How much of the course is unlocked. The enrollment row is authoritative (the database sets it
+  // from the paid installment). Only while a paid payment exists but the enrollment is not active
+  // yet (the self-heal above is still running) do we use what that payment grants.
   const paidPercentage = (() => {
-    const enrollmentPct = enrollment?.status === "active"
-      ? Number((enrollment as any)?.paid_percentage ?? 100)
-      : 0;
-    if (paidCoursePayments.length === 0) return enrollmentPct;
-
-    const totalPaidAmount = paidCoursePayments.reduce((sum, p: any) => sum + Number(p.amount || 0), 0);
-    const coursePrice = Number(course?.price || 0);
-    let amountPct = 0;
-    if (coursePrice > 0 && totalPaidAmount > 0) {
-      const rawPct = Math.round((totalPaidAmount / coursePrice) * 100);
-      amountPct = rawPct >= 95 ? 100 : rawPct >= 60 ? Math.max(rawPct, 66) : rawPct >= 30 ? Math.max(rawPct, 33) : rawPct;
-    }
-
-    const maxPlanPct = Math.max(
+    if (enrollment?.status === "active") return Number((enrollment as any)?.paid_percentage ?? 100);
+    if (paidCoursePayments.length === 0) return 0;
+    return Math.max(
       0,
-      ...paidCoursePayments.map((p: any) => Number(p.installment_plan?.new_paid_percentage || 0))
+      ...paidCoursePayments.map((p: any) =>
+        p.installment_plan ? Number(p.installment_plan.new_paid_percentage || 0) : 100
+      ),
     );
-    const sumPlanPct = paidCoursePayments.reduce((sum, p: any) => {
-      const plan = p.installment_plan;
-      if (!plan) return sum + 100;
-      return sum + Number(plan.installment_percent || 33);
-    }, 0);
-    const countFloorPct =
-      paidCoursePayments.length >= 3 ? 100 : paidCoursePayments.length === 2 ? 66 : 33;
-
-    const computed = Math.min(100, Math.max(enrollmentPct, amountPct, maxPlanPct, sumPlanPct, countFloorPct));
-    return computed >= 95 ? 100 : computed;
   })();
 
+  // Chapter-based installments: N chapters = N payments; k payments unlock the first k chapters
   const chaptersWithContent = chapters.filter(ch => lessons.some(l => (l as any).chapter_id === ch.id));
   const sortedChapters = [...chaptersWithContent].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+  const totalChaptersCount = chaptersWithContent.length || 1;
+  const accessibleChapterCount = unlockedChapters(paidPercentage, totalChaptersCount);
+  const accessibleChapterIds = new Set(sortedChapters.slice(0, accessibleChapterCount).map(ch => ch.id));
 
-  // Separate preview-only chapters (e.g. free intro chapter) from paid chapters so free chapters don't consume paid installment quota
+  // Chapters made only of free preview lessons stay open to any logged-in user
   const previewOnlyChapters = sortedChapters.filter(ch => {
     const chLessons = lessons.filter(l => (l as any).chapter_id === ch.id);
     return chLessons.length > 0 && chLessons.every(l => l.is_preview);
   });
-  const paidChapters = sortedChapters.filter(ch =>
-    lessons.some(l => (l as any).chapter_id === ch.id && !l.is_preview)
-  );
-
-  const accessiblePaidChapterCount = paidPercentage > 0
-    ? Math.max(1, Math.ceil((paidPercentage / 100) * (paidChapters.length || 1)))
-    : 0;
-
-  const accessibleChapterIds = new Set([
-    ...previewOnlyChapters.map(ch => ch.id),
-    ...paidChapters.slice(0, accessiblePaidChapterCount).map(ch => ch.id),
-  ]);
-
-  const totalChaptersCount = chaptersWithContent.length || 1;
-  const accessibleChapterCount = Math.min(totalChaptersCount, accessibleChapterIds.size || Math.ceil((paidPercentage / 100) * totalChaptersCount));
-
-  // Also compute proportional lesson-level access across non-preview lessons
-  const paidLessons = lessons.filter((l: any) => !l.is_preview);
-  const accessiblePaidLessonCount = paidPercentage > 0
-    ? Math.max(1, Math.ceil((paidPercentage / 100) * paidLessons.length))
-    : 0;
-  const accessiblePaidLessonIds = new Set(
-    paidLessons.slice(0, accessiblePaidLessonCount).map((l: any) => l.id)
-  );
 
   // Admin: free access to everything. Instructor: free access to own courses only.
   const hasStaffFreeAccess = role === 'admin'
@@ -541,7 +506,7 @@ const CourseDetails = () => {
     if (enrollmentExpired) return false;
     if (paidPercentage >= 100) return true;
 
-    return isChapterAccessible(lesson.chapter_id) || accessiblePaidLessonIds.has(lesson.id);
+    return isChapterAccessible(lesson.chapter_id);
   };
 
   const getLessonProgressData = (lessonId: string) => {
@@ -711,11 +676,11 @@ const CourseDetails = () => {
                   {isEnrolledActive && paidPercentage < 100 && (
                     <div className="mb-4 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
                       <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                        {isRTL ? `المدفوع: ${paidPercentage}% - متاح ${accessibleChapterCount} من ${totalChaptersCount} فصل` : `Paid: ${paidPercentage}% - ${accessibleChapterCount} of ${totalChaptersCount} chapters available`}
+                        {isRTL ? `المفتوح: ${accessibleChapterCount} من ${totalChaptersCount} فصول` : `Unlocked: ${accessibleChapterCount} of ${totalChaptersCount} chapters`}
                       </p>
                       <Button size="sm" className="mt-2 w-full" onClick={() => navigate(`/checkout/${courseUUID || id}`)}>
                         <CreditCard className="h-4 w-4 mr-2" />
-                        {isRTL ? 'ادفع القسط التالي' : 'Pay Next Installment'}
+                        {isRTL ? 'ادفع الفصل التالي' : 'Pay for the next chapter'}
                       </Button>
                     </div>
                   )}
@@ -765,9 +730,9 @@ const CourseDetails = () => {
                       <Button className="w-full" size="lg" onClick={() => { if (!user) { navigate("/login"); return; } navigate(`/checkout/${courseUUID || id}?installment=100`); }}>
                         <ShoppingCart className="h-4 w-4 mr-2" />{isRTL ? "اشتري الآن" : "Buy Now"}
                       </Button>
-                      <Button variant="outline" className="w-full" onClick={() => { if (!user) { navigate("/login"); return; } navigate(`/checkout/${courseUUID || id}?installment=33`); }}>
+                      <Button variant="outline" className="w-full" onClick={() => { if (!user) { navigate("/login"); return; } navigate(`/checkout/${courseUUID || id}?installment=first`); }}>
                         <CreditCard className="h-4 w-4 me-2" />
-                        {isRTL ? "الشراء بالتقسيط (ادفع 1/3)" : "Pay in installments (1/3)"}
+                        {isRTL ? "الدفع فصلاً بفصل (ابدأ بالفصل الأول)" : "Pay chapter by chapter (start with chapter 1)"}
                       </Button>
                       {(course as any)?.monthly_installment_enabled && (
                         <Button variant="outline" className="w-full" onClick={() => { if (!user) { navigate("/login"); return; } navigate(`/checkout/${courseUUID || id}?plan=monthly`); }}>

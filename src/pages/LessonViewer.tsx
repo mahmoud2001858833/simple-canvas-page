@@ -1,3 +1,4 @@
+import { unlockedChapters } from "@/lib/chapterInstallments";
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -292,65 +293,26 @@ const LessonViewer = () => {
   const enrollmentExpired = !!(enrollment as any)?.expires_at
     && new Date((enrollment as any).expires_at).getTime() < Date.now();
 
+  // How much of the course is unlocked. The enrollment row is authoritative (the database sets it
+  // from the paid installment). Only while a paid payment exists but the enrollment is not active
+  // yet (the self-heal above is still running) do we use what that payment grants.
   const paidPercentage = (() => {
-    const enrollmentPct = enrollment?.status === "active"
-      ? Number((enrollment as any)?.paid_percentage ?? 100)
-      : 0;
-    if (paidCoursePayments.length === 0) return enrollmentPct;
-
-    const totalPaidAmount = paidCoursePayments.reduce((sum, p: any) => sum + Number(p.amount || 0), 0);
-    const coursePrice = Number((course as any)?.price || 0);
-    let amountPct = 0;
-    if (coursePrice > 0 && totalPaidAmount > 0) {
-      const rawPct = Math.round((totalPaidAmount / coursePrice) * 100);
-      amountPct = rawPct >= 95 ? 100 : rawPct >= 60 ? Math.max(rawPct, 66) : rawPct >= 30 ? Math.max(rawPct, 33) : rawPct;
-    }
-
-    const maxPlanPct = Math.max(
+    if (enrollment?.status === "active") return Number((enrollment as any)?.paid_percentage ?? 100);
+    if (paidCoursePayments.length === 0) return 0;
+    return Math.max(
       0,
-      ...paidCoursePayments.map((p: any) => Number(p.installment_plan?.new_paid_percentage || 0))
+      ...paidCoursePayments.map((p: any) =>
+        p.installment_plan ? Number(p.installment_plan.new_paid_percentage || 0) : 100
+      ),
     );
-    const sumPlanPct = paidCoursePayments.reduce((sum, p: any) => {
-      const plan = p.installment_plan;
-      if (!plan) return sum + 100;
-      return sum + Number(plan.installment_percent || 33);
-    }, 0);
-    const countFloorPct =
-      paidCoursePayments.length >= 3 ? 100 : paidCoursePayments.length === 2 ? 66 : 33;
-
-    const computed = Math.min(100, Math.max(enrollmentPct, amountPct, maxPlanPct, sumPlanPct, countFloorPct));
-    return computed >= 95 ? 100 : computed;
   })();
 
+  // Chapter-based installments: N chapters = N payments; k payments unlock the first k chapters
   const chaptersWithContent = chapters.filter(ch => lessons.some(l => (l as any).chapter_id === ch.id));
   const sortedChapters = [...chaptersWithContent].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-
-  // Separate preview-only chapters from paid chapters so free intro chapters don't consume paid installment quota
-  const previewOnlyChapters = sortedChapters.filter(ch => {
-    const chLessons = lessons.filter(l => (l as any).chapter_id === ch.id);
-    return chLessons.length > 0 && chLessons.every(l => l.is_preview);
-  });
-  const paidChapters = sortedChapters.filter(ch =>
-    lessons.some(l => (l as any).chapter_id === ch.id && !l.is_preview)
-  );
-
-  const accessiblePaidChapterCount = paidPercentage > 0
-    ? Math.max(1, Math.ceil((paidPercentage / 100) * (paidChapters.length || 1)))
-    : 0;
-
-  const accessibleChapterIds = new Set([
-    ...previewOnlyChapters.map(ch => ch.id),
-    ...paidChapters.slice(0, accessiblePaidChapterCount).map(ch => ch.id),
-  ]);
-
-  // Also compute proportional lesson-level access across non-preview lessons
-  const paidLessons = lessons.filter((l: any) => !l.is_preview);
-  const accessiblePaidLessonCount = paidPercentage > 0
-    ? Math.max(1, Math.ceil((paidPercentage / 100) * paidLessons.length))
-    : 0;
-  const accessiblePaidLessonIds = new Set(
-    paidLessons.slice(0, accessiblePaidLessonCount).map((l: any) => l.id)
-  );
+  const totalChaptersCount = chaptersWithContent.length || 1;
+  const accessibleChapterCount = unlockedChapters(paidPercentage, totalChaptersCount);
+  const accessibleChapterIds = new Set(sortedChapters.slice(0, accessibleChapterCount).map(ch => ch.id));
 
   // Admin: free access to everything. Instructor: free access to own courses only.
   const hasStaffFreeAccess = role === 'admin'
@@ -366,7 +328,7 @@ const LessonViewer = () => {
     if (paidPercentage >= 100) return true;
     const chapterId = (currentLesson as any)?.chapter_id;
     if (!chapterId) return true; // lessons without chapter are accessible
-    return accessibleChapterIds.has(chapterId) || (!!currentLesson?.id && accessiblePaidLessonIds.has(currentLesson.id));
+    return accessibleChapterIds.has(chapterId);
   })();
 
   // Track preview lesson access by authenticated student in video_access_logs
@@ -677,7 +639,7 @@ const LessonViewer = () => {
     if (paidPercentage >= 100) return true;
     const chapterId = (lesson as any).chapter_id;
     if (!chapterId) return true;
-    return accessibleChapterIds.has(chapterId) || accessiblePaidLessonIds.has(lesson.id);
+    return accessibleChapterIds.has(chapterId);
   };
 
   const getLessonProgress = (lessonId: string) => {

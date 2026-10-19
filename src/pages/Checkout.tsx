@@ -42,12 +42,8 @@ interface CouponResult {
   final_amount?: number;
 }
 
-// Fixed 3-installment plan: 33% / 66% / 100%
-const FIXED_INSTALLMENT_OPTIONS = [
-  { percent: 33, labelAr: 'الدفعة الأولى (1/3)', labelEn: 'First Installment (1/3)' },
-  { percent: 66, labelAr: 'الدفعتان (2/3)', labelEn: 'Two Installments (2/3)' },
-  { percent: 100, labelAr: 'كامل المبلغ', labelEn: 'Full Payment' },
-];
+
+import { unlockedChapters, buildChapterOptions, chapterInstallmentAmount } from '@/lib/chapterInstallments';
 
 const Checkout = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -65,6 +61,7 @@ const Checkout = () => {
   const [appliedCoupon, setAppliedCoupon] = useState<CouponResult | null>(null);
   const [selectedInstallment, setSelectedInstallment] = useState<number>(100);
   const [planMode, setPlanMode] = useState<'chapters' | 'monthly'>('chapters');
+  const [wantFirstChapter, setWantFirstChapter] = useState(false);
 
   // Redirect if not logged in
   useEffect(() => {
@@ -144,6 +141,21 @@ const Checkout = () => {
     enabled: !!resolvedCourseId,
   });
 
+  // Chapters that actually have lessons: a course with N chapters is paid in N payments
+  const { data: chapterCountWithContent = 0 } = useQuery({
+    queryKey: ['checkout-chapter-count', resolvedCourseId],
+    queryFn: async () => {
+      if (!resolvedCourseId) return 0;
+      const [{ data: chs }, { data: lsn }] = await Promise.all([
+        supabase.from('chapters').select('id').eq('course_id', resolvedCourseId),
+        supabase.from('lessons').select('chapter_id').eq('course_id', resolvedCourseId).not('chapter_id', 'is', null),
+      ]);
+      const withLessons = new Set((lsn || []).map((l: any) => l.chapter_id));
+      return (chs || []).filter((c: any) => withLessons.has(c.id)).length;
+    },
+    enabled: !!resolvedCourseId,
+  });
+
   // Fetch custom request details
   const { data: customRequest, isLoading: requestLoading } = useQuery({
     queryKey: ['checkout-request', requestId],
@@ -163,18 +175,19 @@ const Checkout = () => {
   // Is this a continuation payment?
   const currentPaidPercent = (enrollment as any)?.paid_percentage ?? 0;
   const isExistingEnrollment = !!enrollment && enrollment.status === 'active';
-  const remainingPercent = 100 - currentPaidPercent;
 
   const item = course || customRequest;
   const itemType = course ? 'course' : 'request';
   const totalPrice = course?.price || customRequest?.final_price || customRequest?.estimated_price || 0;
   const totalChapters = chaptersCount || 1;
 
-  // Fixed installment options (3 fixed plans)
-  const allInstallmentOptions = FIXED_INSTALLMENT_OPTIONS;
+  // One installment per chapter (k of N); paying k of them unlocks the first k chapters
+  const totalChaptersN = Math.max(1, chapterCountWithContent || 1);
+  const allInstallmentOptions = buildChapterOptions(chapterCountWithContent);
+  const currentChapters = unlockedChapters(currentPaidPercent, totalChaptersN);
 
-  // Filter installment options to only show those above the currently paid percentage
-  const availableInstallments = allInstallmentOptions.filter(opt => opt.percent > currentPaidPercent);
+  // Only offer chapters that are not unlocked yet
+  const availableInstallments = allInstallmentOptions.filter(opt => opt.chapters > currentChapters);
 
   // Set default installment when enrollment data loads
   useEffect(() => {
@@ -182,7 +195,7 @@ const Checkout = () => {
       setSelectedInstallment(availableInstallments[0].percent);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isExistingEnrollment, currentPaidPercent]);
+  }, [isExistingEnrollment, currentPaidPercent, chapterCountWithContent]);
 
   useEffect(() => {
     if (monthlyPlan && Number((monthlyPlan as any).months_paid || 0) > 0 && (monthlyPlan as any).status !== 'completed') {
@@ -193,15 +206,25 @@ const Checkout = () => {
   // Honour the plan chosen on the course page (?plan=monthly / ?installment=33)
   useEffect(() => {
     const planParam = searchParams.get('plan');
-    const instParam = Number(searchParams.get('installment'));
+    const instRaw = searchParams.get('installment');
     if (planParam === 'monthly') setPlanMode('monthly');
     if (planParam === 'chapters') setPlanMode('chapters');
-    if (instParam === 33 || instParam === 66 || instParam === 100) {
-      setPlanMode('chapters');
-      setSelectedInstallment(instParam);
-    }
+    if (instRaw) setPlanMode('chapters');
+    if (instRaw === '100') setSelectedInstallment(100);
+    // 'first' (or the legacy 33) means: start with the first chapter's payment
+    if (instRaw === 'first' || instRaw === '33') setWantFirstChapter(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Apply the "first chapter" choice once the chapters are known
+  useEffect(() => {
+    if (wantFirstChapter && chapterCountWithContent > 0) {
+      const first = buildChapterOptions(chapterCountWithContent).find(o => o.chapters > currentChapters);
+      if (first) setSelectedInstallment(first.percent);
+      setWantFirstChapter(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantFirstChapter, chapterCountWithContent]);
 
   // Redirect free courses to direct enrollment
   useEffect(() => {
@@ -233,7 +256,8 @@ const Checkout = () => {
 
   // Calculate installment amount: pay the delta between target % and current paid %
   const selectedOption = allInstallmentOptions.find(opt => opt.percent === selectedInstallment);
-  const installmentAmount = Math.ceil(totalPrice * ((selectedInstallment - currentPaidPercent) / 100));
+  const selectedChapters = selectedOption?.chapters ?? totalChaptersN;
+  const installmentAmount = chapterInstallmentAmount(totalPrice, currentChapters, selectedChapters, totalChaptersN);
 
   // ----- Monthly installment plan -----
   const monthlyEnabled = !!(course as any)?.monthly_installment_enabled;
@@ -254,7 +278,7 @@ const Checkout = () => {
   // What the new paid_percentage will be after this payment
   const newPaidPercentage = selectedInstallment;
   // Approx accessible chapter count after this payment, for UX summary
-  const accessibleChapters = Math.ceil((newPaidPercentage / 100) * totalChapters);
+  const accessibleChapters = selectedChapters;
 
   const handleApplyCoupon = async () => {
     if (!couponCode.trim() || !user) return;
@@ -416,7 +440,10 @@ const Checkout = () => {
           console.warn('Profile Latin name verification note in Checkout:', profErr);
         }
 
+        const abortCtl = new AbortController();
+        const abortTimer = setTimeout(() => abortCtl.abort(), 45000);
         const { data, error } = await supabase.functions.invoke('create-alinma-payment', {
+          signal: abortCtl.signal,
           body: {
             courseId: resolvedCourseId || null,
             requestId: requestId || null,
@@ -424,10 +451,13 @@ const Checkout = () => {
             amount: finalPrice,
             couponCode: appliedCoupon?.valid ? couponCode.trim() : null,
             installmentPercent: resolvedCourseId ? (isMonthly ? 100 : selectedInstallment) : 100,
+            installmentChapters: resolvedCourseId && !isMonthly ? selectedChapters : null,
             planType: isMonthly ? 'monthly' : 'chapters',
             customerEmail: user.email,
           },
         });
+
+        clearTimeout(abortTimer);
 
         if (error) {
           let errorMsg = error.message || 'Payment processing failed';
@@ -485,8 +515,8 @@ const Checkout = () => {
           status: 'pending',
           notes: [
             appliedCoupon?.valid ? `Coupon: ${couponCode} (-${appliedCoupon.discount_amount} SAR)` : null,
-            isMonthly ? `Monthly installment: month ${nextMonthNumber} of ${totalMonths}` : `Installment: ${selectedInstallment}% of total`,
-            isExistingEnrollment ? `Existing paid: ${currentPaidPercent}%, new total: ${newPaidPercentage}%` : null,
+            isMonthly ? `Monthly installment: month ${nextMonthNumber} of ${totalMonths}` : `Installment: chapter payment ${selectedChapters} of ${totalChaptersN}`,
+            isExistingEnrollment ? `Existing paid: ${currentChapters} chapters, new total: ${selectedChapters} chapters` : null,
           ].filter(Boolean).join(' | '),
           installment_plan: isMonthly ? {
             type: 'monthly',
@@ -600,8 +630,8 @@ const Checkout = () => {
           {isExistingEnrollment && (
             <p className="mt-2 text-primary-foreground/80">
               {isRTL 
-                ? `المدفوع حالياً: ${currentPaidPercent}% - المتبقي: ${remainingPercent}%`
-                : `Currently paid: ${currentPaidPercent}% - Remaining: ${remainingPercent}%`
+                ? `المفتوح حالياً: ${currentChapters} من ${totalChaptersN} فصول`
+                : `Currently unlocked: ${currentChapters} of ${totalChaptersN} chapters`
               }
             </p>
           )}
@@ -687,13 +717,13 @@ const Checkout = () => {
                     <div className="mb-6 p-4 rounded-lg bg-muted/50 border">
                       <div className="flex justify-between text-sm mb-2">
                         <span className="text-muted-foreground">{isRTL ? 'المدفوع' : 'Paid'}</span>
-                        <span className="font-medium">{currentPaidPercent}%</span>
+                        <span className="font-medium">{Math.round(currentPaidPercent)}%</span>
                       </div>
                       <Progress value={currentPaidPercent} className="h-2 mb-2" />
                       <p className="text-xs text-muted-foreground">
                         {isRTL 
-                          ? `${Math.ceil((currentPaidPercent / 100) * totalChapters)} من ${totalChapters} درس متاح حالياً`
-                          : `${Math.ceil((currentPaidPercent / 100) * totalChapters)} of ${totalChapters} lessons currently accessible`
+                          ? `${currentChapters} من ${totalChaptersN} فصول متاحة حالياً`
+                          : `${currentChapters} of ${totalChaptersN} chapters currently accessible`
                         }
                       </p>
                     </div>
@@ -710,8 +740,7 @@ const Checkout = () => {
                     className="space-y-3"
                   >
                     {availableInstallments.map((opt) => {
-                      const payAmount = Math.ceil(totalPrice * ((opt.percent - currentPaidPercent) / 100));
-                      const optAccessibleChapters = Math.ceil((opt.percent / 100) * totalChapters);
+                      const payAmount = chapterInstallmentAmount(totalPrice, currentChapters, opt.chapters, totalChaptersN);
 
                       return (
                         <div
@@ -729,12 +758,14 @@ const Checkout = () => {
                           <RadioGroupItem value={String(opt.percent)} id={`inst-${opt.percent}`} className="mt-0" />
                           <div className="flex-1 mx-4">
                             <Label htmlFor={`inst-${opt.percent}`} className="text-base font-semibold cursor-pointer">
-                              {isRTL ? opt.labelAr : opt.labelEn} ({opt.percent}%)
+                              {opt.isFull
+                                ? (isRTL ? (opt.chapters === 1 ? 'كامل المبلغ' : `كامل المبلغ (حتى الفصل ${opt.chapters})`) : (opt.chapters === 1 ? 'Full payment' : `Full payment (up to chapter ${opt.chapters})`))
+                                : (isRTL ? `الدفعة ${opt.chapters} من ${totalChaptersN} (حتى الفصل ${opt.chapters})` : `Payment ${opt.chapters} of ${totalChaptersN} (up to chapter ${opt.chapters})`)}
                             </Label>
                             <p className="text-sm text-muted-foreground mt-1">
                               {isRTL
-                                ? `يفتح ${optAccessibleChapters} من ${totalChapters} درس`
-                                : `Unlocks ${optAccessibleChapters} of ${totalChapters} lessons`}
+                                ? `يفتح ${opt.chapters} من ${totalChaptersN} فصول`
+                                : `Unlocks ${opt.chapters} of ${totalChaptersN} chapters`}
                             </p>
                           </div>
                           <div className="text-end">
@@ -899,7 +930,7 @@ const Checkout = () => {
                   ) : (selectedInstallment < 100 || isExistingEnrollment) ? (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">
-                        {isRTL ? `قسط ${selectedInstallment}%` : `${selectedInstallment}% Installment`}
+                        {isRTL ? `دفعة ${selectedChapters} من ${totalChaptersN}` : `Payment ${selectedChapters} of ${totalChaptersN}`}
                       </span>
                       <span>{priceBeforeCoupon} {isRTL ? 'ر.س' : 'SAR'}</span>
                     </div>
@@ -941,8 +972,8 @@ const Checkout = () => {
                       <>
                         <p className="text-sm text-muted-foreground">
                           {isRTL 
-                            ? `${accessibleChapters} من ${totalChapters} درس (${newPaidPercentage}% من المحتوى)`
-                            : `${accessibleChapters} of ${totalChapters} lessons (${newPaidPercentage}% of content)`
+                            ? `${accessibleChapters} من ${totalChaptersN} فصول`
+                            : `${accessibleChapters} of ${totalChaptersN} chapters`
                           }
                         </p>
                         {newPaidPercentage < 100 && (
