@@ -299,6 +299,37 @@ const CourseDetails = () => {
     enabled: !!courseUUID && !!user,
   });
 
+  // Fetch user's paid payments for this course (handles cumulative installments & immediate access)
+  const { data: paidCoursePayments = [] } = useQuery({
+    queryKey: ["user-course-paid-payments", courseUUID, user?.id],
+    queryFn: async () => {
+      if (!user || !courseUUID) return [];
+      const { data, error } = await supabase
+        .from("payments")
+        .select("id, amount, status, installment_plan")
+        .eq("user_id", user.id)
+        .eq("course_id", courseUUID)
+        .eq("status", "paid");
+      if (error) return [];
+      return data || [];
+    },
+    enabled: !!courseUUID && !!user,
+  });
+
+  // Self-heal enrollment if user has a paid payment in DB but enrollment row is missing or inactive
+  useEffect(() => {
+    if (!user || !courseUUID || paidCoursePayments.length === 0) return;
+    if (!enrollment || enrollment.status !== "active") {
+      supabase
+        .rpc("confirm_payment_on_return" as any, { p_payment_id: paidCoursePayments[0].id })
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ["enrollment", courseUUID, user.id] });
+          queryClient.invalidateQueries({ queryKey: ["course-access", courseUUID, user.id] });
+          queryClient.invalidateQueries({ queryKey: ["my-enrollments"] });
+        });
+    }
+  }, [user, courseUUID, paidCoursePayments, enrollment, queryClient]);
+
 
   // Fetch lesson progress
   const { data: lessonProgress = [] } = useQuery({
@@ -417,18 +448,41 @@ const CourseDetails = () => {
   const progressPercent = lessons.length > 0 ? (completedLessons / lessons.length) * 100 : 0;
   const totalDuration = lessons.reduce((acc, lesson) => acc + (lesson.duration_minutes || 0), 0);
 
+  // Active paid enrollment check (either active enrollment + RPC check OR verified paid payments for this course)
+  const isEnrolledActive =
+    (enrollment?.status === "active" && paidAccess) || paidCoursePayments.length > 0;
+
   // Chapter-based installment access logic
   // Monthly installment: access expires at the end of each paid month
   const enrollmentExpired = !!(enrollment as any)?.expires_at
     && new Date((enrollment as any).expires_at).getTime() < Date.now();
-  const paidPercentage = (enrollment as any)?.paid_percentage ?? 100;
+
+  // How much of the course is unlocked. The enrollment row is authoritative (the database sets it
+  // from the paid installment). Only while a paid payment exists but the enrollment is not active
+  // yet (the self-heal above is still running) do we use what that payment grants.
+  const paidPercentage = (() => {
+    if (enrollment?.status === "active") return Number((enrollment as any)?.paid_percentage ?? 100);
+    if (paidCoursePayments.length === 0) return 0;
+    return Math.max(
+      0,
+      ...paidCoursePayments.map((p: any) =>
+        p.installment_plan ? Number(p.installment_plan.new_paid_percentage || 0) : 100
+      ),
+    );
+  })();
+
+  // Chapter-based installments: N chapters = N payments; k payments unlock the first k chapters
   const chaptersWithContent = chapters.filter(ch => lessons.some(l => (l as any).chapter_id === ch.id));
+  const sortedChapters = [...chaptersWithContent].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
   const totalChaptersCount = chaptersWithContent.length || 1;
   const accessibleChapterCount = unlockedChapters(paidPercentage, totalChaptersCount);
-  
-  // Get accessible chapter IDs based on sort order
-  const sortedChapters = [...chaptersWithContent].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
   const accessibleChapterIds = new Set(sortedChapters.slice(0, accessibleChapterCount).map(ch => ch.id));
+
+  // Chapters made only of free preview lessons stay open to any logged-in user
+  const previewOnlyChapters = sortedChapters.filter(ch => {
+    const chLessons = lessons.filter(l => (l as any).chapter_id === ch.id);
+    return chLessons.length > 0 && chLessons.every(l => l.is_preview);
+  });
 
   // Admin: free access to everything. Instructor: free access to own courses only.
   const hasStaffFreeAccess = role === 'admin'
@@ -436,9 +490,9 @@ const CourseDetails = () => {
 
   const isChapterAccessible = (chapterId: string | null) => {
     if (hasStaffFreeAccess) return true;
-    if (!enrollment || enrollment.status !== 'active') return false;
+    if (chapterId && previewOnlyChapters.some(ch => ch.id === chapterId)) return !!user;
+    if (!isEnrolledActive) return false;
     if (enrollmentExpired) return false;
-    if (!paidAccess) return false;
 
     if (paidPercentage >= 100) return true;
     if (!chapterId) return true; // lessons without chapters are always accessible
@@ -448,9 +502,8 @@ const CourseDetails = () => {
   const isLessonAccessible = (lesson: any, _index: number) => {
     if (lesson.is_preview) return !!user;
     if (hasStaffFreeAccess) return true;
-    if (!enrollment || enrollment.status !== 'active') return false;
+    if (!isEnrolledActive) return false;
     if (enrollmentExpired) return false;
-    if (!paidAccess) return false;
     if (paidPercentage >= 100) return true;
 
     return isChapterAccessible(lesson.chapter_id);
@@ -620,7 +673,7 @@ const CourseDetails = () => {
                   </div>
 
                   {/* Installment info */}
-                  {enrollment?.status === 'active' && paidPercentage < 100 && (
+                  {isEnrolledActive && paidPercentage < 100 && (
                     <div className="mb-4 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
                       <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
                         {isRTL ? `المفتوح: ${accessibleChapterCount} من ${totalChaptersCount} فصول` : `Unlocked: ${accessibleChapterCount} of ${totalChaptersCount} chapters`}
@@ -632,12 +685,12 @@ const CourseDetails = () => {
                     </div>
                   )}
 
-                  {enrollment?.status === "active" || hasStaffFreeAccess ? (
+                  {isEnrolledActive || hasStaffFreeAccess ? (
                     <div className="space-y-4">
                       <div className="flex items-center gap-2 text-green-600">
                         <CheckCircle className="h-5 w-5" />
                         <span className="font-medium">
-                          {hasStaffFreeAccess && !enrollment
+                          {hasStaffFreeAccess && !isEnrolledActive
                             ? (isRTL ? (role === 'admin' ? 'وصول الأدمن الكامل' : 'وصول المعلم لدورتك') : 'Full access')
                             : (isRTL ? "أنت مشترك في هذه الدورة" : "You're enrolled")}
                         </span>
@@ -660,7 +713,7 @@ const CourseDetails = () => {
                           {isRTL ? "لم تتم إضافة دروس بعد" : "No lessons available"}
                         </Button>
                       )}
-                      {course?.instructor_id && enrollment && (
+                      {course?.instructor_id && isEnrolledActive && (
                         <Button variant="outline" className="w-full" onClick={() => setShowChat(true)}>
                           <MessageSquare className="h-4 w-4 me-2" />
                           {isRTL ? 'تواصل مع المعلم' : 'Contact Instructor'}
@@ -804,7 +857,7 @@ const CourseDetails = () => {
                                 <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
                                   <span>{chapterLessonsCount} {isRTL ? "درس" : "lessons"}</span>
                                   {chapterDuration > 0 && <span>{chapterDuration} {isRTL ? "دقيقة" : "min"}</span>}
-                                  {enrollment && chapterCompletedCount > 0 && (
+                                  {isEnrolledActive && chapterCompletedCount > 0 && (
                                     <span className="text-green-600">{chapterCompletedCount}/{chapterLessonsCount} {isRTL ? "مكتمل" : "done"}</span>
                                   )}
                                   {!chapterAccessible && (
@@ -819,7 +872,7 @@ const CourseDetails = () => {
                           </AccordionTrigger>
                           <AccordionContent className="pb-3">
                             {/* Show pay button for locked chapters */}
-                            {!chapterAccessible && enrollment?.status === 'active' && (
+                            {!chapterAccessible && isEnrolledActive && (
                               <div className="mx-3 mb-3 p-4 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
                                 <p className="text-sm text-amber-800 dark:text-amber-200 mb-3">
                                   {isRTL 
@@ -855,14 +908,14 @@ const CourseDetails = () => {
                                           toast.info(isRTL ? 'سجّل دخولك أولاً ثم اشترِ الدورة لمشاهدة هذا الدرس' : 'Please login and purchase the course to watch this lesson');
                                           navigate('/login');
                                         }
-                                      } else if (!enrollment) {
+                                      } else if (!isEnrolledActive) {
                                         if (course?.price === 0 || course?.price === null) {
                                           handleEnroll();
                                         } else {
                                           toast.info(isRTL ? 'اشترِ الدورة لمشاهدة هذا الدرس' : 'Purchase the course to watch this lesson');
                                           navigate(`/checkout/${courseUUID || id}`);
                                         }
-                                      } else if (enrollment?.status === 'active') {
+                                      } else if (isEnrolledActive) {
                                         navigate(`/checkout/${courseUUID || id}`);
                                       }
                                     }}
@@ -911,7 +964,7 @@ const CourseDetails = () => {
 
                               {/* Chapter Files */}
                               {group.chapter && chapterFiles.filter((f: any) => f.chapter_id === group.chapter.id).map((file: any) => {
-                                const fileAccessible = enrollment?.status === "active" || hasStaffFreeAccess;
+                                const fileAccessible = (isEnrolledActive && chapterAccessible) || hasStaffFreeAccess;
                                 return (
                                   <div key={`file-${file.id}`} className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/60">
                                     <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
@@ -949,7 +1002,7 @@ const CourseDetails = () => {
 
                               {/* Quizzes */}
                               {group.chapter && quizzes.filter((q: any) => q.chapter_id === group.chapter.id).map((quiz: any) => {
-                                const quizAccessible = enrollment?.status === "active" || hasStaffFreeAccess;
+                                const quizAccessible = (isEnrolledActive && chapterAccessible) || hasStaffFreeAccess;
                                 return (
                                   <div
                                     key={`quiz-${quiz.id}`}
@@ -1006,7 +1059,7 @@ const CourseDetails = () => {
             <CourseReviews courseId={courseUUID || id!} isRTL={isRTL} />
 
             {/* Course Community & Group Chat */}
-            {(enrollment?.status === "active" || hasStaffFreeAccess) && (
+            {(isEnrolledActive || hasStaffFreeAccess) && (
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 flex items-center justify-center text-indigo-600">
