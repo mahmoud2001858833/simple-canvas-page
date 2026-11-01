@@ -28,6 +28,7 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { paidChapterWeights, unlockedChapterCount } from '@/lib/installmentAccess';
 
 type PaymentMethod = 'alinmapay' | 'bank_transfer';
 
@@ -129,17 +130,16 @@ const Checkout = () => {
     enabled: !!resolvedCourseId && !!user,
   });
 
-  // Fetch lessons count for display (installments are based on lessons, not chapters)
-  const { data: chaptersCount = 0 } = useQuery({
-    queryKey: ['checkout-lessons-count', resolvedCourseId],
+  // Fetch the curriculum: installments unlock whole chapters, balanced by lesson count
+  const { data: curriculum } = useQuery({
+    queryKey: ['checkout-curriculum', resolvedCourseId],
     queryFn: async () => {
-      if (!resolvedCourseId) return 0;
-      const { count, error } = await supabase
-        .from('lessons')
-        .select('*', { count: 'exact', head: true })
-        .eq('course_id', resolvedCourseId);
-      if (error) return 0;
-      return count || 0;
+      if (!resolvedCourseId) return { chapters: [], lessons: [] };
+      const [{ data: chapters }, { data: lessons }] = await Promise.all([
+        supabase.from('chapters').select('id, sort_order').eq('course_id', resolvedCourseId),
+        supabase.from('lessons').select('id, chapter_id, is_preview').eq('course_id', resolvedCourseId),
+      ]);
+      return { chapters: chapters || [], lessons: lessons || [] };
     },
     enabled: !!resolvedCourseId,
   });
@@ -168,13 +168,24 @@ const Checkout = () => {
   const item = course || customRequest;
   const itemType = course ? 'course' : 'request';
   const totalPrice = course?.price || customRequest?.final_price || customRequest?.estimated_price || 0;
-  const totalChapters = chaptersCount || 1;
+  const totalLessons = curriculum?.lessons.length || 0;
+  const chapterWeights = paidChapterWeights(curriculum?.chapters || [], curriculum?.lessons || []).map(c => c.weight);
+  const totalChapters = chapterWeights.length;
+  const chaptersUnlockedAt = (percent: number) => unlockedChapterCount(percent, chapterWeights);
 
   // Fixed installment options (3 fixed plans)
   const allInstallmentOptions = FIXED_INSTALLMENT_OPTIONS;
 
-  // Filter installment options to only show those above the currently paid percentage
-  const availableInstallments = allInstallmentOptions.filter(opt => opt.percent > currentPaidPercent);
+  // Only offer installments above the currently paid percentage that unlock more chapters than
+  // the previous step (e.g. a one-chapter course is offered as a full payment only)
+  const availableInstallments = allInstallmentOptions.filter((opt, i) => {
+    if (opt.percent <= currentPaidPercent) return false;
+    if (opt.percent >= 100 || totalChapters === 0) return true;
+    const prev = Math.max(currentPaidPercent, i > 0 ? allInstallmentOptions[i - 1].percent : 0);
+    const unlocks = chaptersUnlockedAt(opt.percent);
+    return unlocks > chaptersUnlockedAt(prev) && unlocks < totalChapters;
+  });
+  const availableInstallmentsKey = availableInstallments.map(o => o.percent).join(',');
 
   // Set default installment when enrollment data loads
   useEffect(() => {
@@ -182,7 +193,7 @@ const Checkout = () => {
       setSelectedInstallment(availableInstallments[0].percent);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isExistingEnrollment, currentPaidPercent]);
+  }, [isExistingEnrollment, currentPaidPercent, availableInstallmentsKey]);
 
   useEffect(() => {
     if (monthlyPlan && Number((monthlyPlan as any).months_paid || 0) > 0 && (monthlyPlan as any).status !== 'completed') {
@@ -253,8 +264,8 @@ const Checkout = () => {
 
   // What the new paid_percentage will be after this payment
   const newPaidPercentage = selectedInstallment;
-  // Approx accessible chapter count after this payment, for UX summary
-  const accessibleChapters = Math.ceil((newPaidPercentage / 100) * totalChapters);
+  // Chapters accessible after this payment, for the UX summary
+  const accessibleChapters = chaptersUnlockedAt(newPaidPercentage);
 
   const handleApplyCoupon = async () => {
     if (!couponCode.trim() || !user) return;
@@ -692,8 +703,8 @@ const Checkout = () => {
                       <Progress value={currentPaidPercent} className="h-2 mb-2" />
                       <p className="text-xs text-muted-foreground">
                         {isRTL 
-                          ? `${Math.ceil((currentPaidPercent / 100) * totalChapters)} من ${totalChapters} درس متاح حالياً`
-                          : `${Math.ceil((currentPaidPercent / 100) * totalChapters)} of ${totalChapters} lessons currently accessible`
+                          ? `${chaptersUnlockedAt(currentPaidPercent)} من ${totalChapters} فصل متاح حالياً`
+                          : `${chaptersUnlockedAt(currentPaidPercent)} of ${totalChapters} chapters currently accessible`
                         }
                       </p>
                     </div>
@@ -711,7 +722,7 @@ const Checkout = () => {
                   >
                     {availableInstallments.map((opt) => {
                       const payAmount = Math.ceil(totalPrice * ((opt.percent - currentPaidPercent) / 100));
-                      const optAccessibleChapters = Math.ceil((opt.percent / 100) * totalChapters);
+                      const optAccessibleChapters = chaptersUnlockedAt(opt.percent);
 
                       return (
                         <div
@@ -733,8 +744,8 @@ const Checkout = () => {
                             </Label>
                             <p className="text-sm text-muted-foreground mt-1">
                               {isRTL
-                                ? `يفتح ${optAccessibleChapters} من ${totalChapters} درس`
-                                : `Unlocks ${optAccessibleChapters} of ${totalChapters} lessons`}
+                                ? `يفتح ${optAccessibleChapters} من ${totalChapters} فصل`
+                                : `Unlocks ${optAccessibleChapters} of ${totalChapters} chapters`}
                             </p>
                           </div>
                           <div className="text-end">
@@ -934,15 +945,15 @@ const Checkout = () => {
                     {isMonthly ? (
                       <p className="text-sm text-muted-foreground">
                         {isRTL
-                          ? `كامل محتوى الدورة (${totalChapters} درس) لمدة شهر واحد — الدفعة ${nextMonthNumber} من ${totalMonths}`
-                          : `Full course content (${totalChapters} lessons) for one month — payment ${nextMonthNumber} of ${totalMonths}`}
+                          ? `كامل محتوى الدورة (${totalLessons} درس) لمدة شهر واحد — الدفعة ${nextMonthNumber} من ${totalMonths}`
+                          : `Full course content (${totalLessons} lessons) for one month — payment ${nextMonthNumber} of ${totalMonths}`}
                       </p>
                     ) : (
                       <>
                         <p className="text-sm text-muted-foreground">
                           {isRTL 
-                            ? `${accessibleChapters} من ${totalChapters} درس (${newPaidPercentage}% من المحتوى)`
-                            : `${accessibleChapters} of ${totalChapters} lessons (${newPaidPercentage}% of content)`
+                            ? `${accessibleChapters} من ${totalChapters} فصل (${newPaidPercentage}% من السعر)`
+                            : `${accessibleChapters} of ${totalChapters} chapters (${newPaidPercentage}% of the price)`
                           }
                         </p>
                         {newPaidPercentage < 100 && (

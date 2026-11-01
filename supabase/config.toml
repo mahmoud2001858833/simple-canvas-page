@@ -1,4 +1,4 @@
-project_id = "ixhvcxwbiisrxhngfjyg"
+project_id = "nrioqyolqusiexgpxfxz"
 
 [functions.get-signed-video-url]
 verify_jwt = false

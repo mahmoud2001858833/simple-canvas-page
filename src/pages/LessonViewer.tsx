@@ -59,6 +59,7 @@ import { CourseChat } from "@/components/course/CourseChat";
 import { CourseCommunityChat } from "@/components/community/CourseCommunityChat";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { trackXapi } from "@/lib/xapi";
+import { effectivePaidPercentage, unlockedChapterIds } from "@/lib/installmentAccess";
 
 // Onboarding steps for Lesson Viewer page
 const lessonOnboardingSteps = [
@@ -292,65 +293,22 @@ const LessonViewer = () => {
   const enrollmentExpired = !!(enrollment as any)?.expires_at
     && new Date((enrollment as any).expires_at).getTime() < Date.now();
 
-  const paidPercentage = (() => {
-    const enrollmentPct = enrollment?.status === "active"
-      ? Number((enrollment as any)?.paid_percentage ?? 100)
-      : 0;
-    if (paidCoursePayments.length === 0) return enrollmentPct;
+  const paidPercentage = effectivePaidPercentage(
+    enrollment?.status === "active" ? Number((enrollment as any)?.paid_percentage ?? 100) : 0,
+    paidCoursePayments as any[],
+  );
 
-    const totalPaidAmount = paidCoursePayments.reduce((sum, p: any) => sum + Number(p.amount || 0), 0);
-    const coursePrice = Number((course as any)?.price || 0);
-    let amountPct = 0;
-    if (coursePrice > 0 && totalPaidAmount > 0) {
-      const rawPct = Math.round((totalPaidAmount / coursePrice) * 100);
-      amountPct = rawPct >= 95 ? 100 : rawPct >= 60 ? Math.max(rawPct, 66) : rawPct >= 30 ? Math.max(rawPct, 33) : rawPct;
-    }
-
-    const maxPlanPct = Math.max(
-      0,
-      ...paidCoursePayments.map((p: any) => Number(p.installment_plan?.new_paid_percentage || 0))
-    );
-    const sumPlanPct = paidCoursePayments.reduce((sum, p: any) => {
-      const plan = p.installment_plan;
-      if (!plan) return sum + 100;
-      return sum + Number(plan.installment_percent || 33);
-    }, 0);
-    const countFloorPct =
-      paidCoursePayments.length >= 3 ? 100 : paidCoursePayments.length === 2 ? 66 : 33;
-
-    const computed = Math.min(100, Math.max(enrollmentPct, amountPct, maxPlanPct, sumPlanPct, countFloorPct));
-    return computed >= 95 ? 100 : computed;
-  })();
-
-  const chaptersWithContent = chapters.filter(ch => lessons.some(l => (l as any).chapter_id === ch.id));
-  const sortedChapters = [...chaptersWithContent].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
-
-  // Separate preview-only chapters from paid chapters so free intro chapters don't consume paid installment quota
-  const previewOnlyChapters = sortedChapters.filter(ch => {
+  // Preview-only chapters are free and don't consume the paid installment quota
+  const previewOnlyChapters = chapters.filter(ch => {
     const chLessons = lessons.filter(l => (l as any).chapter_id === ch.id);
     return chLessons.length > 0 && chLessons.every(l => l.is_preview);
   });
-  const paidChapters = sortedChapters.filter(ch =>
-    lessons.some(l => (l as any).chapter_id === ch.id && !l.is_preview)
-  );
 
-  const accessiblePaidChapterCount = paidPercentage > 0
-    ? Math.max(1, Math.ceil((paidPercentage / 100) * (paidChapters.length || 1)))
-    : 0;
-
+  // Installments unlock whole chapters, balanced by lesson count (see lib/installmentAccess)
   const accessibleChapterIds = new Set([
     ...previewOnlyChapters.map(ch => ch.id),
-    ...paidChapters.slice(0, accessiblePaidChapterCount).map(ch => ch.id),
+    ...unlockedChapterIds(paidPercentage, chapters, lessons as any[], (enrollment as any)?.legacy_unlocked_chapters),
   ]);
-
-  // Also compute proportional lesson-level access across non-preview lessons
-  const paidLessons = lessons.filter((l: any) => !l.is_preview);
-  const accessiblePaidLessonCount = paidPercentage > 0
-    ? Math.max(1, Math.ceil((paidPercentage / 100) * paidLessons.length))
-    : 0;
-  const accessiblePaidLessonIds = new Set(
-    paidLessons.slice(0, accessiblePaidLessonCount).map((l: any) => l.id)
-  );
 
   // Admin: free access to everything. Instructor: free access to own courses only.
   const hasStaffFreeAccess = role === 'admin'
@@ -366,7 +324,7 @@ const LessonViewer = () => {
     if (paidPercentage >= 100) return true;
     const chapterId = (currentLesson as any)?.chapter_id;
     if (!chapterId) return true; // lessons without chapter are accessible
-    return accessibleChapterIds.has(chapterId) || (!!currentLesson?.id && accessiblePaidLessonIds.has(currentLesson.id));
+    return accessibleChapterIds.has(chapterId);
   })();
 
   // Track preview lesson access by authenticated student in video_access_logs
@@ -677,7 +635,7 @@ const LessonViewer = () => {
     if (paidPercentage >= 100) return true;
     const chapterId = (lesson as any).chapter_id;
     if (!chapterId) return true;
-    return accessibleChapterIds.has(chapterId) || accessiblePaidLessonIds.has(lesson.id);
+    return accessibleChapterIds.has(chapterId);
   };
 
   const getLessonProgress = (lessonId: string) => {
