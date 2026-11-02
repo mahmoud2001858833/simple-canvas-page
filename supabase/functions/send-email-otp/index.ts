@@ -8,6 +8,11 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Phones (iPhone with an Arabic keyboard especially) add invisible direction marks or spaces to
+// typed emails; the email service rejects them as non-ASCII, so clean the address first.
+const normalizeEmail = (value: unknown) =>
+  String(value ?? "").normalize("NFKC").replace(/[\s\p{Cf}]/gu, "").toLowerCase();
+
 interface SendOtpRequest {
   email: string;
 }
@@ -31,16 +36,25 @@ serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { email }: SendOtpRequest = await req.json();
+    const email = normalizeEmail((await req.json() as SendOtpRequest).email);
 
     if (!email) {
       throw new Error("Email is required");
     }
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    // Validate email format (plain ASCII only, which is what the email service accepts)
+    const emailRegex = /^[\x21-\x3f\x41-\x7e]+@[a-z0-9.-]+\.[a-z]{2,}$/i;
     if (!emailRegex.test(email)) {
-      throw new Error("Invalid email format");
+      return new Response(
+        JSON.stringify({
+          error: "Invalid email format",
+          error_ar: "البريد الإلكتروني غير صحيح، اكتبه بأحرف إنجليزية فقط"
+        }),
+        {
+          status: 400,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
     }
 
     // Check if email is already registered AND confirmed

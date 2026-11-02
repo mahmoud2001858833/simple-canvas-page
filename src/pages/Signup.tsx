@@ -13,6 +13,7 @@ import { cn } from '@/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { z } from 'zod';
+import { normalizeEmail, isValidEmail as isUsableEmail } from '@/lib/email';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { useProfileFieldsRequired } from '@/hooks/useProfileFieldsRequired';
 import { sendLifecycleEmail, upsertTeacherLifecycleProfile, syncTeacherDataToCloud } from '@/lib/teacherLifecycleService';
@@ -187,14 +188,13 @@ const Signup = () => {
 
   // Validate email format
   const isValidEmail = (emailValue: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(emailValue.trim());
+    return isUsableEmail(normalizeEmail(emailValue));
   };
 
   // Handle sending OTP
   const handleSendOtp = async () => {
     if (!isValidEmail(email)) {
-      toast.error(language === 'ar' ? 'يرجى إدخال بريد إلكتروني صحيح' : 'Please enter a valid email');
+      toast.error(language === 'ar' ? 'يرجى إدخال بريد إلكتروني صحيح بأحرف إنجليزية' : 'Please enter a valid email');
       return;
     }
 
@@ -203,7 +203,7 @@ const Signup = () => {
 
     try {
       const { data, error } = await supabase.functions.invoke('send-email-otp', {
-        body: { email: email.trim() }
+        body: { email: normalizeEmail(email) }
       });
 
       if (error) throw error;
@@ -257,7 +257,7 @@ const Signup = () => {
 
     try {
       const { data, error } = await supabase.functions.invoke('verify-email-otp', {
-        body: { email: email.trim(), otp }
+        body: { email: normalizeEmail(email), otp }
       });
 
       if (error) throw error;
@@ -271,7 +271,14 @@ const Signup = () => {
       }
     } catch (error: any) {
       console.error('Error verifying OTP:', error);
-      setOtpError(language === 'ar' ? 'فشل في التحقق من الرمز' : 'Failed to verify code');
+      // Wrong or expired codes come back as HTTP 400 with the reason in the body
+      let body: any = null;
+      try { body = await error?.context?.json?.(); } catch (_) {}
+      setOtpError(
+        language === 'ar'
+          ? (body?.error_ar || 'فشل في التحقق من الرمز')
+          : (body?.error || 'Failed to verify code')
+      );
     } finally {
       setVerifyingOtp(false);
     }
@@ -287,7 +294,7 @@ const Signup = () => {
 
   // Reset OTP state when email changes
   const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newEmail = e.target.value;
+    const newEmail = normalizeEmail(e.target.value);
     setEmail(newEmail);
     if (emailVerified || otpSent) {
       setEmailVerified(false);
@@ -311,7 +318,7 @@ const Signup = () => {
     // Validate input
     const validation = buildSignupSchema(fieldsRequired).safeParse({ 
       fullName: fullName.trim(), 
-      email: email.trim(), 
+      email: normalizeEmail(email), 
       password,
       phone: phone || undefined
     });
@@ -339,7 +346,7 @@ const Signup = () => {
     const fullPhone = phone ? `${selectedCountry} ${phone}` : '';
 
     try {
-      const { error, selectedRole: registeredRole } = await signUp(email.trim(), password, fullName.trim(), selectedRole, fullPhone);
+      const { error, selectedRole: registeredRole } = await signUp(normalizeEmail(email), password, fullName.trim(), selectedRole, fullPhone);
 
       if (error) {
         // Translate common Supabase errors
@@ -385,7 +392,7 @@ const Signup = () => {
                 await upsertTeacherLifecycleProfile({
                   id: newUser.id,
                   full_name: fullName.trim(),
-                  email: email.trim(),
+                  email: normalizeEmail(email),
                   onboarding_status: 'registered',
                 }).catch(() => {});
 
@@ -404,7 +411,7 @@ const Signup = () => {
 
                 await sendLifecycleEmail({
                   type: 'teacher_welcome',
-                  toEmail: email.trim(),
+                  toEmail: normalizeEmail(email),
                   toName: fullName.trim(),
                 }).catch(() => {});
               }
@@ -422,7 +429,7 @@ const Signup = () => {
         );
         
         // Navigate to email verification page
-        navigate('/email-verification', { state: { email: email.trim() } });
+        navigate('/email-verification', { state: { email: normalizeEmail(email) } });
         setLoading(false);
       }
     } catch (err) {

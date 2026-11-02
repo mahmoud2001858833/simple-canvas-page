@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { GraduationCap, Mail, Lock, Loader2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
+import { normalizeEmail } from '@/lib/email';
 import { z } from 'zod';
 
 // Validation schema
@@ -93,7 +94,7 @@ const Login = () => {
     setErrors({});
 
     // Validate input
-    const validation = loginSchema.safeParse({ email: email.trim(), password });
+    const validation = loginSchema.safeParse({ email: normalizeEmail(email), password });
     if (!validation.success) {
       const fieldErrors: { email?: string; password?: string } = {};
       validation.error.errors.forEach((err) => {
@@ -107,14 +108,14 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const { error, data } = await signIn(email.trim(), password);
+      const { error, data } = await signIn(normalizeEmail(email), password);
 
       if (error) {
         // التحقق من عدم تأكيد الإيميل
         if (error.message === 'EMAIL_NOT_CONFIRMED') {
           setLoading(false);
           // توجيه لصفحة التحقق من الإيميل
-          navigate('/email-verification', { state: { email: email.trim() } });
+          navigate('/email-verification', { state: { email: normalizeEmail(email) } });
           return;
         }
         

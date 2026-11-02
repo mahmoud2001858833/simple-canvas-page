@@ -7,6 +7,11 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Phones (iPhone with an Arabic keyboard especially) add invisible direction marks or spaces to
+// typed emails; the email service rejects them as non-ASCII, so clean the address first.
+const normalizeEmail = (value: unknown) =>
+  String(value ?? "").normalize("NFKC").replace(/[\s\p{Cf}]/gu, "").toLowerCase();
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -17,7 +22,8 @@ serve(async (req: Request) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { email, otp, new_password } = await req.json();
+    const { email: rawEmail, otp, new_password } = await req.json();
+    const email = normalizeEmail(rawEmail);
 
     if (!email || !otp || !new_password) {
       throw new Error("Email, OTP, and new password are required");

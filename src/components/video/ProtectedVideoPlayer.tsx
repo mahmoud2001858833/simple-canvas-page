@@ -162,9 +162,15 @@ export const ProtectedVideoPlayer = forwardRef<ProtectedVideoPlayerRef, Protecte
       return;
     }
 
+    // Touch devices (iPhone especially) fire window blur for ordinary things like notifications,
+    // the address bar or control center, and often never send focus back. That paused and blurred
+    // the video every few minutes. Screen capture can't be detected that way on phones anyway,
+    // so there we rely on visibilitychange (switching apps) only.
+    const isTouchDevice = window.matchMedia?.('(pointer: coarse)').matches ?? false;
+
     // Blur when window loses focus
     const handleBlur = () => {
-      if (protectionEnabled) {
+      if (protectionEnabled && !isTouchDevice) {
         console.log('Window lost focus - applying blur');
         wasPlayingRef.current = videoRef.current ? !videoRef.current.paused : false;
         setIsBlurred(true);
@@ -481,11 +487,12 @@ export const ProtectedVideoPlayer = forwardRef<ProtectedVideoPlayerRef, Protecte
       document.head.appendChild(styleEl);
     }
 
-    const purgeIdmWidgets = () => {
+    // Checks only the given elements (newly added ones), not the whole page. Scanning every element
+    // with getComputedStyle every 150ms and on every DOM change froze phones during playback.
+    const purgeIdmWidgets = (elements: ArrayLike<Element>) => {
       try {
-        const allElements = document.querySelectorAll('*');
-        for (let i = 0; i < allElements.length; i++) {
-          const el = allElements[i] as HTMLElement;
+        for (let i = 0; i < elements.length; i++) {
+          const el = elements[i] as HTMLElement;
           if (!el || el === document.body || el === document.documentElement || el === containerRef.current) continue;
           if (containerRef.current?.contains(el)) continue;
 
@@ -515,20 +522,26 @@ export const ProtectedVideoPlayer = forwardRef<ProtectedVideoPlayerRef, Protecte
       } catch {}
     };
 
-    const observer = new MutationObserver(() => {
-      purgeIdmWidgets();
+    const observer = new MutationObserver((mutations) => {
+      const added: Element[] = [];
+      for (const m of mutations) {
+        m.addedNodes.forEach((node) => {
+          if (node instanceof HTMLElement && node.isConnected) {
+            added.push(node, ...Array.from(node.querySelectorAll('*')));
+          }
+        });
+      }
+      if (added.length) purgeIdmWidgets(added);
     });
 
     try {
       observer.observe(document.documentElement, { childList: true, subtree: true });
     } catch {}
 
-    const interval = setInterval(purgeIdmWidgets, 150);
-    purgeIdmWidgets();
+    purgeIdmWidgets(document.body.children);
 
     return () => {
       observer.disconnect();
-      clearInterval(interval);
     };
   }, []);
 

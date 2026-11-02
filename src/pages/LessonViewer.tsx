@@ -113,6 +113,8 @@ const LessonViewer = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const protectedPlayerRef = useRef<ProtectedVideoPlayerRef>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  // iPhone Safari can't put a div in fullscreen, so the player covers the screen instead
+  const [isPseudoFullscreen, setIsPseudoFullscreen] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
@@ -836,7 +838,7 @@ const LessonViewer = () => {
         {/* Video Player */}
         <div className="flex-1">
           <div
-            className="relative bg-black aspect-video"
+            className={isPseudoFullscreen ? "fixed inset-0 z-[100] bg-black" : "relative bg-black aspect-video"}
             onMouseMove={handleMouseMove}
             onMouseLeave={() => isPlaying && setShowControls(false)}
             onContextMenu={handleContextMenu}
@@ -1115,12 +1117,15 @@ const LessonViewer = () => {
                           className="w-9 h-9 flex items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/15 transition-colors"
                           onClick={() => {
                             const container = document.querySelector('[data-onboarding="lesson-video"]');
-                            if (container) {
-                              if (document.fullscreenElement) {
-                                document.exitFullscreen();
-                              } else {
-                                container.requestFullscreen?.();
-                              }
+                            if (!container) return;
+                            if (isPseudoFullscreen) {
+                              setIsPseudoFullscreen(false);
+                            } else if (document.fullscreenElement) {
+                              document.exitFullscreen();
+                            } else if (container.requestFullscreen) {
+                              container.requestFullscreen().catch(() => setIsPseudoFullscreen(true));
+                            } else {
+                              setIsPseudoFullscreen(true);
                             }
                           }}
                           title={isRTL ? 'ملء الشاشة' : 'Fullscreen'}

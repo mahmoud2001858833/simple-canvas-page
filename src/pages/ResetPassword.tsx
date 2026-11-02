@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Link, useNavigate } from 'react-router-dom';
 import { GraduationCap, Lock, Loader2, CheckCircle, KeyRound, Mail, ArrowLeft, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
+import { normalizeEmail } from '@/lib/email';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 
 type Step = 'email' | 'otp' | 'newPassword';
@@ -34,7 +35,7 @@ const ResetPassword = () => {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('send-password-reset-otp', {
-        body: { email: email.trim() },
+        body: { email: normalizeEmail(email) },
       });
       if (error) throw error;
       if (data?.error) {
@@ -73,7 +74,7 @@ const ResetPassword = () => {
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke('reset-password-with-otp', {
-        body: { email: email.trim(), otp, new_password: password },
+        body: { email: normalizeEmail(email), otp, new_password: password },
       });
 
       // Try to extract body from error response if invoke threw
