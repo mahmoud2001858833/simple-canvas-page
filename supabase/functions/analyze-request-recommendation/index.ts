@@ -15,7 +15,7 @@ Deno.serve(async (req) => {
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    const GEMINI_API_KEY = (Deno.env.get('GEMINI_API_KEY') || Deno.env.get('GOOGLE_API_KEY'));
 
     if (!GEMINI_API_KEY && !LOVABLE_API_KEY) {
       return new Response(JSON.stringify({ error: 'AI key is not configured (GEMINI_API_KEY)' }), {

@@ -40,7 +40,7 @@ serve(async (req) => {
 
     const { messages, userContext } = await req.json();
     const JOSOORCOM_AI_KEY = Deno.env.get("JOSOORCOM_AI_KEY") || 
-      Deno.env.get("GEMINI_API_KEY") || "";
+      (Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_API_KEY")) || "";
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     // Initialize Supabase client with service role for data fetching
