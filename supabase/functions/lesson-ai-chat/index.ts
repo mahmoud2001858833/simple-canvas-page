@@ -127,7 +127,7 @@ ${contextInfo}
       ...userMessages,
     ];
 
-    const GEMINI_API_KEY = (Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_API_KEY")) || "";
+    const GEMINI_API_KEY = (Deno.env.get("GOOGLE_API_KEY") || Deno.env.get("GEMINI_API_KEY")) || "";
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     let aiResponse: Response | null = null;

@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json(405, { error: { message: "Method not allowed" } });
 
-  const apiKey = (Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_API_KEY"));
+  const apiKey = (Deno.env.get("GOOGLE_API_KEY") || Deno.env.get("GEMINI_API_KEY"));
   if (!apiKey) return json(500, { error: { message: "AI key is not configured on the server" } });
 
   // Require a real signed-in user (the anon key alone is not enough).

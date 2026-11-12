@@ -43,8 +43,8 @@ serve(async (req) => {
     const src = sourceLang === "en" ? "English" : "Arabic";
     const tgt = targetLang === "ar" ? "Arabic" : "English";
 
-    const TRANSLATION_KEY = Deno.env.get("TRANSLATION_API_KEY") || 
-      (Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_API_KEY")) || "";
+    const TRANSLATION_KEY = (Deno.env.get("GOOGLE_API_KEY") || Deno.env.get("GEMINI_API_KEY")) ||
+      Deno.env.get("TRANSLATION_API_KEY") || "";
 
     const systemPrompt = `You are a professional educational translator. Translate the user text from ${src} to ${tgt}. Return ONLY the translated text, no notes, no quotes, no conversational filler.`;
 

@@ -94,7 +94,7 @@ serve(async (req) => {
       .single();
 
     // Generate a comprehensive transcript using AI based on lesson metadata
-    const GEMINI_API_KEY = (Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_API_KEY")) || "";
+    const GEMINI_API_KEY = (Deno.env.get("GOOGLE_API_KEY") || Deno.env.get("GEMINI_API_KEY")) || "";
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     const prompt = `أنت مساعد تعليمي متخصص وخبير في إعداد وتفريغ المحاضرات التعليمية الجامعية. بناءً على المعلومات التالية عن الدرس، أنشئ تفريغاً صوتياً وشرحاً تعليمياً شاملاً ومفصلاً باللغة العربية يماثل ما ينطقه الأستاذ في الفيديو بصوت واضح.
