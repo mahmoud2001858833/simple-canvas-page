@@ -199,7 +199,9 @@ ${coursesJson}
     const CANDIDATE_MODELS = ["gemini-2.5-flash-lite"];
 
     let response: Response | null = null;
-    for (const model of CANDIDATE_MODELS) {
+    let googleError = "";
+    if (!JOSOORCOM_AI_KEY) googleError = "GOOGLE_API_KEY is not set in Edge Function secrets";
+    for (const model of JOSOORCOM_AI_KEY ? CANDIDATE_MODELS : []) {
       try {
         const r = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
           method: "POST",
@@ -221,8 +223,15 @@ ${coursesJson}
           response = r;
           break;
         }
-      } catch {
-        // Try next candidate model
+        // Keep Google's own reason (quota, billing, key restriction...) so it is visible in logs and the reply.
+        const body = await r.text();
+        let msg = body.slice(0, 300);
+        try { msg = JSON.parse(body)?.error?.message ?? JSON.parse(body)?.[0]?.error?.message ?? msg; } catch { /* keep raw */ }
+        googleError = `Google ${r.status}: ${msg}`;
+        console.error("Gemini error:", googleError);
+      } catch (e) {
+        googleError = `Google request failed: ${(e as Error)?.message ?? e}`;
+        console.error(googleError);
       }
     }
 
@@ -250,20 +259,20 @@ ${coursesJson}
 
     if (!response.ok) {
       if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "المساعد مشغول حالياً، يرجى المحاولة بعد قليل." }), {
+        return new Response(JSON.stringify({ error: "المساعد مشغول حالياً، يرجى المحاولة بعد قليل.", details: googleError }), {
           status: 429,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "خدمة المساعد غير متاحة حالياً." }), {
+        return new Response(JSON.stringify({ error: "خدمة المساعد غير متاحة حالياً.", details: googleError }), {
           status: 402,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       const errorText = await response.text();
       console.error("AI gateway error:", response.status, errorText);
-      return new Response(JSON.stringify({ error: "حدث خطأ في المساعد" }), {
+      return new Response(JSON.stringify({ error: "حدث خطأ في المساعد", details: googleError }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
