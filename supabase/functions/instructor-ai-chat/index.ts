@@ -105,7 +105,7 @@ serve(async (req) => {
 
     let response: Response | null = null;
 
-    const CANDIDATE_MODELS = ["gemini-2.5-flash-lite"];
+    const CANDIDATE_MODELS = ["gemini-3.1-flash-lite", "gemini-3.5-flash-lite"];
 
     if (GEMINI_API_KEY) {
       for (const model of CANDIDATE_MODELS) {

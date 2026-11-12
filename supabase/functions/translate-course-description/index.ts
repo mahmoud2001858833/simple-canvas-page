@@ -48,7 +48,7 @@ serve(async (req) => {
 
     const systemPrompt = `You are a professional educational translator. Translate the user text from ${src} to ${tgt}. Return ONLY the translated text, no notes, no quotes, no conversational filler.`;
 
-    const CANDIDATE_MODELS = ["gemini-2.5-flash-lite"];
+    const CANDIDATE_MODELS = ["gemini-3.1-flash-lite", "gemini-3.5-flash-lite"];
 
     let resp: Response | null = null;
     for (const model of CANDIDATE_MODELS) {

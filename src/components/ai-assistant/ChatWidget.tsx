@@ -311,7 +311,7 @@ ${coursesSummary || 'دورات أكاديمية متنوعة متوفرة في 
 - عند اقتراح رابط أو صفحة، أضف: {"navigate": "/courses"} أو المسار المناسب.
 - اكتب المعادلات بصيغة LaTeX محاطة بـ $...$ أو $$...$$.${customDirectives}`;
 
-        const CANDIDATE_MODELS = ['gemini-2.5-flash-lite'];
+        const CANDIDATE_MODELS = ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite'];
 
         const API_KEYS = [JOSOORCOM_AI_KEY];
 

@@ -10,7 +10,8 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const MODEL = "gemini-2.5-flash-lite";
+// gemini-2.5-flash-lite is closed to new Google accounts; 3.1 is cheaper, 3.5 is Google's recommended fallback.
+const MODELS = ["gemini-3.1-flash-lite", "gemini-3.5-flash-lite"];
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 const MAX_TOKENS = 8192;
 
@@ -47,19 +48,23 @@ Deno.serve(async (req) => {
   }
 
   const payload: Record<string, unknown> = {
-    model: MODEL,
     messages: body.messages,
     stream: body.stream === true,
     max_tokens: Math.min(Number(body.max_tokens) || MAX_TOKENS, MAX_TOKENS),
   };
   if (typeof body.temperature === "number") payload.temperature = body.temperature;
 
-  const upstream = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-    signal: req.signal,
-  });
+  let upstream: Response | null = null;
+  for (const model of MODELS) {
+    upstream = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ ...payload, model }),
+      signal: req.signal,
+    });
+    if (upstream.status !== 404) break; // 404 = model not available for this key; try the next one
+  }
+  upstream = upstream!;
 
   return new Response(upstream.body, {
     status: upstream.status,

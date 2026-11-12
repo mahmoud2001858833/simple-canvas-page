@@ -151,7 +151,7 @@ serve(async (req) => {
         const textPreview = textContent.substring(0, 5000);
 
         // Analyze with AI using robust multi-key and candidate models cascade
-        const CANDIDATE_MODELS = ["gemini-2.5-flash-lite"];
+        const CANDIDATE_MODELS = ["gemini-3.1-flash-lite", "gemini-3.5-flash-lite"];
 
         const messagesPayload = [
           {

@@ -176,7 +176,7 @@ ${teacherCoursesText}
           apiMessages.push({ role: 'user', content: trimmed });
         }
 
-        const candidateModels = ['gemini-2.5-flash-lite'];
+        const candidateModels = ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite'];
         let directSuccess = false;
 
         for (const model of candidateModels) {

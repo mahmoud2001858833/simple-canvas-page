@@ -118,7 +118,7 @@ serve(async (req) => {
 
 اكتب النص التعليمي والتفريغ الصوتي الآن:`;
 
-    const CANDIDATE_MODELS = ["gemini-2.5-flash-lite"];
+    const CANDIDATE_MODELS = ["gemini-3.1-flash-lite", "gemini-3.5-flash-lite"];
 
     let aiResponse: Response | null = null;
     for (const model of CANDIDATE_MODELS) {

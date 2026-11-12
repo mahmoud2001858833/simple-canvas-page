@@ -182,11 +182,13 @@ Deno.serve(async (req) => {
 
     if (GEMINI_API_KEY) {
       // Gemini 2.5 Flash-Lite through Google's OpenAI-compatible endpoint, same JSON schema.
-      const gRes = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+      let gRes: Response | null = null;
+      for (const model of ["gemini-3.1-flash-lite", "gemini-3.5-flash-lite"]) {
+        gRes = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
         method: "POST",
         headers: { Authorization: `Bearer ${GEMINI_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "gemini-2.5-flash-lite",
+          model,
           messages: [
             { role: "system", content: instructions },
             { role: "user", content: userText },
@@ -197,6 +199,9 @@ Deno.serve(async (req) => {
           },
         }),
       });
+        if (gRes.status !== 404) break; // model unavailable for this key: try the next
+      }
+      gRes = gRes!;
       if (!gRes.ok) {
         const errText = await gRes.text();
         console.error("Gemini error:", gRes.status, errText);

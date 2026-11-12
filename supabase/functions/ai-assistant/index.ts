@@ -196,7 +196,7 @@ ${coursesJson}
 - عند الحل خطوة بخطوة: اشرح بالعربية خارج المعادلة، وضع كل خطوة حسابية في سطر معادلة مستقل $$...$$.
 `;
 
-    const CANDIDATE_MODELS = ["gemini-2.5-flash-lite"];
+    const CANDIDATE_MODELS = ["gemini-3.1-flash-lite", "gemini-3.5-flash-lite"];
 
     let response: Response | null = null;
     let googleError = "";

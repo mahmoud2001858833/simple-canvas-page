@@ -2045,7 +2045,7 @@ ${faqsManifest}
       { role: "user", content: userMessage },
     ];
 
-    const CANDIDATE_MODELS = ['gemini-2.5-flash-lite'];
+    const CANDIDATE_MODELS = ['gemini-3.1-flash-lite', 'gemini-3.5-flash-lite'];
 
     let resp: Response | null = null;
 

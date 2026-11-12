@@ -301,7 +301,7 @@ export function AIControlCenter() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: agent.model || 'gemini-2.5-flash-lite',
+          model: agent.model || 'gemini-3.1-flash-lite',
           messages: [{ role: "user", content: "ping" }],
           max_tokens: 5,
         }),
@@ -342,7 +342,7 @@ export function AIControlCenter() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: selectedAgent?.model || 'gemini-2.5-flash-lite',
+          model: selectedAgent?.model || 'gemini-3.1-flash-lite',
           messages: [
             { role: "system", content: effectivePrompt },
             { role: "user", content: simQuestion },
