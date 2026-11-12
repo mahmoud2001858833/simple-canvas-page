@@ -40,8 +40,7 @@ serve(async (req) => {
 
     const { messages, userContext } = await req.json();
     const JOSOORCOM_AI_KEY = Deno.env.get("JOSOORCOM_AI_KEY") || 
-      Deno.env.get("GEMINI_API_KEY") || 
-      atob("QVEuQWI4Uk42S1NjVENZOTAxMmFNdU84S09zSGgwMUF4R3Y2OFBWanhfSUFGaFFwTG1Cdnc=");
+      Deno.env.get("GEMINI_API_KEY") || "";
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     // Initialize Supabase client with service role for data fetching
@@ -197,12 +196,7 @@ ${coursesJson}
 - عند الحل خطوة بخطوة: اشرح بالعربية خارج المعادلة، وضع كل خطوة حسابية في سطر معادلة مستقل $$...$$.
 `;
 
-    const CANDIDATE_MODELS = [
-      "gemini-flash-lite-latest",
-      "gemini-3.1-flash-lite",
-      "gemini-3.5-flash-lite",
-      "gemini-flash-latest",
-    ];
+    const CANDIDATE_MODELS = ["gemini-2.5-flash-lite"];
 
     let response: Response | null = null;
     for (const model of CANDIDATE_MODELS) {
@@ -244,7 +238,7 @@ ${coursesJson}
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          model: "google/gemini-2.5-flash-lite",
           messages: [
             { role: "system", content: systemPrompt },
             ...messages,

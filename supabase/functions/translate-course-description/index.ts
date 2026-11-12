@@ -44,17 +44,11 @@ serve(async (req) => {
     const tgt = targetLang === "ar" ? "Arabic" : "English";
 
     const TRANSLATION_KEY = Deno.env.get("TRANSLATION_API_KEY") || 
-      Deno.env.get("GEMINI_API_KEY") || 
-      atob("QVEuQWI4Uk42TFZLU2xhRUdwaG5hVUd1am9kMFBqc0stOHhFMURHMEhFWGVud3p5UFZHMXc=");
+      Deno.env.get("GEMINI_API_KEY") || "";
 
     const systemPrompt = `You are a professional educational translator. Translate the user text from ${src} to ${tgt}. Return ONLY the translated text, no notes, no quotes, no conversational filler.`;
 
-    const CANDIDATE_MODELS = [
-      "gemini-flash-lite-latest",
-      "gemini-3.1-flash-lite",
-      "gemini-3.5-flash-lite",
-      "gemini-flash-latest",
-    ];
+    const CANDIDATE_MODELS = ["gemini-2.5-flash-lite"];
 
     let resp: Response | null = null;
     for (const model of CANDIDATE_MODELS) {
@@ -97,7 +91,7 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          model: "google/gemini-2.5-flash-lite",
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: text },

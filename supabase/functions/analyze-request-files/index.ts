@@ -35,8 +35,8 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || atob("QVEuQWI4Uk42S1NjVENZOTAxMmFNdU84S09zSGgwMUF4R3Y2OFBWanhfSUFGaFFwTG1Cdnc=");
-    const GEMINI_BACKUP_KEY = atob("QVEuQWI4Uk42TFZLU2xhRUdwaG5hVUd1am9kMFBqc0stOHhFMURHMEhFWGVud3p5UFZHMXc=");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || "";
+    const GEMINI_BACKUP_KEY = Deno.env.get("GEMINI_BACKUP_KEY") || "";
 
     // Client with user auth
     const supabaseUser = createClient(supabaseUrl, supabaseAnonKey, {
@@ -151,12 +151,7 @@ serve(async (req) => {
         const textPreview = textContent.substring(0, 5000);
 
         // Analyze with AI using robust multi-key and candidate models cascade
-        const CANDIDATE_MODELS = [
-          "gemini-flash-lite-latest",
-          "gemini-3.1-flash-lite",
-          "gemini-3.5-flash-lite",
-          "gemini-flash-latest",
-        ];
+        const CANDIDATE_MODELS = ["gemini-2.5-flash-lite"];
 
         const messagesPayload = [
           {
@@ -195,7 +190,7 @@ Respond ONLY with a JSON object in this exact format:
         ];
 
         let aiResponse: Response | null = null;
-        for (const key of [GEMINI_API_KEY, GEMINI_BACKUP_KEY]) {
+        for (const key of [GEMINI_API_KEY, GEMINI_BACKUP_KEY].filter(Boolean)) {
           if (aiResponse && aiResponse.ok) break;
           for (const model of CANDIDATE_MODELS) {
             try {
@@ -230,7 +225,7 @@ Respond ONLY with a JSON object in this exact format:
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              model: "google/gemini-2.5-flash",
+              model: "google/gemini-2.5-flash-lite",
               messages: messagesPayload,
               temperature: 0.3,
             }),

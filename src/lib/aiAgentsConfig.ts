@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { syncBundleToCourses } from "@/services/bundleService";
+import { proxyChatFetch } from "@/lib/geminiProxy";
 
 export interface AIAgentDefinition {
   id: string;
@@ -1771,8 +1772,8 @@ export async function executeMasterAction(action: MasterAIAction): Promise<{
   }
 }
 
-const MASTER_AI_DIRECT_KEY = atob("QVEuQWI4Uk42S1NjVENZOTAxMmFNdU84S09zSGgwMUF4R3Y2OFBWanhfSUFGaFFwTG1Cdnc=");
-const MASTER_AI_BACKUP_KEY = atob("QVEuQWI4Uk42TFZLU2xhRUdwaG5hVUd1am9kMFBqc0stOHhFMURHMEhFWGVud3p5UFZHMXc=");
+const MASTER_AI_DIRECT_KEY = "";
+const MASTER_AI_BACKUP_KEY = "";
 
 /**
  * Calls the Master Executive AI Orchestrator with streaming response and 100% REAL platform database manifest
@@ -2044,21 +2045,16 @@ ${faqsManifest}
       { role: "user", content: userMessage },
     ];
 
-    const CANDIDATE_MODELS = [
-      "gemini-flash-lite-latest",
-      "gemini-3.1-flash-lite",
-      "gemini-3.5-flash-lite",
-      "gemini-flash-latest",
-    ];
+    const CANDIDATE_MODELS = ['gemini-2.5-flash-lite'];
 
     let resp: Response | null = null;
 
-    for (const key of [MASTER_AI_DIRECT_KEY, MASTER_AI_BACKUP_KEY]) {
+    for (const key of [MASTER_AI_DIRECT_KEY]) {
       if (resp && resp.ok) break;
 
       for (const model of CANDIDATE_MODELS) {
         try {
-          const candidateRes = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+          const candidateRes = await proxyChatFetch({
             method: "POST",
             headers: {
               Authorization: `Bearer ${key}`,
@@ -2080,7 +2076,7 @@ ${faqsManifest}
         }
       }
 
-      if (!resp || !resp.ok) {
+      if (key && (!resp || !resp.ok)) {
         for (const model of CANDIDATE_MODELS) {
           try {
             const contents = [

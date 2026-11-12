@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { MathMarkdown } from "@/components/ai/MathMarkdown";
+import { proxyChatFetch } from "@/lib/geminiProxy";
 
 interface Message {
   role: "user" | "assistant";
@@ -26,8 +27,8 @@ const QUICK_ACTIONS = [
   { id: "keypoints", icon: ListChecks, labelAr: "النقاط المهمة", labelEn: "Key Points" },
 ];
 
-const GEMINI_DIRECT_KEY = atob("QVEuQWI4Uk42S1NjVENZOTAxMmFNdU84S09zSGgwMUF4R3Y2OFBWanhfSUFGaFFwTG1Cdnc=");
-const GEMINI_FALLBACK_KEY = atob("QVEuQWI4Uk42TFZLU2xhRUdwaG5hVUd1am9kMFBqc0stOHhFMURHMEhFWGVud3p5UFZHMXc=");
+const GEMINI_DIRECT_KEY = "";
+const GEMINI_FALLBACK_KEY = "";
 
 async function streamChat({
   lessonId,
@@ -168,14 +169,9 @@ ${contextInfo}
       ...userMessages,
     ];
 
-    const CANDIDATE_MODELS = [
-      "gemini-flash-lite-latest",
-      "gemini-3.1-flash-lite",
-      "gemini-3.5-flash-lite",
-      "gemini-flash-latest",
-    ];
+    const CANDIDATE_MODELS = ['gemini-2.5-flash-lite'];
 
-    const API_KEYS = [GEMINI_DIRECT_KEY, GEMINI_FALLBACK_KEY];
+    const API_KEYS = [GEMINI_DIRECT_KEY];
     let resp: Response | null = null;
 
     for (const key of API_KEYS) {
@@ -184,7 +180,7 @@ ${contextInfo}
       // 1. Primary: Stream via OpenAI-compatible endpoint with model fallback
       for (const model of CANDIDATE_MODELS) {
         try {
-          const candidateRes = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+          const candidateRes = await proxyChatFetch({
             method: "POST",
             headers: {
               "Authorization": `Bearer ${key}`,
@@ -208,8 +204,8 @@ ${contextInfo}
         }
       }
 
-      // 2. Secondary fallback: Stream directly via Google Native SSE endpoint
-      if (!resp || !resp.ok) {
+      // 2. Secondary fallback: Google native SSE (only with an explicit key; none is bundled any more)
+      if (key && (!resp || !resp.ok)) {
         for (const model of CANDIDATE_MODELS) {
           try {
             const contents = [

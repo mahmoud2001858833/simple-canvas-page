@@ -85,6 +85,7 @@ import {
   executeMasterAction,
   dispatchPlatformRiskAlert,
 } from "@/lib/aiAgentsConfig";
+import { proxyChatFetch } from "@/lib/geminiProxy";
 
 interface ExecutedActionRecord {
   id: string;
@@ -292,15 +293,15 @@ export function AIControlCenter() {
     setTestingAgentId(agent.id);
     const start = performance.now();
     try {
-      const directKey = atob("QVEuQWI4Uk42S1NjVENZOTAxMmFNdU84S09zSGgwMUF4R3Y2OFBWanhfSUFGaFFwTG1Cdnc=");
-      const res = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+      const directKey = "";
+      const res = await proxyChatFetch({
         method: "POST",
         headers: {
           Authorization: `Bearer ${directKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: agent.model || "gemini-flash-lite-latest",
+          model: agent.model || 'gemini-2.5-flash-lite',
           messages: [{ role: "user", content: "ping" }],
           max_tokens: 5,
         }),
@@ -331,17 +332,17 @@ export function AIControlCenter() {
     setSimResponse("");
 
     try {
-      const directKey = atob("QVEuQWI4Uk42S1NjVENZOTAxMmFNdU84S09zSGgwMUF4R3Y2OFBWanhfSUFGaFFwTG1Cdnc=");
+      const directKey = "";
       const effectivePrompt = `${selectedAgent?.defaultPrompt || ""}\n\nتعليمات إضافية مخصصة من الإدارة:\n${selectedAgent?.customPrompt || "لا توجد"}`;
 
-      const res = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+      const res = await proxyChatFetch({
         method: "POST",
         headers: {
           Authorization: `Bearer ${directKey}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: selectedAgent?.model || "gemini-flash-lite-latest",
+          model: selectedAgent?.model || 'gemini-2.5-flash-lite',
           messages: [
             { role: "system", content: effectivePrompt },
             { role: "user", content: simQuestion },

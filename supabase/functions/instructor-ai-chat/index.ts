@@ -41,7 +41,7 @@ serve(async (req) => {
     if (!messages || !messages.length) throw new Error("messages required");
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || atob("QVEuQWI4Uk42TFQwU285WWoySHZKdGxTV0dnNkNyNTVRcXRTTFNzb0Q3ZDZ0UDVGWmVCdmc=");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || "";
 
     if (!LOVABLE_API_KEY && !GEMINI_API_KEY) throw new Error("No AI key configured");
 
@@ -105,12 +105,7 @@ serve(async (req) => {
 
     let response: Response | null = null;
 
-    const CANDIDATE_MODELS = [
-      "gemini-flash-lite-latest",
-      "gemini-3.1-flash-lite",
-      "gemini-3.5-flash-lite",
-      "gemini-flash-latest",
-    ];
+    const CANDIDATE_MODELS = ["gemini-2.5-flash-lite"];
 
     if (GEMINI_API_KEY) {
       for (const model of CANDIDATE_MODELS) {
@@ -147,7 +142,7 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
+          model: "google/gemini-2.5-flash-lite",
           messages: apiMessages,
           stream: true,
         }),

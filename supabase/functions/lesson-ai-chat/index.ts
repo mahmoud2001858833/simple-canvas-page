@@ -127,17 +127,12 @@ ${contextInfo}
       ...userMessages,
     ];
 
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || atob("QVEuQWI4Uk42S1NjVENZOTAxMmFNdU84S09zSGgwMUF4R3Y2OFBWanhfSUFGaFFwTG1Cdnc=");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || "";
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     let aiResponse: Response | null = null;
 
-    const CANDIDATE_MODELS = [
-      "gemini-flash-lite-latest",
-      "gemini-3.1-flash-lite",
-      "gemini-3.5-flash-lite",
-      "gemini-flash-latest",
-    ];
+    const CANDIDATE_MODELS = ["gemini-2.5-flash-lite"];
 
     if (GEMINI_API_KEY) {
       for (const model of CANDIDATE_MODELS) {
@@ -171,7 +166,7 @@ ${contextInfo}
           Authorization: `Bearer ${LOVABLE_API_KEY}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ model: "openai/gpt-5.6-sol", messages: chatMessages, stream: true }),
+        body: JSON.stringify({ model: "google/gemini-2.5-flash-lite", messages: chatMessages, stream: true }),
       });
     }
 

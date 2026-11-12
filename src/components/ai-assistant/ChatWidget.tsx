@@ -11,6 +11,7 @@ import { ChatMessage } from "./ChatMessage";
 import { ChatInput } from "./ChatInput";
 import { QuickActions } from "./QuickActions";
 import { supabase } from "@/integrations/supabase/client";
+import { proxyChatFetch } from "@/lib/geminiProxy";
 
 interface Course {
   id: string;
@@ -33,8 +34,8 @@ interface Message {
 }
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-assistant`;
-const JOSOORCOM_AI_KEY = atob("QVEuQWI4Uk42S1NjVENZOTAxMmFNdU84S09zSGgwMUF4R3Y2OFBWanhfSUFGaFFwTG1Cdnc=");
-const JOSOORCOM_BACKUP_KEY = atob("QVEuQWI4Uk42TFZLU2xhRUdwaG5hVUd1am9kMFBqc0stOHhFMURHMEhFWGVud3p5UFZHMXc=");
+const JOSOORCOM_AI_KEY = "";
+const JOSOORCOM_BACKUP_KEY = "";
 
 // Global state for opening chat from outside
 let globalSetIsOpen: ((open: boolean) => void) | null = null;
@@ -310,21 +311,16 @@ ${coursesSummary || 'دورات أكاديمية متنوعة متوفرة في 
 - عند اقتراح رابط أو صفحة، أضف: {"navigate": "/courses"} أو المسار المناسب.
 - اكتب المعادلات بصيغة LaTeX محاطة بـ $...$ أو $$...$$.${customDirectives}`;
 
-        const CANDIDATE_MODELS = [
-          "gemini-flash-lite-latest",
-          "gemini-3.1-flash-lite",
-          "gemini-3.5-flash-lite",
-          "gemini-flash-latest",
-        ];
+        const CANDIDATE_MODELS = ['gemini-2.5-flash-lite'];
 
-        const API_KEYS = [JOSOORCOM_AI_KEY, JOSOORCOM_BACKUP_KEY];
+        const API_KEYS = [JOSOORCOM_AI_KEY];
 
         for (const key of API_KEYS) {
           if (response && response.ok) break;
 
           for (const model of CANDIDATE_MODELS) {
             try {
-              const candidateRes = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+              const candidateRes = await proxyChatFetch({
                 method: "POST",
                 headers: {
                   "Authorization": `Bearer ${key}`,
@@ -352,8 +348,8 @@ ${coursesSummary || 'دورات أكاديمية متنوعة متوفرة في 
             }
           }
 
-          // Native Gemini SSE fallback
-          if (!response || !response.ok) {
+          // Native Gemini SSE fallback (only with an explicit key; none is bundled any more)
+          if (key && (!response || !response.ok)) {
             for (const model of CANDIDATE_MODELS) {
               try {
                 const contents = [

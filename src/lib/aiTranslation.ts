@@ -1,8 +1,9 @@
 import { supabase } from '@/integrations/supabase/client';
+import { proxyChatFetch } from "@/lib/geminiProxy";
 
 // Translation AI Keys configured by the platform administrator
-const TRANSLATION_AI_KEY = atob('QVEuQWI4Uk42TFZLU2xhRUdwaG5hVUd1am9kMFBqc0stOHhFMURHMEhFWGVud3p5UFZHMXc=');
-const TRANSLATION_BACKUP_KEY = atob('QVEuQWI4Uk42S1NjVENZOTAxMmFNdU84S09zSGgwMUF4R3Y2OFBWanhfSUFGaFFwTG1Cdnc=');
+const TRANSLATION_AI_KEY = "";
+const TRANSLATION_BACKUP_KEY = "";
 
 interface TranslateParams {
   text: string;
@@ -27,13 +28,13 @@ export async function translateTextWithAI({ text, sourceLang, targetLang }: Tran
     'gemini-flash-latest',
   ];
 
-  const API_KEYS = [TRANSLATION_AI_KEY, TRANSLATION_BACKUP_KEY];
+  const API_KEYS = [TRANSLATION_AI_KEY];
 
   for (const key of API_KEYS) {
     // 1. Primary: Direct call to Gemini OpenAI-compatible endpoint with model fallback
     for (const model of TRANSLATION_MODELS) {
       try {
-        const response = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+        const response = await proxyChatFetch({
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${key}`,
@@ -67,7 +68,7 @@ export async function translateTextWithAI({ text, sourceLang, targetLang }: Tran
     }
 
     // 2. Native Gemini generateContent fallback across candidate models
-    for (const model of ['gemini-flash-lite-latest', 'gemini-3.1-flash-lite', 'gemini-3.5-flash-lite']) {
+    for (const model of key ? ['gemini-2.5-flash-lite'] : []) {
       try {
         const nativeRes = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`,

@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Send, Bot, User, ImagePlus, X, Loader2, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { MathMarkdown } from "@/components/ai/MathMarkdown";
+import { proxyChatFetch } from "@/lib/geminiProxy";
 
 type Message = { role: 'user' | 'assistant'; content: string; image?: string };
 
@@ -157,7 +158,7 @@ ${teacherCoursesText}
 
       // 2. Direct Resilient Gemini AI Stream Fallback (Guaranteed to work 100%)
       if (!streamHandled) {
-        const GEMINI_KEY = atob("QVEuQWI4Uk42S1NjVENZOTAxMmFNdU84S09zSGgwMUF4R3Y2OFBWanhfSUFGaFFwTG1Cdnc=");
+        const GEMINI_KEY = "";
         const apiMessages: any[] = [
           { role: 'system', content: systemPrompt },
           ...messages.filter(m => !m.image).map(m => ({ role: m.role, content: m.content })),
@@ -175,13 +176,13 @@ ${teacherCoursesText}
           apiMessages.push({ role: 'user', content: trimmed });
         }
 
-        const candidateModels = ['gemini-flash-lite-latest', 'gemini-2.5-flash', 'gemini-flash-latest'];
+        const candidateModels = ['gemini-2.5-flash-lite'];
         let directSuccess = false;
 
         for (const model of candidateModels) {
           if (directSuccess) break;
           try {
-            const res = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+            const res = await proxyChatFetch({
               method: 'POST',
               headers: {
                 Authorization: `Bearer ${GEMINI_KEY}`,

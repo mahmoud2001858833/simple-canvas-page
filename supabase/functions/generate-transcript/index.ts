@@ -94,7 +94,7 @@ serve(async (req) => {
       .single();
 
     // Generate a comprehensive transcript using AI based on lesson metadata
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || atob("QVEuQWI4Uk42S1NjVENZOTAxMmFNdU84S09zSGgwMUF4R3Y2OFBWanhfSUFGaFFwTG1Cdnc=");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY") || "";
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     const prompt = `أنت مساعد تعليمي متخصص وخبير في إعداد وتفريغ المحاضرات التعليمية الجامعية. بناءً على المعلومات التالية عن الدرس، أنشئ تفريغاً صوتياً وشرحاً تعليمياً شاملاً ومفصلاً باللغة العربية يماثل ما ينطقه الأستاذ في الفيديو بصوت واضح.
@@ -118,12 +118,7 @@ serve(async (req) => {
 
 اكتب النص التعليمي والتفريغ الصوتي الآن:`;
 
-    const CANDIDATE_MODELS = [
-      "gemini-flash-lite-latest",
-      "gemini-3.1-flash-lite",
-      "gemini-3.5-flash-lite",
-      "gemini-flash-latest",
-    ];
+    const CANDIDATE_MODELS = ["gemini-2.5-flash-lite"];
 
     let aiResponse: Response | null = null;
     for (const model of CANDIDATE_MODELS) {
@@ -159,7 +154,7 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
+          model: "google/gemini-2.5-flash-lite",
           messages: [
             { role: "system", content: "أنت أستاذ جامعي متخصص تقوم بإعداد محتوى تعليمي شامل ومفصل للطلاب." },
             { role: "user", content: prompt },

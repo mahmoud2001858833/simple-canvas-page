@@ -15,9 +15,10 @@ Deno.serve(async (req) => {
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: 'LOVABLE_API_KEY is not configured' }), {
+    if (!GEMINI_API_KEY && !LOVABLE_API_KEY) {
+      return new Response(JSON.stringify({ error: 'AI key is not configured (GEMINI_API_KEY)' }), {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -176,75 +177,107 @@ Deno.serve(async (req) => {
       required: ["summary", "estimated_hours", "suggested_price", "advice", "recommendations"],
     };
 
-    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Lovable-API-Key": LOVABLE_API_KEY,
-        "X-Lovable-AIG-SDK": "fetch",
-      },
-      body: JSON.stringify({
-        model: "openai/gpt-5.6-sol",
-        instructions,
-        input: [
-          {
-            role: "user",
-            content: [
-              { type: "input_text", text: `بيانات الطلب والمعلمين (JSON):\n${JSON.stringify(promptPayload)}` },
-            ],
-          },
-        ],
-        stream: true,
-        reasoning: { effort: "low", summary: "auto" },
-        text: {
-          format: {
-            type: "json_schema",
-            name: "request_recommendation",
-            strict: true,
-            schema,
-          },
-        },
-      }),
-    });
-
-    if (!aiRes.ok) {
-      const errText = await aiRes.text();
-      console.error("AI gateway error:", aiRes.status, errText);
-      const status = aiRes.status === 429 || aiRes.status === 402 ? aiRes.status : 500;
-      return new Response(JSON.stringify({ error: 'ai_error', status: aiRes.status, details: errText }), {
-        status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Read the SSE stream and accumulate the final text
-    const reader = aiRes.body!.getReader();
-    const decoder = new TextDecoder();
-    let buf = '';
     let text = '';
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
-      let idx: number;
-      while ((idx = buf.indexOf('\n')) !== -1) {
-        const line = buf.slice(0, idx).replace(/\r$/, '');
-        buf = buf.slice(idx + 1);
-        if (!line.startsWith('data: ')) continue;
-        const payload = line.slice(6).trim();
-        if (payload === '[DONE]') continue;
-        try {
-          const evt = JSON.parse(payload);
-          if (evt.type === 'response.output_text.delta' && typeof evt.delta === 'string') {
-            text += evt.delta;
-          }
-          if (evt.type === 'response.completed' && evt.response?.output_text) {
-            const ot = Array.isArray(evt.response.output_text)
-              ? evt.response.output_text.join('')
-              : evt.response.output_text;
-            if (ot && !text) text = ot;
-          }
-        } catch { /* ignore partial */ }
+    const userText = `بيانات الطلب والمعلمين (JSON):\n${JSON.stringify(promptPayload)}`;
+
+    if (GEMINI_API_KEY) {
+      // Gemini 2.5 Flash-Lite through Google's OpenAI-compatible endpoint, same JSON schema.
+      const gRes = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${GEMINI_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "gemini-2.5-flash-lite",
+          messages: [
+            { role: "system", content: instructions },
+            { role: "user", content: userText },
+          ],
+          response_format: {
+            type: "json_schema",
+            json_schema: { name: "request_recommendation", strict: true, schema },
+          },
+        }),
+      });
+      if (!gRes.ok) {
+        const errText = await gRes.text();
+        console.error("Gemini error:", gRes.status, errText);
+        const status = gRes.status === 429 ? 429 : 500;
+        return new Response(JSON.stringify({ error: 'ai_error', status: gRes.status, details: errText }), {
+          status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
+      const g = await gRes.json();
+      text = (g?.choices?.[0]?.message?.content ?? '').trim();
+    } else {
+      const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/responses", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Lovable-API-Key": LOVABLE_API_KEY ?? "",
+          "X-Lovable-AIG-SDK": "fetch",
+        },
+        body: JSON.stringify({
+          model: "openai/gpt-5.6-sol",
+          instructions,
+          input: [
+            {
+              role: "user",
+              content: [
+                { type: "input_text", text: `بيانات الطلب والمعلمين (JSON):\n${JSON.stringify(promptPayload)}` },
+              ],
+            },
+          ],
+          stream: true,
+          reasoning: { effort: "low", summary: "auto" },
+          text: {
+            format: {
+              type: "json_schema",
+              name: "request_recommendation",
+              strict: true,
+              schema,
+            },
+          },
+        }),
+      });
+
+      if (!aiRes.ok) {
+        const errText = await aiRes.text();
+        console.error("AI gateway error:", aiRes.status, errText);
+        const status = aiRes.status === 429 || aiRes.status === 402 ? aiRes.status : 500;
+        return new Response(JSON.stringify({ error: 'ai_error', status: aiRes.status, details: errText }), {
+          status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Read the SSE stream and accumulate the final text
+      const reader = aiRes.body!.getReader();
+      const decoder = new TextDecoder();
+      let buf = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        let idx: number;
+        while ((idx = buf.indexOf('\n')) !== -1) {
+          const line = buf.slice(0, idx).replace(/\r$/, '');
+          buf = buf.slice(idx + 1);
+          if (!line.startsWith('data: ')) continue;
+          const payload = line.slice(6).trim();
+          if (payload === '[DONE]') continue;
+          try {
+            const evt = JSON.parse(payload);
+            if (evt.type === 'response.output_text.delta' && typeof evt.delta === 'string') {
+              text += evt.delta;
+            }
+            if (evt.type === 'response.completed' && evt.response?.output_text) {
+              const ot = Array.isArray(evt.response.output_text)
+                ? evt.response.output_text.join('')
+                : evt.response.output_text;
+              if (ot && !text) text = ot;
+            }
+          } catch { /* ignore partial */ }
+        }
+      }
+
     }
 
     let analysis: any;
