@@ -17,6 +17,8 @@ import { Separator } from "@/components/ui/separator";
 import {
   Play,
   Pause,
+  RotateCcw,
+  RotateCw,
   SkipBack,
   SkipForward,
   CheckCircle,
@@ -116,6 +118,8 @@ const LessonViewer = () => {
   // iPhone Safari can't put a div in fullscreen, so the player covers the screen instead
   const [isPseudoFullscreen, setIsPseudoFullscreen] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
+  const [seekFeedback, setSeekFeedback] = useState<'forward' | 'backward' | null>(null);
+  const seekFeedbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
@@ -586,6 +590,52 @@ const LessonViewer = () => {
     }
   };
 
+  const skipBySeconds = (delta: number) => {
+    const video = protectedPlayerRef.current?.video || videoRef.current;
+    if (!video) return;
+    const maxDuration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : duration || Infinity;
+    const targetTime = Math.max(0, Math.min(maxDuration, video.currentTime + delta));
+    video.currentTime = targetTime;
+    setCurrentTime(targetTime);
+    setSeekFeedback(delta > 0 ? 'forward' : 'backward');
+    if (seekFeedbackTimeoutRef.current) {
+      clearTimeout(seekFeedbackTimeoutRef.current);
+    }
+    seekFeedbackTimeoutRef.current = setTimeout(() => {
+      setSeekFeedback(null);
+    }, 650);
+  };
+
+  // Keyboard shortcuts for 5-second forward/backward seek
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        skipBySeconds(5);
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        skipBySeconds(-5);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      if (seekFeedbackTimeoutRef.current) {
+        clearTimeout(seekFeedbackTimeoutRef.current);
+      }
+    };
+  }, [duration]);
+
   const handleProgressBarClick = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
     const bar = e.currentTarget;
     const rect = bar.getBoundingClientRect();
@@ -954,6 +1004,27 @@ const LessonViewer = () => {
                   </div>
                 )}
 
+                {/* 5-second seek visual feedback overlay */}
+                {seekFeedback && (
+                  <div
+                    className={`absolute top-1/2 -translate-y-1/2 z-30 pointer-events-none flex items-center gap-1.5 px-4 py-2 rounded-full bg-black/75 text-white font-bold text-sm shadow-lg backdrop-blur-sm ${
+                      seekFeedback === 'forward' ? 'right-10' : 'left-10'
+                    }`}
+                  >
+                    {seekFeedback === 'forward' ? (
+                      <>
+                        <span>+5s</span>
+                        <RotateCw className="h-4 w-4" />
+                      </>
+                    ) : (
+                      <>
+                        <RotateCcw className="h-4 w-4" />
+                        <span>-5s</span>
+                      </>
+                    )}
+                  </div>
+                )}
+
                 {/* Video Controls Bar */}
                 <div
                   className={`absolute bottom-0 left-0 right-0 transition-opacity duration-300 z-20 ${
@@ -997,22 +1068,28 @@ const LessonViewer = () => {
                           )}
                         </button>
 
-                        {/* Skip Back 10s */}
+                        {/* Skip Back 5s */}
                         <button
-                          className="w-9 h-9 flex items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/15 transition-colors"
-                          onClick={() => { const v = protectedPlayerRef.current?.video || videoRef.current; if (v) v.currentTime -= 10; }}
-                          title={isRTL ? 'رجوع 10 ثواني' : 'Back 10s'}
+                          type="button"
+                          className="relative w-10 h-10 flex items-center justify-center rounded-full text-white/90 hover:text-white hover:bg-white/15 transition-colors"
+                          onClick={(e) => { e.stopPropagation(); skipBySeconds(-5); }}
+                          title={isRTL ? 'رجوع 5 ثواني (السهم الأيسر)' : 'Back 5s (Left Arrow)'}
+                          aria-label={isRTL ? 'رجوع 5 ثواني' : 'Back 5 seconds'}
                         >
-                          <SkipBack className="h-5 w-5" />
+                          <RotateCcw className="h-5 w-5" />
+                          <span className="absolute text-[9px] font-bold leading-none mt-0.5">5</span>
                         </button>
 
-                        {/* Skip Forward 10s */}
+                        {/* Skip Forward 5s */}
                         <button
-                          className="w-9 h-9 flex items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/15 transition-colors"
-                          onClick={() => { const v = protectedPlayerRef.current?.video || videoRef.current; if (v) v.currentTime += 10; }}
-                          title={isRTL ? 'تقديم 10 ثواني' : 'Forward 10s'}
+                          type="button"
+                          className="relative w-10 h-10 flex items-center justify-center rounded-full text-white/90 hover:text-white hover:bg-white/15 transition-colors"
+                          onClick={(e) => { e.stopPropagation(); skipBySeconds(5); }}
+                          title={isRTL ? 'تقديم 5 ثواني (السهم الأيمن)' : 'Forward 5s (Right Arrow)'}
+                          aria-label={isRTL ? 'تقديم 5 ثواني' : 'Forward 5 seconds'}
                         >
-                          <SkipForward className="h-5 w-5" />
+                          <RotateCw className="h-5 w-5" />
+                          <span className="absolute text-[9px] font-bold leading-none mt-0.5">5</span>
                         </button>
 
                         {/* Volume */}
